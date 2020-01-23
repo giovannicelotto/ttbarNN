@@ -139,3 +139,7 @@ dmypy.json
 checkpoint
 taggerInput
 rhoInput
+*.index
+*.ckpt
+pretrainedModel
+trainedModel*
