@@ -9,33 +9,6 @@ import tensorflow as tf
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import keras
 
-# from keras import backend as K
-# K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads =32, inter_op_parallelism_threads=32)))
-
-
-# import uproot
-# import numpy as np
-# from lbn import LBN,LBNLayer
-# import matplotlib.pyplot as plt
-# import pandas as pd
-
-# from sklearn.model_selection import train_test_split
-# import six
-# import random
-
-
-
-# example of creating a CNN with an inception module
-# from keras.models import Model
-# from keras.layers import Input
-# from tf.keras.layers import Conv1D
-# from tf.keras.layers import MaxPooling1D
-# from tf.keras.layers import Dense,Flatten,Dropout
-# from tf.keras.layers.merge import concatenate
-# from tf.keras.utils import plot_model
-#
-# from keras.layers import Input
-
 def residual_module_new(data, K, stride, chanDim, red=False,
 		reg=0.0001, bnEps=2e-5, bnMom=0.9):
     # the shortcut branch of the ResNet module should be
@@ -327,8 +300,10 @@ def getRhoRegModelFlat(regRate=1e-3,activation='selu',dropout=0.1,nDense=5,nNode
     # inputs = tf.keras.layers.Input(shape=(48))
     # inputs = tf.keras.layers.Input(shape=(36))
     # inputs = tf.keras.layers.Input(shape=(33))
+    # inputs = tf.keras.layers.Input(shape=(48))
+    # inputs = tf.keras.layers.Input(shape=(29))
     # inputs = tf.keras.layers.Input(shape=(25))
-    inputs = tf.keras.layers.Input(shape=(24))
+    inputs = tf.keras.layers.Input(shape=(21))
     # inputs = tf.keras.layers.Input(shape=(20))
 
     # xJets = LSTM(inputJets, cellNumber, dropout, dense_kwargs)
