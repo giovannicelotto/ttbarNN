@@ -9,94 +9,28 @@ from keras import optimizers,losses
 import keras.backend as K
 K.tensorflow_backend.set_session(tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))))
 
-# inputFile="rhoInput/total.root"
-inputFile="rhoInput/includingSyst/total.root"
+inputFile="rhoInput/total.root"
 treeName="miniTree"
 normVal = 1.
-# inJetX,inOtherX,outY,NJet,NBJet = helpers.loadRhoData(inputFile, treeName, nJets=6, maxEvents=0, normX=False, normY=False, normValue=normVal)
-# inX,outY,NJet,NBJet,weights = helpers.loadRhoDataFlat(inputFile, treeName, nJets=6, maxEvents=0, normX=False, normY=False, normValue=normVal)
-# inX,outY,NJet,NBJet,weights = helpers.loadRhoDataFlat(inputFile, treeName, nJets=4, maxEvents=0, normX=False, normY=False, normValue=normVal)
 inX,outY,NJet,NBJet,weights = helpers.loadRhoDataFlat(inputFile, treeName, nJets=3, maxEvents=0, normX=False, normY=False, normValue=normVal)
 
-# inJetX=np.array(inJetX)
-# inOtherX=np.array(inOtherX)
 inX=np.array(inX)
 outY=np.array(outY)
 NJet=np.array(NJet)
 NBJet=np.array(NBJet)
 weights=np.array(weights)
 
-
-# np.save("rhoInput/eval_inJetX.npy", inJetX)
-# np.save("rhoInput/eval_inOtherX.npy", inOtherX)
-# np.save("rhoInput/eval_outY.npy", outY)
-# np.save("rhoInput/eval_njet.npy", NJet)
-# np.save("rhoInput/eval_nbjet.npy", NBJet)
-# np.save("rhoInput/flat_inX.npy", inX)
-# # # np.save("rhoInput/flat_inOtherX.npy", inOtherX)
-# np.save("rhoInput/flat_outY.npy", outY)
-# np.save("rhoInput/flat_njet.npy", NJet)
-# np.save("rhoInput/flat_nbjet.npy", NBJet)
-# np.save("rhoInput/flat_weights.npy", weights)
-
-# np.save("rhoInput/flat_inX_4JetAll.npy", inX)
-# np.save("rhoInput/flat_outY_4JetAll.npy", outY)
-# np.save("rhoInput/flat_njet_4JetAll.npy", NJet)
-# np.save("rhoInput/flat_nbjet_4JetAll.npy", NJet)
-# np.save("rhoInput/flat_weights_4JetAll.npy", weights)
-# np.save("rhoInput/flat_inX_6JetAll.npy", inX)
-# np.save("rhoInput/flat_outY_6JetAll.npy", outY)
-# np.save("rhoInput/flat_njet_6JetAll.npy", NJet)
-# np.save("rhoInput/flat_nbjet_6JetAll.npy", NJet)
-# np.save("rhoInput/flat_weights_6JetAll.npy", weights)
-# np.save("rhoInput/flat_inX_3JetCharge.npy", inX)
-# np.save("rhoInput/flat_outY_3JetCharge.npy", outY)
-# np.save("rhoInput/flat_njet_3JetCharge.npy", NJet)
-# np.save("rhoInput/flat_nbjet_3JetCharge.npy", NJet)
-# np.save("rhoInput/flat_weights_3JetCharge.npy", weights)
-np.save("rhoInput/includingSyst/flat_inX_3JetKin.npy", inX)
-np.save("rhoInput/includingSyst/flat_outY_3JetKin.npy", outY)
-np.save("rhoInput/includingSyst/flat_njet_3JetKin.npy", NJet)
-np.save("rhoInput/includingSyst/flat_nbjet_3JetKin.npy", NJet)
-np.save("rhoInput/includingSyst/flat_weights_3JetKin.npy", weights)
 # np.save("rhoInput/flat_inX_3JetKin.npy", inX)
 # np.save("rhoInput/flat_outY_3JetKin.npy", outY)
 # np.save("rhoInput/flat_njet_3JetKin.npy", NJet)
 # np.save("rhoInput/flat_nbjet_3JetKin.npy", NJet)
 # np.save("rhoInput/flat_weights_3JetKin.npy", weights)
 
-# inJetX = np.load("rhoInput/eval_inJetX.npy")
-# inOtherX = np.load("rhoInput/eval_inOtherX.npy")
-# outY = np.load("rhoInput/eval_outY.npy")
-# NJet = np.load("rhoInput/eval_njet.npy")
-# NBJet = np.load("rhoInput/eval_nbjet.npy")
-# inX = np.load("rhoInput/flat_inX.npy")
-# # inOtherX = np.load("rhoInput/flat_inOtherX.npy")
-# outY = np.load("rhoInput/flat_outY.npy")
-# NJet = np.load("rhoInput/flat_njet.npy")
-# NBJet = np.load("rhoInput/flat_nbjet.npy")
-# weights = np.load("rhoInput/flat_weights.npy")
-
 # inX = np.load("rhoInput/flat_inX_3JetCharge.npy")
 # outY = np.load("rhoInput/flat_outY_3JetCharge.npy")
 # NJet = np.load("rhoInput/flat_njet_3JetCharge.npy")
 # NBJet = np.load("rhoInput/flat_nbjet_3JetCharge.npy")
 # weights = np.load("rhoInput/flat_weights_3JetCharge.npy")
-inX = np.load("rhoInput/includingSyst/flat_inX_3JetKin.npy")
-outY = np.load("rhoInput/includingSyst/flat_outY_3JetKin.npy")
-NJet = np.load("rhoInput/includingSyst/flat_njet_3JetKin.npy")
-NBJet = np.load("rhoInput/includingSyst/flat_nbjet_3JetKin.npy")
-weights = np.load("rhoInput/includingSyst/flat_weights_3JetKin.npy")
-# inX = np.load("rhoInput/flat_inX_4JetAll.npy")
-# outY = np.load("rhoInput/flat_outY_4JetAll.npy")
-# NJet = np.load("rhoInput/flat_njet_4JetAll.npy")
-# NBJet = np.load("rhoInput/flat_nbjet_4JetAll.npy")
-# weights = np.load("rhoInput/flat_weights_4JetAll.npy")
-# inX = np.load("rhoInput/flat_inX_6JetAll.npy")
-# outY = np.load("rhoInput/flat_outY_6JetAll.npy")
-# NJet = np.load("rhoInput/flat_njet_6JetAll.npy")
-# NBJet = np.load("rhoInput/flat_nbjet_6JetAll.npy")
-# weights = np.load("rhoInput/flat_weights_6JetAll.npy")
 
 # print (inJetX.shape)
 # print (inJetX[0])
@@ -117,28 +51,19 @@ print (inX[0])
 # print (inOtherX[0])
 print (outY.shape)
 print (outY[0])
-# print (NJet.shape)
-# print (NJet[0])
-# print (NBJet.shape)
-# print (NBJet[0])
+
 
 print (weights.shape)
 print (weights[0])
 
 from sklearn.preprocessing import *
 scaler=QuantileTransformer(output_distribution='uniform')
-# scaler=RobustScaler()
-# scaler=QuantileTransformer(output_distribution='normal')
-# scaler=StandardScaler()
 outY=outY.reshape((outY.shape[0],1))
 scaler.fit(outY)
-# outY=scaler.transform(outY)
 
 # inJetX_train, inJetX_test, inOtherX_train, inOtherX_test,outY_train,outY_test, NJet_train, NJet_test,NBJet_train,NBJet_test= train_test_split(inJetX, inOtherX,outY,NJet,NBJet, test_size=0.33)
 # inX_train, inX_test,outY_train,outY_test, NJet_train, NJet_test,NBJet_train,NBJet_test,weights_train,weights_test= train_test_split(inX, outY, NJet, NBJet,weights, test_size=0.2)
 inX_train, inX_test,outY_train,outY_test,weights_train,weights_test= train_test_split(inX, outY,weights, test_size=0.2)
-# outY_train=outY_train.reshape((outY_train.shape[0],1))
-# print (outY_train)
 
 # model = models.getRhoRegModel(regRate=1e-7,activation='selu',dropout=0.05,nDense=5,nNodes=100)
 # model = models.getRhoRegModelFlat(regRate=1e-7,activation='sigmoid',dropout=0.05,nDense=3,nNodes=3500)
@@ -174,10 +99,8 @@ callbacks.append(earlyStop)
 
 
 fit = model.fit(
-        # [inJetX_train,inOtherX_train],
         inX_train,
         outY_train,
-        # validation_data=(X_test, y_test),
         sample_weight=weights_train,
         validation_split=0.25,
         batch_size=4096,
@@ -185,7 +108,6 @@ fit = model.fit(
         shuffle=False,
         callbacks=callbacks,
         verbose=1)
-# model.load_weights("rhoTemp/trainedRhoModel")
 
 # model.save_weights('rhoTemp/trainedRhoModel')
 # print("Saved model to disk:",'rhoTemp/trainedRhoModel')
@@ -197,9 +119,7 @@ y_predicted = model.predict(inX_test)
 y_predicted = y_predicted.reshape(y_predicted.shape[0])
 outY_test = outY_test.reshape(outY_test.shape[0])
 # y_predicted = outY_test
-# print (outY)
-# print (outY_train)
-# print (outY_test)
+
 
 print (outY_test.shape)
 print (y_predicted.shape)
@@ -220,7 +140,6 @@ model = tf.keras.models.load_model(outDir+"rhoRegModel_full_inclSyst.h5")
 print('inputs: ', [input.op.name for input in model.inputs])
 print('outputs: ', [output.op.name for output in model.outputs])
 
-# from Utils.KerasToTensorflow import freeze_session
 frozen_graph = helpers.freeze_session(tf.keras.backend.get_session(), output_names=[out.op.name for out in model.outputs])
 tf.train.write_graph(frozen_graph, outDir+'/', 'rhoRegModel_full_inclSyst.pbtxt', as_text=True)
 tf.train.write_graph(frozen_graph, outDir+'/', 'rhoRegModel_full_inclSyst.pb', as_text=False)
@@ -232,15 +151,13 @@ import matplotlib.pyplot as plt
 
 
 f=plt.figure()
-# plt.subplot(211)
 values,bins,patches = plt.hist(outY_test,bins=10,range=(0,1),label="true",alpha=0.5)
 values2,bins2,patches2 = plt.hist(y_predicted,bins=10,range=(0,1),label="reco",alpha=0.5)
 plt.legend(loc="best")
 plt.ylabel('Events')
 plt.xlabel('rho')
 outFolderName = outDir
-# f.savefig(outFolderName+"eval_rho.pdf")
-f.savefig(outFolderName+"eval_rho_inclSyst.pdf")
+f.savefig(outFolderName+"eval_rho.pdf")
 
 
 style.style2d()
@@ -265,12 +182,9 @@ histo.GetXaxis().SetRangeUser(350,1500)
 histo.GetYaxis().SetRangeUser(-1200,1200)
 histo.SetStats(0)
 histo.Draw("colz")
-# c.SaveAs(outFolderName+"GenRecoDiff2d.pdf")
-c.SaveAs(outFolderName+"GenRecoDiff2d_inclSyst.pdf")
+c.SaveAs(outFolderName+"GenRecoDiff2d.pdf")
 c.Clear()
 
-# histoRecoGen.GetXaxis().SetRangeUser(350,1500)
-# histoRecoGen.GetYaxis().SetRangeUser(350,1500)
 histoRecoGen.Draw("colz")
 corrLatex = ROOT.TLatex()
 corrLatex.SetTextSize(0.65 * corrLatex.GetTextSize())
@@ -281,7 +195,7 @@ histoRecoGen2.Scale(1./histoRecoGen2.Integral())
 ROOT.gStyle.SetPaintTextFormat("1.2f");
 histoRecoGen2.SetStats(0)
 histoRecoGen2.Draw("colz text")
-c.SaveAs(outFolderName+"resp_inclSyst.pdf")
+c.SaveAs(outFolderName+"resp.pdf")
 c.Clear()
 
 
@@ -294,8 +208,6 @@ Xnb=20
 Xr1=0.
 Xr2=1.
 dXbin=(Xr2-Xr1)/((Xnb));
-# titleRMSVsGen_ptTop_full ="RMS (#rho_{true} - #rho_{reco}) vs #rho_{true}; #rho_{true}; RMS"
-# titleMeanVsGen_ptTop_full ="Mean (#rho_{true} - #rho_{reco}) vs #rho_{true}; #rho_{true};Mean"
 titleRMSVsGen_ptTop_full ="; #rho_{true};RMS"
 titleMeanVsGen_ptTop_full ="; #rho_{true};Mean"
 h_RMSVsGen_=ROOT.TH1F()
@@ -320,13 +232,10 @@ for i in range(Xnb):
 
 	h_meanVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMean());
 	h_meanVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError());
-# h_RMSVsGen_.SaveAs(outFolderName+"testRMS.root")
-# h_meanVsGen_.SaveAs(outFolderName+"testMEAN.root")
-# c=ROOT.TCanvas("c1","c1",800,800)
 h_RMSVsGen_.SetStats(0)
 h_RMSVsGen_.Draw()
-c.SaveAs(outFolderName+"rms_inclSyst.pdf")
+c.SaveAs(outFolderName+"rms.pdf")
 c.Clear()
 h_meanVsGen_.SetStats(0)
 h_meanVsGen_.Draw()
-c.SaveAs(outFolderName+"mean_inclSyst.pdf")
+c.SaveAs(outFolderName+"mean.pdf")
