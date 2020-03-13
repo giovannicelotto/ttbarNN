@@ -343,7 +343,7 @@ def loadRhoData(path, treeName, nJets=20, maxEvents=0, normX=False, normY=False,
                     eventOut.append(genrho[0])
     return eventInJet,eventInOther,eventOut,eventNJets,eventNBJets
 
-def loadRhoDataFlat(path, treeName, nJets=6, maxEvents=0, normX=False, normY=False, normValue=170.):
+def loadRhoDataFlat(path, treeName, nJets=6, maxEvents=0, withBTag = False, withCharge = False):
     eventInJet=[]
     eventOut=[]
     weights=[]
@@ -429,7 +429,20 @@ def loadRhoDataFlat(path, treeName, nJets=6, maxEvents=0, normX=False, normY=Fal
     met_phi =  np.array([0], dtype='f')
     tree.SetBranchAddress("met_phi", met_phi)
 
+    from progress.bar import IncrementalBar
+
+    if maxEvents!=0:
+        maxEntries = maxEvents
+    else:
+        maxEntries = tree.GetEntries()
+
+    maxForBar = int(maxEntries/200000)
+
+    bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
+    # bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%%')
+
     for i in range(tree.GetEntries()):
+
         jets_info=[]
         jets_matchInfo=[]
         other_info=[]
@@ -437,7 +450,14 @@ def loadRhoDataFlat(path, treeName, nJets=6, maxEvents=0, normX=False, normY=Fal
         totWeight=1.
 
         if(i%200000==0):
-            print("Reading event: {}".format(i))
+            bar.next()
+        # if(i%200000==0):
+            # if maxEvents == 0:
+            #     percentage = np.round(float(i)/float(tree.GetEntries())*100.,2)
+            # else:
+            #     percentage = np.round(float(i)/float(maxEvents)*100.,2)
+            # percentage = np.round(float(i)/float(maxEvents)*100.,2)
+            # print("Reading event: {} | {} %".format(i, percentage))
 
         if(maxEvents!=0):
         	if(i%maxEvents==0 and i!=0):
@@ -451,8 +471,10 @@ def loadRhoDataFlat(path, treeName, nJets=6, maxEvents=0, normX=False, normY=Fal
             numJets = jetPt.size()
             countB=0.
             numGenJets = genjetPt.size()
-            if(numJets>1):
-                if(numGenJets>2 and genrho>0.):
+            # if(numJets>1):
+            if(numJets>2):
+                # if(numGenJets>2 and genrho>0.):
+                if(numGenJets>0 and genrho>0.):
 
                     for idx in range(maxJets):
                         if(idx<numJets):
@@ -463,14 +485,20 @@ def loadRhoDataFlat(path, treeName, nJets=6, maxEvents=0, normX=False, normY=Fal
                             jets_info.append(jet4.Pz())
                             jets_info.append(jet4.E())
 
-                            # bTagged=int(bool(jetBTagged[idx]))
-                            # jets_info.append(bTagged)
-                            # jets_info.append(jetCharge[idx])
+                            bTagged=int(bool(jetBTagged[idx]))
+                            if withBTag:
+                                jets_info.append(bTagged)
+                            if withCharge:
+                                jets_info.append(jetCharge[idx])
                         else:
                             jets_info.append(0.)
                             jets_info.append(0.)
                             jets_info.append(0.)
                             jets_info.append(0.)
+                            if withBTag:
+                                jets_info.append(0.)
+                            if withCharge:
+                                jets_info.append(0.)
                     weights.append(totWeight)
 
                     lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
@@ -840,472 +868,6 @@ def normalizeData(data, scaleValue, invert=False):
 	return out
 
 
-def	doPredictionPlots(y_test, y_predicted, folderName):
-    E_test = y_test[:,0]
-    Px_test = y_test[:,1]
-    Py_test = y_test[:,2]
-    Pz_test = y_test[:,3]
-
-    E_predicted = y_predicted[:,0]
-    Px_predicted = y_predicted[:,1]
-    Py_predicted = y_predicted[:,2]
-    Pz_predicted = y_predicted[:,3]
-
-    nbins=40
-
-    x_bins = np.linspace(100, 1500, nbins)
-    y_bins = np.linspace(100, 1500, nbins)
-
-    outFolderName = folderName + "/plots/"
-    if not os.path.exists(outFolderName):
-    	os.makedirs(outFolderName)
-
-    f=plt.figure()
-    # plt.subplot(211)
-    values,bins,patches = plt.hist(E_test,bins=55,range=(300,1400),label="true",alpha=0.5)
-    values2,bins2,patches2 = plt.hist(E_predicted,bins=55,range=(300,1400),label="reco",alpha=0.5)
-    plt.legend(loc="best")
-    plt.ylabel('Events')
-    plt.xlabel('E(tt) [GeV]')
-    # plt.subplot(212)
-    # ratio = values2/values
-    # v= []
-    # for i in range(len(bins)-1):
-    # 	v.append((bins[i]+bins[i+1])/2)
-    # v=np.array(v)
-    # plt.plot(v,ratio)
-    # plt.ylim(0.5,1.5)
-    # plt.ylabel("reco/true")
-    # plt.xlabel('E(tt) [GeV]')
-    f.savefig(outFolderName+"eval_Ett.pdf")
-
-    f=plt.figure()
-    # plt.subplot(211)
-    values,bins,patches = plt.hist(Px_test,bins=20,range=(100,500),label="true",alpha=0.5)
-    values2,bins2,patches2 = plt.hist(Px_predicted,bins=20,range=(100,500),label="reco",alpha=0.5)
-    plt.legend(loc="best")
-    plt.ylabel('Events')
-    plt.xlabel('Px(tt) [GeV]')
-    # plt.subplot(212)
-    # ratio = values2/values
-    # v= []
-    # for i in range(len(bins)-1):
-    # 	v.append((bins[i]+bins[i+1])/2)
-    # v=np.array(v)
-    # plt.plot(v,ratio)
-    # plt.ylim(0.5,1.5)
-    # plt.ylabel("reco/true")
-    # plt.xlabel('Px(tt) [GeV]')
-    f.savefig(outFolderName+"eval_Pxtt.pdf")
-    f=plt.figure()
-    # plt.subplot(211)
-    values,bins,patches = plt.hist(Py_test,bins=20,range=(100,500),label="true",alpha=0.5)
-    values2,bins2,patches2 = plt.hist(Py_predicted,bins=20,range=(100,500),label="reco",alpha=0.5)
-    plt.legend(loc="best")
-    plt.ylabel('Events')
-    plt.xlabel('Py(tt) [GeV]')
-    # plt.subplot(212)
-    # ratio = values2/values
-    # v= []
-    # for i in range(len(bins)-1):
-    # 	v.append((bins[i]+bins[i+1])/2)
-    # v=np.array(v)
-    # plt.plot(v,ratio)
-    # plt.ylim(0.5,1.5)
-    # plt.ylabel("reco/true")
-    # plt.xlabel('Py(tt) [GeV]')
-    f.savefig(outFolderName+"eval_Pytt.pdf")
-
-    f=plt.figure()
-    # plt.subplot(211)
-    values,bins,patches = plt.hist(Pz_test,bins=45,range=(100,1000),label="true",alpha=0.5)
-    values2,bins2,patches2 = plt.hist(Pz_predicted,bins=45,range=(100,1000),label="reco",alpha=0.5)
-    plt.legend(loc="best")
-    plt.ylabel('Events')
-    plt.xlabel('Pz(tt) [GeV]')
-    # plt.subplot(212)
-    # ratio = values2/values
-    # v= []
-    # for i in range(len(bins)-1):
-    # 	v.append((bins[i]+bins[i+1])/2)
-    # v=np.array(v)
-    # plt.plot(v,ratio)
-    # plt.ylim(0.5,1.5)
-    # plt.ylabel("reco/true")
-    # plt.xlabel('Pz(tt) [GeV]')
-    f.savefig(outFolderName+"eval_Pztt.pdf")
-
-
-    f=plt.figure()
-    plt.hist2d(E_test,E_predicted,bins=55,range=np.array([[100,1400],[100,1400]]))
-    plt.xlabel('E(tt) true [GeV]')
-    plt.ylabel('E(tt) reco [GeV]')
-    f.savefig(outFolderName+"eval2D_Ett.pdf")
-    f=plt.figure()
-    plt.hist2d(Px_test,Px_predicted,bins=20,range=np.array([[100,500],[100,500]]))
-    plt.xlabel('Px(tt) true [GeV]')
-    plt.ylabel('Px(tt) reco [GeV]')
-    f.savefig(outFolderName+"eval2D_Pxtt.pdf")
-    f=plt.figure()
-    plt.hist2d(Py_test,Py_predicted,bins=20,range=np.array([[100,500],[100,500]]))
-    plt.xlabel('Py(tt) true [GeV]')
-    plt.ylabel('Py(tt) reco [GeV]')
-    f.savefig(outFolderName+"eval2D_Pytt.pdf")
-    f=plt.figure()
-    plt.hist2d(Pz_test,Pz_predicted,bins=45,range=np.array([[100,500],[100,500]]))
-    plt.xlabel('Pz(tt) true [GeV]')
-    plt.ylabel('Pz(tt) reco [GeV]')
-    f.savefig(outFolderName+"eval2D_Pztt.pdf")
-
-
-    histo = ROOT.TH2F( "bla", "RMS vs Gen", 3000, 0, 3000, 6000, -3000, 3000 )
-    histo.SetDirectory(0)
-    histoRecoGen = ROOT.TH2F( "bla2", "Reco vs Gen", 2000, 0, 2000, 2000, 0, 2000 )
-    histoRecoGen.SetDirectory(0)
-    histoRecoGen2 = ROOT.TH2F( "bla2", "Reco vs Gen", 8, 0, 2000, 8, 0, 2000 )
-    histoRecoGen2.SetDirectory(0)
-    histoGen = ROOT.TH1F ( "GenTTBarMass", "Gen", 2000, 0, 2000 )
-    histoGen.SetDirectory(0)
-    histoRecoGen3 = ROOT.TH2F( "bla2", "Reco vs Gen", 80, 0, 2000, 80, 0, 2000 )
-    histoRecoGen3.SetDirectory(0)
-    histoGen2 = ROOT.TH1F ( "GenTTBarMass", "Gen", 80, 0, 2000 )
-    histoGen2.SetDirectory(0)
-    for Etrue, Epred,pxtrue,pxpred,pytrue,pypred,pztrue,pzpred in zip(E_test, E_predicted,Px_test,Px_predicted,Py_test,Py_predicted,Pz_test,Pz_predicted):
-        mpred = np.sqrt(Epred*Epred - pxpred*pxpred - pypred*pypred - pzpred*pzpred)
-        mtrue = np.sqrt(Etrue*Etrue - pxtrue*pxtrue - pytrue*pytrue - pztrue*pztrue)
-        diff = mtrue-mpred
-        # print (mtrue,diff)
-        histo.Fill(mtrue,diff)
-        histoGen.Fill(mtrue)
-        histoGen2.Fill(mtrue)
-        histoRecoGen.Fill(mpred,mtrue)
-        histoRecoGen2.Fill(mpred,mtrue)
-        histoRecoGen3.Fill(mpred,mtrue)
-    c=ROOT.TCanvas("c1","c1",800,800)
-
-    histo.GetXaxis().SetRangeUser(350,1500)
-    histo.GetYaxis().SetRangeUser(-1200,1200)
-    histo.Draw("colz")
-    c.SaveAs("testDiff.pdf")
-    c.Clear()
-    # histoRecoGen.Draw("text colz")
-    # c.SaveAs("testMigTEST.pdf")
-    # c.Clear()
-    histoRecoGen2.Draw("text colz")
-    c.SaveAs("testMigTEST2.pdf")
-    c.Clear()
-
-    # migration matrix
-    # hMig = histoRecoGen.Clone().Rebin(15)
-    # hMig = rebin2D(histoRecoGen,15,15)
-    # hMig = histoRecoGen.Clone()
-    hMig = histoRecoGen2.Clone()
-    # hMig.SetDirectory(0)
-    # hMig = hMig.Rebin2D(15,15,"new")
-    # # hMig = histoRecoGen,15,15)
-    hMig.SetTitle("")
-    hMig.GetXaxis().SetTitle("ttbar mass" + ", rec. level")
-    hMig.GetYaxis().SetTitle("ttbar mass" + ", gen. level")
-    n = hMig.GetNbinsX()
-    # for(int by = 1; by <= n; by++):
-    for by in range(1,n+1):
-    # for by in range(1,n):
-        GenAndRec = hMig.Integral(1, n, by, by)
-        # for(int bx = 1; bx <= n; bx++):
-        for bx in range(1,n+1):
-        # for bx in range(1,n):
-            val = hMig.GetBinContent(bx, by)
-            # print (bx,by,val,GenAndRec)
-            val2 = 0. if GenAndRec==0. else val / GenAndRec
-            # hMig.SetBinContent(bx, by, val / GenAndRec)
-            hMig.SetBinContent(bx, by, val2)
-    # c=ROOT.TCanvas("c1","c1",800,800)
-    hMig.Draw("text colz")
-    c.SaveAs("testMig.pdf")
-    c.Clear()
-
-    # PSE Plot
-
-
-
-    # hResp = histoRecoGen.Clone().Rebin(15)
-
-    # hResp = rebin2D(histoRecoGen.Clone(), 15, 15)
-    hResp = histoRecoGen3.Clone()
-    hResp.SetDirectory(0)
-    # hResp = hResp.Rebin2D(15, 15,"new2")
-    # hResp.SetDirectory(0)
-    hGen = histoGen2.Clone()
-    hGen.SetDirectory(0)
-    # hGen = hGen.Rebin(15,"new3")
-    # hGen.SetDirectory(0)
-
-
-    markerSize = 1.5;
-
-    n = hResp.GetNbinsX()
-
-    hp = ROOT.TH1F("", "", n, 0.0, n)
-    hs = ROOT.TH1F("", "", n, 0.0, n)
-    he = ROOT.TH1F("", "", n, 0.0, n)
-    hp.SetDirectory(0)
-    hs.SetDirectory(0)
-    he.SetDirectory(0)
-
-    # for(int b = 1; b <= n; b++)
-    for b in range(1,n+1):
-        GenInBinAndRecInBin = hResp.GetBinContent(b, b)
-        RecInBin = hResp.Integral(b, b, 1, n)
-        GenInBinAndRec = hResp.Integral(1, n, b, b)
-        GenInBinAll = hGen.GetBinContent(b)
-        hp.SetBinContent(b, 0. if RecInBin==0 else GenInBinAndRecInBin / RecInBin)
-        hs.SetBinContent(b, 0. if GenInBinAndRec==0 else GenInBinAndRecInBin / GenInBinAndRec)
-        he.SetBinContent(b, 0. if GenInBinAll==0 else GenInBinAndRec / GenInBinAll)
-
-
-    leg = ROOT.TLegend(0.15, 0.67, 0.40, 0.85)
-    leg.SetTextFont(62)
-    hr = ROOT.TH2F("", "", 1, he.GetBinLowEdge(1), he.GetBinLowEdge(n + 1), 1, 0.0, 1.0)
-    hr.GetXaxis().SetTitle("Bin")
-    hr.SetStats(0)
-    hr.Draw()
-    hp.SetMarkerColor(4)
-    hp.SetMarkerStyle(23)
-    hp.SetMarkerSize(markerSize)
-    leg.AddEntry(hp, "Purity", "p")
-    hp2=drawAsGraph(hp)
-    hs.SetMarkerColor(2)
-    hs.SetMarkerStyle(22)
-    hs.SetMarkerSize(markerSize)
-    leg.AddEntry(hs, "Stability", "p")
-    hs2=drawAsGraph(hs)
-    he.SetMarkerColor(8)
-    he.SetMarkerStyle(20)
-    he.SetMarkerSize(markerSize)
-    leg.AddEntry(he, "Efficiency", "p")
-    he2=drawAsGraph(he)
-
-    hp2.Draw("ZP0X")
-    hs2.Draw("ZP0X")
-    he2.Draw("ZP0X")
-
-    leg.Draw()
-    c.SaveAs("testPSE.pdf")
-    c.Clear()
-
-
-
-    Xnb=14
-    Xr1=350.
-    Xr2=1500.
-    dXbin=(Xr2-Xr1)/((Xnb));
-    titleRMSVsGen_ptTop_full ="RMS (M_{true}^{t#bart} - M_{reco}^{t#bart}) vs M_{true}^{t#bart}; M_{true}^{t#bart}, GeV; RMS"
-    titleMeanVsGen_ptTop_full ="Mean (M_{true}^{t#bart} - M_{reco}^{t#bart}) vs M_{true}^{t#bart}; M_{true}^{t#bart}, GeV;Mean"
-    h_RMSVsGen_=ROOT.TH1F()
-    h_RMSVsGen_.SetDirectory(0)
-    h_RMSVsGen_.SetBins(Xnb,Xr1,Xr2)
-    h_RMSVsGen_.SetTitleOffset(2.0)
-    h_RMSVsGen_.GetXaxis().SetTitleOffset(1.20)
-    h_RMSVsGen_.GetYaxis().SetTitleOffset(1.30)
-    h_RMSVsGen_.SetTitle(titleRMSVsGen_ptTop_full);
-    h_RMSVsGen_.SetStats(0)
-    h_meanVsGen_=ROOT.TH1F()
-    h_meanVsGen_.SetDirectory(0)
-    h_meanVsGen_.SetBins(Xnb,Xr1,Xr2)
-    h_meanVsGen_.SetTitleOffset(2.0)
-    h_meanVsGen_.GetXaxis().SetTitleOffset(1.20)
-    h_meanVsGen_.GetYaxis().SetTitleOffset(1.30)
-    h_meanVsGen_.SetTitle(titleMeanVsGen_ptTop_full)
-    h_meanVsGen_.SetStats(0)
-    for i in range(Xnb):
-    	h_RMSVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMS());
-    	h_RMSVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMSError());
-
-    	h_meanVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMean());
-    	h_meanVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError());
-    h_RMSVsGen_.SaveAs("testRMS.root")
-    h_meanVsGen_.SaveAs("testMEAN.root")
-    # c=ROOT.TCanvas("c1","c1",800,800)
-    h_RMSVsGen_.Draw()
-    c.SaveAs("testRMS.pdf")
-    c.Clear()
-    h_meanVsGen_.Draw()
-    c.SaveAs("testMEAN.pdf")
-
-def	doPredictionPlots2(y_test, y_predicted, folderName):
-	Pt_test = y_test[:,0]
-	Y_test = y_test[:,1]
-	Phi_test = y_test[:,2]
-	M_test = y_test[:,3]
-
-	Pt_predicted = y_predicted[:,0]
-	Y_predicted = y_predicted[:,1]
-	Phi_predicted = y_predicted[:,2]
-	M_predicted = y_predicted[:,3]
-
-	nbins=70
-
-	x_binsPt = np.linspace(0, 1500, nbins)
-	y_binsPt = np.linspace(0, 1500, nbins)
-	x_binsY = np.linspace(-10, 10, nbins)
-	y_binsY = np.linspace(-10, 10, nbins)
-	x_binsPhi = np.linspace(-3., 3., nbins)
-	y_binsPhi = np.linspace(-3., 3., nbins)
-	x_binsM = np.linspace(100, 1500, nbins)
-	y_binsM = np.linspace(100, 1500, nbins)
-
-	outFolderName = folderName + "/plots/"
-	if not os.path.exists(outFolderName):
-		os.makedirs(outFolderName)
-
-	f=plt.figure()
-	# plt.subplot(211)
-	values,bins,patches = plt.hist(Pt_test,bins=nbins,range=(100,1500),label="true",alpha=0.5)
-	values2,bins2,patches2 = plt.hist(Pt_predicted,bins=nbins,range=(100,1500),label="reco",alpha=0.5)
-	plt.legend(loc="best")
-	plt.ylabel('Events')
-	plt.xlabel('Pt(tt) [GeV]')
-	# plt.subplot(212)
-	# ratio = values2/values
-	# v= []
-	# for i in range(len(bins)-1):
-	# 	v.append((bins[i]+bins[i+1])/2)
-	# v=np.array(v)
-	# plt.plot(v,ratio)
-	# plt.ylim(0.5,1.5)
-	# plt.ylabel("reco/true")
-	# plt.xlabel('Pt(tt) [GeV]')
-	f.savefig(outFolderName+"eval_Pttt.pdf")
-
-	f=plt.figure()
-	# plt.subplot(211)
-	values,bins,patches = plt.hist(Y_test,bins=nbins,range=(-20,20),label="true",alpha=0.5)
-	values2,bins2,patches2 = plt.hist(Y_predicted,bins=nbins,range=(-20,20),label="reco",alpha=0.5)
-	plt.legend(loc="best")
-	plt.ylabel('Events')
-	plt.xlabel('Y(tt) [GeV]')
-	# plt.subplot(212)
-	# ratio = values2/values
-	# v= []
-	# for i in range(len(bins)-1):
-	# 	v.append((bins[i]+bins[i+1])/2)
-	# v=np.array(v)
-	# plt.plot(v,ratio)
-	# plt.ylim(0.5,1.5)
-	# plt.ylabel("reco/true")
-	# plt.xlabel('Y(tt) [GeV]')
-	f.savefig(outFolderName+"eval_Ytt.pdf")
-	f=plt.figure()
-	# plt.subplot(211)
-	values,bins,patches = plt.hist(Phi_test,bins=nbins,range=(-3,3),label="true",alpha=0.5)
-	values2,bins2,patches2 = plt.hist(Phi_predicted,bins=nbins,range=(-3,3),label="reco",alpha=0.5)
-	plt.legend(loc="best")
-	plt.ylabel('Events')
-	plt.xlabel('Phi(tt) [GeV]')
-	# plt.subplot(212)
-	# ratio = values2/values
-	# v= []
-	# for i in range(len(bins)-1):
-	# 	v.append((bins[i]+bins[i+1])/2)
-	# v=np.array(v)
-	# plt.plot(v,ratio)
-	# plt.ylim(0.5,1.5)
-	# plt.ylabel("reco/true")
-	# plt.xlabel('Phi(tt) [GeV]')
-	f.savefig(outFolderName+"eval_Phitt.pdf")
-
-	f=plt.figure()
-	# plt.subplot(211)
-	values,bins,patches = plt.hist(M_test,bins=nbins,range=(100,800),label="true",alpha=0.5)
-	values2,bins2,patches2 = plt.hist(M_predicted,bins=nbins,range=(100,800),label="reco",alpha=0.5)
-	plt.legend(loc="best")
-	plt.ylabel('Events')
-	plt.xlabel('M(tt) [GeV]')
-	# plt.subplot(212)
-	# ratio = values2/values
-	# v= []
-	# for i in range(len(bins)-1):
-	# 	v.append((bins[i]+bins[i+1])/2)
-	# v=np.array(v)
-	# plt.plot(v,ratio)
-	# plt.ylim(0.5,1.5)
-	# plt.ylabel("reco/true")
-	# plt.xlabel('M(tt) [GeV]')
-	f.savefig(outFolderName+"eval_Mtt.pdf")
-
-
-	f=plt.figure()
-	plt.hist2d(Pt_test,Pt_predicted,bins=nbins,range=np.array([[0,1500],[0,1500]]))
-	plt.xlabel('Pt(tt) true [GeV]')
-	plt.ylabel('Pt(tt) reco [GeV]')
-	f.savefig(outFolderName+"eval2D_Pttt.pdf")
-	f=plt.figure()
-	plt.hist2d(Y_test,Y_predicted,bins=nbins,range=np.array([[-20,20],[-20,20]]))
-	plt.xlabel('Y(tt) true [GeV]')
-	plt.ylabel('Y(tt) reco [GeV]')
-	f.savefig(outFolderName+"eval2D_Ytt.pdf")
-	f=plt.figure()
-	plt.hist2d(Phi_test,Phi_predicted,bins=nbins,range=np.array([[-3,3],[-3,3]]))
-	plt.xlabel('Phi(tt) true [GeV]')
-	plt.ylabel('Phi(tt) reco [GeV]')
-	f.savefig(outFolderName+"eval2D_Phitt.pdf")
-	f=plt.figure()
-	plt.hist2d(M_test,M_predicted,bins=nbins,range=np.array([[100,1500],[100,1500]]))
-	plt.xlabel('M(tt) true [GeV]')
-	plt.ylabel('M(tt) reco [GeV]')
-	f.savefig(outFolderName+"eval2D_Mtt.pdf")
-
-
-	histo = ROOT.TH2F( "bla", "RMS vs Gen", 3000, 0, 3000, 6000, -3000, 3000 )
-	histo.SetDirectory(0)
-	for Pttrue, Ptpred, Ytrue, Ypred, Phitrue, Phipred, Mtrue, Mpred in zip(Pt_test, Pt_predicted,Y_test,Y_predicted,Phi_test,Phi_predicted,M_test,M_predicted):
-		# mpred = np.sqrt(Epred*Epred - pxpred*pxpred - pypred*pypred - pzpred*pzpred)
-		# mtrue = np.sqrt(Etrue*Etrue - pxtrue*pxtrue - pytrue*pytrue - pztrue*pztrue)
-		mpred = Mpred
-		mtrue = Mtrue
-		diff = mtrue-mpred
-		# print (mtrue,diff)
-		histo.Fill(mtrue,diff)
-
-	Xnb=14
-	Xr1=350.
-	Xr2=1500.
-	dXbin=(Xr2-Xr1)/((Xnb));
-	titleRMSVsGen_ptTop_full ="RMS (p_{t, true}^{top} - p_{t, reco}^{top}) vs p_{t, true}^{top}; p_{t, true}^{top}, GeV;RMS"
-	titleMeanVsGen_ptTop_full ="Mean (p_{t, true}^{top} - p_{t, reco}^{top}) vs p_{t, true}^{top}; p_{t, true}^{top}, GeV;Mean"
-	h_RMSVsGen_=ROOT.TH1F()
-	h_RMSVsGen_.SetDirectory(0)
-	h_RMSVsGen_.SetBins(Xnb,Xr1,Xr2)
-	h_RMSVsGen_.SetTitleOffset(2.0)
-	h_RMSVsGen_.GetXaxis().SetTitleOffset(1.20)
-	h_RMSVsGen_.GetYaxis().SetTitleOffset(1.30)
-	h_RMSVsGen_.SetTitle(titleRMSVsGen_ptTop_full);
-	h_RMSVsGen_.SetStats(0)
-	h_meanVsGen_=ROOT.TH1F()
-	h_meanVsGen_.SetDirectory(0)
-	h_meanVsGen_.SetBins(Xnb,Xr1,Xr2)
-	h_meanVsGen_.SetTitleOffset(2.0)
-	h_meanVsGen_.GetXaxis().SetTitleOffset(1.20)
-	h_meanVsGen_.GetYaxis().SetTitleOffset(1.30)
-	h_meanVsGen_.SetTitle(titleMeanVsGen_ptTop_full)
-	h_meanVsGen_.SetStats(0)
-	for i in range(Xnb):
-		h_RMSVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMS());
-		h_RMSVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMSError());
-
-		h_meanVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMean());
-		h_meanVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError());
-	h_RMSVsGen_.SaveAs("testRMS.root")
-	h_meanVsGen_.SaveAs("testMEAN.root")
-	c=ROOT.TCanvas("c1","c1",800,800)
-	h_RMSVsGen_.Draw()
-	c.SaveAs("testRMS.pdf")
-	c.Clear()
-	h_meanVsGen_.Draw()
-	c.SaveAs("testMEAN.pdf")
-
-
-
 
 def rebin2D(h, ngx, ngy):
     hold = h.Clone()
@@ -1368,10 +930,6 @@ def drawAsGraph(h):
     # drawOption += "X"
     # g.Draw("ZP0X")
     return g
-
-
-
-
 
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
