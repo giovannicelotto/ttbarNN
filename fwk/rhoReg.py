@@ -10,8 +10,8 @@ import keras.backend as K
 K.tensorflow_backend.set_session(tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))))
 
 
-def loadData(inPathFolder = "rhoInput", year = "2017", additionalName = "_3JetKin", testFraction = 0.2, overwrite = False,
-            withBTag = False, withCharge = False):
+def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.2, overwrite = False,
+            withBTag = False, withCharge = False, maxEvents = None):
 
     print ("loadData for year "+year+" from "+inPathFolder+"/flat_[..]"+additionalName+".npy")
     print ("\t overwrite = "+str(overwrite))
@@ -42,10 +42,15 @@ def loadData(inPathFolder = "rhoInput", year = "2017", additionalName = "_3JetKi
     outY = np.load(inPathFolder+"/flat_outY"+additionalName+".npy")
     weights = np.load(inPathFolder+"/flat_weights"+additionalName+".npy")
 
+    if maxEvents is not None:
+        inX = inX[:maxEvents]
+        outY = outY[:maxEvents]
+        weights = weights[:maxEvents]
+
     # from sklearn.preprocessing import *
     outY = outY.reshape((outY.shape[0], 1))
 
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test= train_test_split(inX, outY, weights, test_size = testFraction)
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test= train_test_split(inX, outY, weights, test_size = testFraction, shuffle=True)
 
     print ("\t data splitted succesfully")
     print ("loadData end")
@@ -60,7 +65,7 @@ def loadData(inPathFolder = "rhoInput", year = "2017", additionalName = "_3JetKi
     return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test
 
 
-def doEvaluationPlots(yTest, yPredicted, weightTest, year = "2017", outFolder = "rhoOutput/"):
+def doEvaluationPlots(yTest, yPredicted, weightTest, year = "", outFolder = "rhoOutput/"):
 
     import ROOT
     import matplotlib.pyplot as plt
@@ -168,23 +173,29 @@ def doFitForBaysian(inX_train, outY_train, weights_train,
     nDense = int(nDense)
     nNodes = int(nNodes)
     batchSize = int(batchSize)
-    indexActivation = int(indexActivation)
+    # indexActivation = int(indexActivation)
     # indexOutputActivation = int(indexOutputActivation)
 
     activations = ["sigmoid", "relu", "softmax", "selu", "softplus"]
     # outputActivations = ["sigmoid","linear"]
 
-    # model = models.getRhoRegModelFlat(regRate=1e-7,activation='sigmoid',dropout=0.05,nDense=4,nNodes=1500)#GOOD WORKING!!! corr 0.853 RMS<0.1
-    # model = models.getRhoRegModelFlat(regRate=1e-7, activation='sigmoid', dropout=0.05, nDense=3, nNodes=500)#GOOD WORKING, shown in talk
-    model = models.getRhoRegModelFlat(regRate = regRate, activation = 'sigmoid', dropout = dropout, nDense = nDense,
-                                      nNodes = nNodes, inputDim = 21, outputActivation = 'sigmoid')#GOOD WORKING, shown in talk
-                                      # nNodes = nNodes, inputDim = 27, outputActivation = 'sigmoid')#GOOD WORKING, shown in talk
+    # model = models.getRhoRegModelFlat(regRate=1e-7,activation='sigmoid',dropout=0.05,nDense=4,nNodes=1500)
+    # model = models.getRhoRegModelFlat(regRate=1e-7, activation='sigmoid', dropout=0.05, nDense=3, nNodes=500)#
+    model = models.getRhoRegModelFlat(regRate = regRate, activation = 'relu', dropout = dropout, nDense = nDense,
+    # model = models.getRhoRegModelFlat(regRate = regRate, activation = 'selu', dropout = dropout, nDense = nDense,
+                                      # nNodes = nNodes, inputDim = 21, outputActivation = 'sigmoid')
+                                      # nNodes = nNodes, inputDim = 36, outputActivation = 'sigmoid')
+                                      # nNodes = nNodes, inputDim = 27, outputActivation = 'linear')
+                                      # nNodes = nNodes, inputDim = 34, outputActivation = 'linear')
+                                      nNodes = nNodes, inputDim = 22, outputActivation = 'linear')
     # model.load_weights("rhoTemp/trainedRhoModel")
     # optimizer = tf.keras.optimizers.Adam(lr=0.0001)
     # optimizer = tf.keras.optimizers.Adam(lr = 0.001)
     optimizer = tf.keras.optimizers.Adam(lr = learningRate)
 
     model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
+    # model.compile(optimizer=optimizer, loss=tf.keras.losses.Huber(),metrics=['mean_absolute_error','mean_squared_error'])
+    # model.compile(optimizer=optimizer, loss=helpers.correlation_coefficient_loss,metrics=['mean_absolute_error','mean_squared_error'])
 
     callbacks=[]
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
@@ -215,14 +226,25 @@ def doFitForBaysian(inX_train, outY_train, weights_train,
                         sample_weight = weights_test,
                         batch_size = batchSize,
                         verbose = 0)
-    # y_predicted = model.predict(inX_test)
+    y_predicted = model.predict(inX_test)
+    y_predicted = y_predicted.reshape(y_predicted.shape[0])
+    outY_test = outY_test.reshape(outY_test.shape[0])
     # y_predicted = y_predicted.reshape(y_predicted.shape[0])
     # outY_test = outY_test.reshape(outY_test.shape[0])
     print('Test loss:', score[0])
     print('Test MSE:', score[1])
 
+    from scipy.stats.stats import pearsonr
+
+    corr = pearsonr(outY_test, y_predicted)
+    print(corr[0])
+
     # return 1./score[1]
-    return 1./score[0]
+    # return 1./score[0]
+    if np.isnan(corr[0]):
+        return 0.
+    else:
+        return corr[0]
 
 
 def doBaysianOptim():
@@ -230,9 +252,18 @@ def doBaysianOptim():
 
 
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test = loadData(
-                                    inPathFolder = "rhoInput", year = "2017",
+                                    # inPathFolder = "rhoInput/years", year = "2017",
+                                    inPathFolder = "rhoInput/years", year = "FR2",
                                     # additionalName = "_3JetKin", testFraction = 0.2, overwrite = False)
-                                    additionalName = "_3JetKin_correctNJet_WithBAndCharge", testFraction = 0.2, overwrite = False)
+                                    # additionalName = "_3JetKinPlusRecoSol", testFraction = 0.2, overwrite = False, withBTag = False, withCharge = False)
+                                    # additionalName = "_3JetKinPlusRecoSol", testFraction = 0.5, overwrite = False, withBTag = False, withCharge = False,
+                                    # additionalName = "_3JetKinMore", testFraction = 0.35, overwrite = False, withBTag = True, withCharge = True,
+                                    # additionalName = "_3JetKinMoreWithoutNu", testFraction = 0.35, overwrite = False, withBTag = True, withCharge = True,
+                                    # additionalName = "_3JetKinWithoutNu", testFraction = 0.35, overwrite = False, withBTag = True, withCharge = True,
+                                    additionalName = "_3JetKinWithNu", testFraction = 0.35, overwrite = False, withBTag = True, withCharge = True,
+                                    maxEvents = 500000)
+
+
 
     from functools import partial
 
@@ -243,15 +274,17 @@ def doBaysianOptim():
 
 
     from bayes_opt import BayesianOptimization
-
+    from bayes_opt import SequentialDomainReductionTransformer
     # Bounded region of parameter space
-    pbounds = {'batchSize': (128, 10000),
-                'regRate': (1e-7, 1e-3),
+    pbounds = {'batchSize': (1000, 10000),
+                'regRate': (1e-7, 1e-4),
                 'learningRate': (1e-4, 1e-2),
                 'dropout': (1e-4, 5e-1),
-                'nDense': (2, 20),
-                'nNodes': (28, 2048)
+                'nDense': (2, 10),
+                'nNodes': (50, 500)
               }
+
+    bounds_transformer = SequentialDomainReductionTransformer()
 
     print ("doBaysianOptim")
 
@@ -260,10 +293,12 @@ def doBaysianOptim():
         pbounds=pbounds,
         verbose=2,  # verbose = 1 prints only when a maximum is observed, verbose = 0 is silent
         random_state=1,
+        bounds_transformer=bounds_transformer,
     )
 
     # optimizer.maximize(init_points=10, n_iter=10,)
-    optimizer.maximize(init_points=30, n_iter=30,)
+    # optimizer.maximize(init_points=20, n_iter=50,kappa=8, alpha=1e-3)
+    optimizer.maximize(init_points=20, n_iter=50)
 
 
     for i, res in enumerate(optimizer.res):
@@ -275,39 +310,71 @@ def doBaysianOptim():
 
 def doTrainingAndEvaluation():
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test = loadData(
-                                    inPathFolder = "rhoInput", year = "2017",
+                                    # inPathFolder = "rhoInput/years/", year = "2017",
+                                    inPathFolder = "rhoInput/years/", year = "FR2",
                                     # additionalName = "_3JetKin_correctNJet_WithBAndCharge", testFraction = 0.2,
-                                    additionalName = "_3JetKin_correctNJet", testFraction = 0.2,
-                                    # overwrite = False, withBTag = True, withCharge = True)
-                                    overwrite = False, withBTag = False, withCharge = False)
+                                    # additionalName = "_3JetKin_correctNJet", testFraction = 0.2,
+                                    # additionalName = "_3JetKinFullMet", testFraction = 0.2,
+                                    # additionalName = "_3JetKinMore", testFraction = 0.2,
+                                    # additionalName = "_3JetKinFull", testFraction = 0.2,
+                                    # additionalName = "_3JetKinMore", testFraction = 0.2,
+                                    # additionalName = "_3JetKinMoreWithoutNu", testFraction = 0.2,
+                                    additionalName = "_3JetKinWithoutNu", testFraction = 0.2,
+                                    # additionalName = "_3JetKin", testFraction = 0.2,
+                                    # additionalName = "_3JetKinPlusRecoSol", testFraction = 0.2,
+                                    # overwrite = False, withBTag = True, withCharge = True,
+                                    overwrite = False, withBTag = False, withCharge = False,
+                                    maxEvents = None)
+                                    # maxEvents = 600000)
+
+    # print (inX_train)
+    # print (inX_train.shape)
+    # print (inX_train[0])
+    # print (outY_train)
+    # print (outY_train.shape)
+
+
     # learningRate = 0.001
-    learningRate = 0.007034
-    # batchSize = 4096
-    batchSize = 6250
-    # dropout = 0.05
-    dropout = 0.3673
-    # nDense = 3
-    nDense = int(2.732)
-    # nNodes = 500
-    nNodes = int(154.1)
-    # regRate = 1e-7
-    regRate = 0.000179
-    # activation = 'relu'
-    activation = 'sigmoid'
-    outputActivation = 'sigmoid'
+    learningRate = 0.01
+    # batchSize = 1000
+    batchSize = 8000
+    dropout = 0.05
+    # dropout = 0.3673
+    nDense = 4
+    # nDense = int(2.732)
+    nNodes = 200
+    # nNodes = int(154.1)
+    regRate = 1e-7
+    # regRate = 0.000179
+    activation = 'relu'
+    # activation = 'selu'
+    # activation = 'sigmoid'
+    # outputActivation = 'sigmoid'
+    outputActivation = 'linear'
 
     model = models.getRhoRegModelFlat(regRate = regRate, activation = activation, dropout = dropout, nDense = nDense,
-                                      nNodes = nNodes, inputDim = 21, outputActivation = outputActivation)#GOOD WORKING, shown in talk
+                                      # nNodes = nNodes, inputDim = 21, outputActivation = outputActivation)
+                                      # nNodes = nNodes, inputDim = 27, outputActivation = outputActivation)
+                                      # nNodes = nNodes, inputDim = 25, outputActivation = outputActivation)
+                                      nNodes = nNodes, inputDim = 22, outputActivation = outputActivation)
+                                      # nNodes = nNodes, inputDim = 34, outputActivation = outputActivation)
+                                      # nNodes = nNodes, inputDim = 36, outputActivation = outputActivation)
     optimizer = tf.keras.optimizers.Adam(lr = learningRate)
 
     model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
+    # model.compile(optimizer=optimizer, loss=tf.keras.losses.Huber(),metrics=['mean_absolute_error','mean_squared_error'])
+    # model.compile(optimizer=optimizer, loss=helpers.correlation_coefficient_loss,metrics=['mean_absolute_error','mean_squared_error'])
 
     callbacks=[]
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=5)
+    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=5)
+    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=10)
+    # reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss')
 
     callbacks.append(reduce_lr)
     callbacks.append(earlyStop)
+
+    # outY_train = outY_train.reshape(outY_train.shape[0])
 
     fit = model.fit(
             inX_train,
@@ -324,12 +391,17 @@ def doTrainingAndEvaluation():
     y_predicted = y_predicted.reshape(y_predicted.shape[0])
     outY_test = outY_test.reshape(outY_test.shape[0])
 
+    from scipy.stats.stats import pearsonr
+    print(pearsonr(outY_test, y_predicted)[0])
+
     outDir = "rhoOutput/"
-    outName = "rhoRegModel_optim_2017"
+    # outName = "rhoRegModel_optim_2017"
+    outName = "rhoRegModel_optim_withKinReco"
+    # doEvaluationPlots(outY_test, y_predicted , weights_test, year = "2017", outFolder = outDir)
     doEvaluationPlots(outY_test, y_predicted , weights_test, year = "2017", outFolder = outDir)
     if not os.path.exists(outDir):
         os.makedirs(outDir)
-    model.save(outDir+outName+".h5")
+    model.save(outDir+outName+".h5", custom_objects={'correlation_coefficient_loss': helpers.correlation_coefficient_loss})
     tf.keras.backend.clear_session()
     tf.keras.backend.set_learning_phase(0)
     model = tf.keras.models.load_model(outDir+outName+".h5")
@@ -342,8 +414,8 @@ def doTrainingAndEvaluation():
 
 
 def main():
-    # doBaysianOptim()
-    doTrainingAndEvaluation()
+    doBaysianOptim()
+    # doTrainingAndEvaluation()
 
 
 if __name__ == "__main__":
