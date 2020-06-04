@@ -47,6 +47,40 @@ def getRhoRegModel(regRate=1e-3,activation='selu',dropout=0.1,nDense=5,nNodes=20
 def getRhoRegModelFlat(regRate=1e-3, activation='selu', dropout=0.1, nDense=5, nNodes=200, inputDim = 21, outputActivation = 'sigmoid'):
     l2_reg = tf.keras.regularizers.l2(regRate)
     dense_kwargs = dict(
+        # activation = activation,
+        # kernel_initializer = tf.keras.initializers.lecun_normal(),
+        kernel_initializer = tf.keras.initializers.glorot_normal(),
+        kernel_regularizer = l2_reg,
+    )
+    inputs = tf.keras.layers.Input(shape = (inputDim))
+    x = tf.keras.layers.BatchNormalization()(inputs)
+    # x = tf.keras.layers.Dense(nNodes*nDense, **dense_kwargs)(inputs)
+    # x = tf.keras.layers.Dense(nNodes*nDense, **dense_kwargs)(x)
+    x = tf.keras.layers.Dense(nNodes, **dense_kwargs)(x)
+    # x = tf.keras.layers.Dense(nNodes, **dense_kwargs)(inputs)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Activation(activation)(x)
+    x = tf.keras.layers.Dropout(dropout)(x)
+    for i in range(nDense-1):
+        # x = tf.keras.layers.Dense(nNodes*(nDense-i-1), **dense_kwargs)(x)
+        x = tf.keras.layers.Dense(nNodes, **dense_kwargs)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Activation(activation)(x)
+        x = tf.keras.layers.Dropout(dropout)(x)
+
+    outputLayer = tf.keras.layers.Dense(1, activation = outputActivation)(x)
+    # outputLayer = tf.keras.layers.Dense(1,activation='sigmoid')(x)
+    # outputLayer = tf.keras.layers.Dense(1,activation='linear')(x)
+    # outputLayer = tf.keras.layers.Dense(1,activation='relu')(x)
+
+    model = tf.keras.Model(inputs = inputs, outputs = outputLayer, name = "RhoRegModelFlat")
+    # model.summary()
+
+    return model
+
+def getMassRegModelFlat(regRate=1e-3, activation='selu', dropout=0.1, nDense=5, nNodes=200, inputDim = 21, outputActivation = 'sigmoid'):
+    l2_reg = tf.keras.regularizers.l2(regRate)
+    dense_kwargs = dict(
         activation = activation,
         kernel_initializer = tf.keras.initializers.lecun_normal(),
         kernel_regularizer = l2_reg,
@@ -61,12 +95,8 @@ def getRhoRegModelFlat(regRate=1e-3, activation='selu', dropout=0.1, nDense=5, n
         x = tf.keras.layers.Dropout(dropout)(x)
 
     outputLayer = tf.keras.layers.Dense(1, activation = outputActivation)(x)
-    # outputLayer = tf.keras.layers.Dense(1,activation='sigmoid')(x)
-    # outputLayer = tf.keras.layers.Dense(1,activation='linear')(x)
-    # outputLayer = tf.keras.layers.Dense(1,activation='relu')(x)
 
-    model = tf.keras.Model(inputs = inputs, outputs = outputLayer, name = "RhoRegModelFlat")
-    # model.summary()
+    model = tf.keras.Model(inputs = inputs, outputs = outputLayer, name = "MassRegModelFlat")
 
     return model
 
