@@ -4,6 +4,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 import ROOT
 
 import os
+
+# to use only cpu
+# os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+# os.environ["CUDA_VISIBLE_DEVICES"] = ""
+
 # import tensorflow as tf
 os.environ["KERAS_BACKEND"] = "tensorflow"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
