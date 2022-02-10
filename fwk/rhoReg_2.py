@@ -37,17 +37,6 @@ warnings.simplefilter('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
 
-# stupid way to handle bayesian opt
-# global bayesian_base_outFolder
-bayesian_base_outFolder= ""
-# global bayesian_current_iteration
-bayesian_current_iteration = 0
-
-
-
-
-
-
 import ROOT
 
 @jit
@@ -317,13 +306,12 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     histoRecoGen2_newHybrid2 = ROOT.TH2F( "newHybrid2 resp", ";reco bin;true bin", 20, 0, 1, 20, 0, 1 )
     histoRecoGen2_newHybrid2.SetDirectory(0)
 
-    # binning = [0.0, 0.65, 0.75, 1.0]
-    binning = [0.0, 0.3, 0.45, 0.75, 1.0]
+    binning = [0.0, 0.65, 0.75, 1.0]
     # from array import array
     ar_bins = array("d", binning)
-    histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", 4, ar_bins, 4, ar_bins )
-    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";rho true;#rho reco", 4, ar_bins, 4, ar_bins )
-    histTrueBinned = ROOT.TH1F( "true contents binned", ";rho", 4, ar_bins)
+    histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", 3, ar_bins, 3, ar_bins )
+    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";rho true;#rho reco", 3, ar_bins, 3, ar_bins )
+    histTrueBinned = ROOT.TH1F( "true contents binned", ";rho", 3, ar_bins)
     histTrueBinned.SetDirectory(0)
 
     for rhotrue, rhopred, weight, lkrR, krR in zip(yTest, yPredicted, weightTest,lkrRho, krRho):
@@ -456,7 +444,6 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     histo2dbinned.SetStats(0)
     hRespBinned = histo2dbinned.Clone()
     histo2dbinned.Scale(1./(histo2dbinned.Integral()))
-    print ("binned correlation", histo2dbinned.GetCorrelationFactor())
 
     # from array import array
     nbinsx = histo2dbinned.GetNbinsX()
@@ -470,8 +457,8 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
             ma2[iBinY-1,iBinX-1]=histo2dbinned.GetBinContent(iBinX,iBinY)
     print ("Condition number = ",np.linalg.cond(ma))
 
-    histo2dbinned.Scale(100.)
 
+    histo2dbinned.Scale(100.)
 
     ROOT.gStyle.SetPaintTextFormat("2.2f")
     histo2dbinned.SetMarkerSize(0.7)
@@ -485,8 +472,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     c.Clear()
 
     histo2dbinned_newHybrid.SetStats(0)
-    hRespBinned_newHybrid = histo2dbinned_newHybrid.Clone()
-
+    hRespBinned = histo2dbinned_newHybrid.Clone()
     histo2dbinned_newHybrid.Scale(1./(histo2dbinned_newHybrid.Integral()))
 
     # from array import array
@@ -561,12 +547,12 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     c.SaveAs(outDir+"newHybrid_resp.pdf")
     c.Clear()
 
-    rms_reg, mean_reg, respRMS_reg = doRMSandMean(histo, "reg", outDir)
-    rms_kr, mean_kr, respRMS_kr = doRMSandMean(histo_kr, "kr", outDir)
-    rms_krReg, mean_krReg, respRMS_krReg = doRMSandMean(histo_krReg, "krReg", outDir)
-    rms_lkr, mean_lkr, respRMS_lkr = doRMSandMean(histo_lkr, "lkr", outDir)
-    rms_newHybrid, mean_newHybrid, respRMS_newHybrid = doRMSandMean(histo_newHybrid, "newHybrid", outDir)
-    rms_newHybrid2, mean_newHybrid2, respRMS_newHybrid2 = doRMSandMean(histo_newHybrid2, "newHybrid2", outDir)
+    rms_reg, mean_reg = doRMSandMean(histo, "reg", outDir)
+    rms_kr, mean_kr = doRMSandMean(histo_kr, "kr", outDir)
+    rms_krReg, mean_krReg = doRMSandMean(histo_krReg, "krReg", outDir)
+    rms_lkr, mean_lkr = doRMSandMean(histo_lkr, "lkr", outDir)
+    rms_newHybrid, mean_newHybrid = doRMSandMean(histo_newHybrid, "newHybrid", outDir)
+    rms_newHybrid2, mean_newHybrid2 = doRMSandMean(histo_newHybrid2, "newHybrid2", outDir)
 
     purity_kr, stability_kr, eff_kr = doPSE(hResp_kr, histTrue, "kr", outDir)
 
@@ -637,22 +623,16 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     histoRecoGen2_newHybrid.Write("recoGen2_newHybrid")
     histoRecoGen2_newHybrid2.Write("recoGen2_newHybrid2")
     rms_reg.Write("rms_reg")
-    respRMS_reg.Write("respRMS_reg")
     mean_reg.Write("mean_reg")
     rms_kr.Write("rms_kr")
-    respRMS_kr.Write("respRMS_kr")
     mean_kr.Write("mean_kr")
     rms_krReg.Write("rms_krReg")
-    respRMS_krReg.Write("respRMS_krReg")
     mean_krReg.Write("mean_krReg")
     rms_lkr.Write("rms_lkr")
-    respRMS_lkr.Write("respRMS_lkr")
     mean_lkr.Write("mean_lkr")
     rms_newHybrid.Write("rms_newHybrid")
-    respRMS_newHybrid.Write("respRMS_newHybrid")
     mean_newHybrid.Write("mean_newHybrid")
     rms_newHybrid2.Write("rms_newHybrid2")
-    respRMS_newHybrid2.Write("respRMS_newHybrid2")
     mean_newHybrid2.Write("mean_newHybrid2")
     purity_kr.Write("purity_kr")
     stability_kr.Write("stability_kr")
@@ -660,7 +640,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     outRootFile.Close()
 
 
-def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, weights_test, lkrRho_test, krRho_test, learningRate = 0.001, batchSize = 4096, dropout = 0.05, nDense = 3, nNodes = 500, indexActivation = 1, regRate = 1e-7):
+def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, weights_test, learningRate = 0.001, batchSize = 4096, dropout = 0.05, nDense = 3, nNodes = 500, indexActivation = 1, regRate = 1e-7):
     nDense = int(nDense)
     nNodes = int(nNodes)
     batchSize = int(batchSize)
@@ -672,8 +652,7 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
     # activation = activations[indexActivation]
     activation = "selu"
     regRate = 7.9857e-5
-    # learningRate = 0.00001
-    # learningRate = learningRate
+    learningRate = 0.00001
 
     # model = models.getRhoRegModelFlat(regRate=1e-7,activation='sigmoid',dropout=0.05,nDense=4,nNodes=1500)
     # model = models.getRhoRegModelFlat(regRate=1e-7, activation='sigmoid', dropout=0.05, nDense=3, nNodes=500)#
@@ -690,8 +669,7 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
 
     # model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
     # model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(),metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
-    model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(),metrics=['mean_absolute_error','mean_squared_error'])
+    model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
 
     print ("N parameter: ",model.count_params())
     # if (model.count_params()> 500000):
@@ -700,9 +678,7 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
 
     callbacks=[]
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=20, restore_best_weights=True)
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=40, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=50, restore_best_weights=True)
+    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=20, restore_best_weights=True)
     # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=250, restore_best_weights=True)
     # modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
 
@@ -714,12 +690,9 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
             inX_train,
             outY_train,
             sample_weight = weights_train,
-            # validation_split = 0.3,
-            validation_split = 0.25,
+            validation_split = 0.3,
             batch_size = batchSize,
-            # epochs = 3,
             epochs = 300,
-            # epochs = 500,
             shuffle = False,
             callbacks = callbacks,
             verbose = 0)
@@ -745,47 +718,6 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
     js = compute_js_divergence(y_predicted, outY_test, n_bins=200)
     print ("JS", js)
 
-    # binning = [0.0, 0.65, 0.75, 1.0]
-    binning = [0.0, 0.45, 0.75, 1.0]
-    ar_bins = array("d", binning)
-    histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", 3, ar_bins, 3, ar_bins )
-    for rhotrue, rhopred, weight in zip(outY_test, y_predicted, weights_test):
-        histo2dbinned.Fill(rhotrue, rhopred, weight)
-    histo2dbinned.Scale(1./(histo2dbinned.Integral()))
-    print ("binned correlation", histo2dbinned.GetCorrelationFactor())
-    nbinsx = histo2dbinned.GetNbinsX()
-    nbinsy = histo2dbinned.GetNbinsY()
-    ma = np.empty((nbinsx,nbinsy))
-    ma2 = np.empty((nbinsx,nbinsy))
-    for iBinX in range(1,nbinsx+1):
-        for iBinY in range(1,nbinsy+1):
-            ma[iBinX-1,iBinY-1]=histo2dbinned.GetBinContent(iBinX,iBinY)
-            ma2[iBinY-1,iBinX-1]=histo2dbinned.GetBinContent(iBinX,iBinY)
-    print ("Condition number = ",np.linalg.cond(ma))
-
-    global bayesian_base_outFolder
-    global bayesian_current_iteration
-    outFolder = bayesian_base_outFolder+"_"+str(bayesian_current_iteration)+"/"
-    modelName = "optimModel_"+str(bayesian_current_iteration)
-
-    # doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrRho_train, krRho_train, year = year, outFolder = outFolder+"/train/")
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrRho_test, krRho_test, year = "FR2", outFolder = outFolder+"/test/")
-
-    saveModel=True
-    if saveModel:
-        model.save(outFolder+modelName+".h5")
-        tf.keras.backend.clear_session()
-        tf.keras.backend.set_learning_phase(0)
-        model = tf.keras.models.load_model(outFolder+modelName+".h5")
-        print('inputs: ', [input.op.name for input in model.inputs])
-        print('outputs: ', [output.op.name for output in model.outputs])
-        frozen_graph = helpers.freeze_session(tf.compat.v1.keras.backend.get_session(), output_names=[out.op.name for out in model.outputs])
-        tf.compat.v1.train.write_graph(frozen_graph, outFolder+'/', modelName+'.pbtxt', as_text=True)
-        tf.compat.v1.train.write_graph(frozen_graph, outFolder+'/', modelName+'.pb', as_text=False)
-        print ("Saved model to",outFolder+"/"+"FR2"+'/'+modelName+'.pbtxt/.pb/.h5')
-
-    bayesian_current_iteration = bayesian_current_iteration + 1
-
     if np.isnan(corr[0]):
         return 0.
     # else:
@@ -796,36 +728,33 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
         return 0.
     else:
         return (1.-js)
-        # return (1./np.linalg.cond(ma))
 
 #
 def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder = "BaysianOptim/"):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrRho_train, lkrRho_test, krRho_train, krRho_test, scaler = loadData(
                                     inPathFolder = inPathFolder, year = year,
-                                    # additionalName = additionalName, testFraction = 0.3, overwrite = False, withBTag = True, withCharge = False, pTEtaPhiMode=True,
-                                    additionalName = additionalName, testFraction = 0.4, overwrite = False, withBTag = True, withCharge = False, pTEtaPhiMode=True,
+                                    additionalName = additionalName, testFraction = 0.3, overwrite = False, withBTag = True, withCharge = False, pTEtaPhiMode=True,
                                     maxEvents = None)
-    global bayesian_base_outFolder
-    bayesian_base_outFolder = outFolder
 
     feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
+    # weights_train_original = weights_train
+    # weights_train_=[]
+    # for w in weights_train:
+    #     weights_train_.append(abs(w))
+    # weights_train = np.array(weights_train_)
 
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.,1.)
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.1,0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",50,0.1,0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto", 200, 0.1, 0.9)
+    weightHisto = ROOT.TH1F("weightHisto","weightHisto",200,0.1,0.9)
 
     for rho,weight in zip(outY_train, weights_train):
         weightHisto.Fill(rho,abs(weight))
-        # weightHisto.Fill(rho)
 
     weightHisto.Scale(1./weightHisto.Integral())
     maximumBin = weightHisto.GetMaximumBin()
     maximumBinContent = weightHisto.GetBinContent(maximumBin)
 
-    # canvas = ROOT.TCanvas()
-    # weightHisto.Draw("histe")
-    # canvas.SaveAs("weights_rho.pdf")
+    canvas = ROOT.TCanvas()
+    weightHisto.Draw("histe")
+    canvas.SaveAs("weights_rho.pdf")
 
     for binX in range(1,weightHisto.GetNbinsX()+1):
         c = weightHisto.GetBinContent(binX)
@@ -833,35 +762,28 @@ def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder 
             weightHisto.SetBinContent(binX, maximumBinContent/c)
         else:
             weightHisto.SetBinContent(binX, 1.)
-    weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
-    weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
 
-    # canvas.Clear()
-    # weightHisto.Draw("histe")
-    # canvas.SetLogy(1)
-    # canvas.SaveAs("weights.pdf")
+    canvas.Clear()
+    weightHisto.Draw("histe")
+    canvas.SetLogy(1)
+    canvas.SaveAs("weights.pdf")
 
     weights_train_original = weights_train
     weights_train_=[]
-    # for w in weights_train:
-    #     weights_train_.append(abs(w))
     for w,rho in zip(weights_train,outY_train):
         weightBin = weightHisto.FindBin(rho)
         addW = weightHisto.GetBinContent(weightBin)
-        # print (rho,weightBin,addW)
-        # weights_train_.append(abs(w))
-        weights_train_.append(abs(w)*addW)
-        # weights_train_.append(addW)
+        weights_train_.append(addW)
     weights_train = np.array(weights_train_)
 
     weights_train = 1./np.mean(weights_train)*weights_train
 
-    fit_with_partial = partial(doFitForBaysian, inX_train, outY_train, weights_train, inX_test, outY_test, weights_test, lkrRho_test, krRho_test)
+    fit_with_partial = partial(doFitForBaysian, inX_train, outY_train, weights_train, inX_test, outY_test, weights_test)
 
     # Bounded region of parameter space
-    pbounds = {'batchSize': (1000, 30000),
+    pbounds = {'batchSize': (1000, 10000),
                 # 'regRate': (1e-7, 1e-4),
-                'learningRate': (1e-4, 1e-2),
+                # 'learningRate': (1e-4, 1e-2),
                 'dropout': (1e-4, 5e-1),
                 'nDense': (2, 10),
                 # 'indexActivation': (0, 4),
@@ -887,8 +809,7 @@ def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder 
 
     optimizer.subscribe(Events.OPTIMIZATION_STEP, logger)
     # optimizer.maximize(init_points=30, n_iter=0,kappa=8, alpha=1e-3)
-    # optimizer.maximize(init_points=15, n_iter=15, kappa=8, alpha=1e-3, n_restarts_optimizer=5)
-    optimizer.maximize(init_points=30, n_iter=30, kappa=8, alpha=1e-3, n_restarts_optimizer=5)
+    optimizer.maximize(init_points=15, n_iter=30, kappa=8, alpha=1e-3, n_restarts_optimizer=5)
     # optimizer.maximize(init_points=30, n_iter=0)
     for i, res in enumerate(optimizer.res):
         print("Iteration {}: \n\t{}".format(i, res))
@@ -903,19 +824,12 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
                                     maxEvents = None)
                                     # maxEvents = 10000)
 
-    print (len(inX_train[10]))
-
-
     feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
 
-    print (len(feature_names))
-
     # weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.,1.)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.1,0.9)
+    weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.1,0.9)
     # weightHisto = ROOT.TH1F("weightHisto","weightHisto",50,0.1,0.9)
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",25,0.1,0.9)
     # weightHisto = ROOT.TH1F("weightHisto","weightHisto", 200, 0.1, 0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto", 500, 0.1, 0.9)
 
     for rho,weight in zip(outY_train, weights_train):
         weightHisto.Fill(rho,abs(weight))
@@ -961,6 +875,24 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
     # print (weights_train_original.shape)
     # print (weights_train.shape)
 
+
+    # try smogn
+    #
+    #
+    # # print (inX_train.shape)
+    # # print (outY_train.shape)
+    # my_array = np.concatenate((inX_train,outY_train), axis=1)
+    # # print (my_array.shape)
+    # df = pandas.DataFrame(my_array, columns = feature_names+["rho_target"])
+    # # print(df)
+    # test_smogn = smogn.smoter(
+    #     data = df,
+    #     y = 'rho_target',
+    #     drop_na_col = False,
+    #     drop_na_row = False
+    # )
+    #
+    # inX_train_new = test_smogn.to_numpy()
 
     # learningRate = 0.001
     # batchSize = 800
@@ -1039,24 +971,17 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
     # # outputActivation = 'sigmoid'
 
     learningRate = 0.0001
-    # learningRate = 0.0005
     # learningRate = 0.001
     # learningRate = 0.00001 #was good but loooong training
     # batchSize = 4753
     # batchSize = 9753
     # batchSize = 15753
     batchSize = 25753
-    # batchSize = 512
-    # batchSize = 256
-    # batchSize = 128
-    # batchSize = 64
-    # batchSize = 45753
     # batchSize = 753
     # batchSize = 453
     # batchSize = 353
     # batchSize = 253
     dropout = 0.360
-    # dropout = 0.388
     # dropout = 0.260
     # dropout = 0.160
     nDense = 2
@@ -1074,12 +999,7 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
     # nNodes = 60
     # nNodes = 50
     nNodes = 512
-    # nNodes = 312
-    # nNodes = 212
-    # nNodes = 678
-    # nNodes = 412
     # nNodes = 712
-    # nNodes = 812
     # nNodes = 1012
     # nNodes = 1412
     # nNodes = 2412
@@ -1123,14 +1043,9 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
     # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=250, restore_best_weights=True)
     # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=25, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=50, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=150, restore_best_weights=True)
     # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=75, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=250, restore_best_weights=True)
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=300, restore_best_weights=True)
     # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=75)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=125, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=30, restore_best_weights=True)
+    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=125, restore_best_weights=True)
     modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
 
     # callbacks.append(reduce_lr)
@@ -1147,12 +1062,11 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
             # epochs = 500,
             # epochs = 800,
             # epochs = 1000,
-            # epochs = 1500,
+            epochs = 1500,
             # epochs = 150,
             # epochs = 250,
             # epochs = 3000,
             # epochs = 5000,
-            epochs = 50000,
             # epochs = 50,
             # epochs = 10,
             # epochs = 3,
@@ -1289,8 +1203,7 @@ def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "
 def main():
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL04_11_02_21", year ="FR2",
     #                 tokeep = [41,42,35,60,84,64,30,76,39,88], outFolder="preUL04_11_02_21/rho_madgraph_optim/")
-    # keep = [41,42,35,60,84,64,30,76,39,88]    #TO BE USED
-    keep = [41,42,35,60,84,64,30,76,39,88, 102, 103]    #add year and channel
+    keep = [41,42,35,60,84,64,30,76,39,88]
     # keep = [41,42,35,60,84,64,30,76,39,88]
     # keep = [42,60,64,41,35,69,18,68,30,15,39,84,24,0,72,5,31,73,28,19,26,21,3,77,20]
     # keep = [42,41,60,64,69,35,68,18,15,24,39,0,73,19,3,31,5,20,26,27,25,56,80,76,84]
@@ -1300,18 +1213,10 @@ def main():
     # keep = [41,42,60,64,35,15,69,27,24,56,84,30,76,39,88]
     # keep = [41,60,64,42,35,15,76,27,69,39,30,88]
     # keep = [41,64,60,42,35,76,27,15,30,69]
-    # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
-    #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
-    # doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph_preULv05/", additionalName = "_preUL05_12_08_21", year ="FR2", tokeep = keep,
-    #                         modelName = "rhoRegModel_preUL05_12_08_21", outFolder="preUL05_12_08_21/rhoReg_madgraph_full1/")
-    # justEvaluate(inPathFolder="rhoInput/powheg_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = keep,
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_38/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_powheg_38/")
-    # justEvaluate(inPathFolder="rhoInput/powheg_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = keep,
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_full_8/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_powheg_new8/")
-    # justEvaluate(inPathFolder="rhoInput/powheg_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_38/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_powheg_ghost_ANplots/")
-    # justEvaluate(inPathFolder="rhoInput/madgraph_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_38/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_madgraph_ghost_ANplots/")
+    # doBaysianOptim(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL04_11_02_21", year ="FR2",
+    #                 tokeep = keep, outFolder="preUL04_11_02_21/rho_madgraph_optim_reweight1/")
+    doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2", tokeep = keep,
+                            modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_38/")
     # justEvaluate(inPathFolder="rhoInput/madgraph/", additionalName="_preUL04_moreInputs_Pt30_madgraph_cutSel", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
     #             modelDir = "rhoOutput_preUL04_moreInputs_Pt30_madgraph_cutSel/", modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel", outFolder="February_final_comparison/rho_madgraph/")
     # justEvaluate(inPathFolder="rhoInput/powheg/", additionalName="_preUL04_11_02_21", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
@@ -1320,18 +1225,6 @@ def main():
     #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg_newHybrid/")
 
 
-    doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL05_02_02_22", year ="FR2", tokeep = keep,
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_2/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_3/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_4/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_5/rhoReg_madgraph/")
-                            modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_6/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_2/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_3/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_4/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_5/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_6/rhoReg_madgraph/")
 
 if __name__ == "__main__":
     main()

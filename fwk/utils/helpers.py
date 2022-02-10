@@ -1,8 +1,7 @@
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
-
 import ROOT
-
+import glob
 import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import keras
@@ -12,1041 +11,370 @@ from keras import backend as K
 import tensorflow as tf
 import keras.backend as K
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-K.tensorflow_backend.set_session(tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(allow_growth=True))))
+physical_devices = tf.config.experimental.list_physical_devices('GPU')
+if(len(physical_devices)>0):
+    tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 import uproot
 import numpy as np
-import matplotlib.pyplot as plt
-
+# import matplotlib.pyplot as plt
+from utils import style
 from sklearn.model_selection import train_test_split
+from numba import jit
+
+feature_names_all=[
+    "jet1Pt","jet1Eta","jet1Phi","jet1M","jet1BTag",
+    "jet2Pt","jet2Eta","jet2Phi","jet3M","jet2BTag",
+    "jet3Pt","jet3Eta","jet3Phi","jet3M","jet3BTag",
+    "ht","nBJets","mlbmin",
+    "l1j1DR","l2j1DR","l1j2DR","l2j2DR","l1j3DR","l2j3DR",
+    "j1j2DR","j1j3DR","l2j3DR",
+    "dilepPt","dilepEta","dilepPhi","dilepM",
+    "lep1Pt","lep1Eta","lep1Phi","lep1M",
+    "lep2Pt","lep2Eta","lep2Phi","lep2M",
+    "metPt","metPhi",
+    "lkr_rho","kr_rho",
+    "kr_ttbarPt","kr_ttbarEta","kr_ttbarPhi","kr_ttbarM",
+    "kr_topPt","kr_topEta","kr_topPhi",
+    "kr_atopPt","kr_atopEta","kr_atopPhi",
+    "kr_jetPt","kr_jetEta","kr_jetPhi","kr_jetM",
+    "llj1Pt","llj1Eta","llj1Phi","llj1M",
+    "llj2Pt","llj2Eta","llj2Phi","llj2M",
+    "llj3Pt","llj3Eta","llj3Phi","llj3M",
+    "l1j1Pt","l1j1Eta","l1j1Phi","l1j1M",
+    "l1j2Pt","l1j2Eta","l1j2Phi","l1j2M",
+    "l1j3Pt","l1j3Eta","l1j3Phi","l1j3M",
+    "l2j1Pt","l2j1Eta","l2j1Phi","l2j1M",
+    "l2j2Pt","l2j2Eta","l2j2Phi","l2j2M",
+    "l2j3Pt","l2j3Eta","l2j3Phi","l2j3M",
+    "njets",
+    "lkr_ttbarPt","lkr_ttbarEta","lkr_ttbarPhi","lkr_ttbarM",
+    "lkr_jetPt","lkr_jetEta","lkr_jetPhi","lkr_jetM",
+    "yearID", "channelID"
+]
+
+######################### CLASSIFICATION ##################################################################
+# class_labels = {
+#     "tt_signal": 0,
+#     "tt_signal_2": 0,
+#     "tt_signal_1": 1,
+#     "tt_signal_0": 2,
+#     # "tt_0jet": 1,
+#     "tt_background": 4,
+#     "DY": 5,
+#     # "singletop": 4,
+#     "other": 4,
+# }
+class_labels = {
+    "tt_signal": 0,
+    "tt_signal_3": 0,
+    "tt_signal_2": 1,
+    "tt_signal_1": 2,
+    "tt_signal_0": 3,
+    # "tt_0jet": 1,
+    "tt_background": 4,
+    "DY": 5,
+    # "singletop": 4,
+    "other": 4,
+}
 
-
-def doTraining(xData, yData, model, outputFolder, learning_rate=1e-4, batch_size=3500, epochs=50, splitFactor=0.33, index=0):
-
-	X_train, X_test, y_train, y_test = train_test_split(xData, yData, test_size=splitFactor)
-
-	optimizer = tf.keras.optimizers.Adam(lr=learning_rate)
-
-	metrics = [
-	    tf.keras.metrics.mean_squared_error,
-	    tf.keras.metrics.mean_absolute_error
-	]
-
-
-
-	model.compile(optimizer=optimizer, loss=keras.losses.MeanSquaredError(),metrics=metrics)
-	# model.compile(optimizer=optimizer, loss=keras.losses.mean_squared_error,metrics=metrics)
-
-
-	callbacks=[]
-
-	# reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-	# 	                              patience=5, min_lr=learning_rate/10.)
-	reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', patience=3)
-	earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss',patience=4)
-	if (('pretrain' in outputFolder) or ('training' in outputFolder)):
-		if not os.path.exists(outputFolder+"/model/checkpoints/"):
-			os.makedirs(outputFolder+"/model/checkpoints/")
-		checkpoint_path = outputFolder+"/model/checkpoints/cp.ckpt"
-		# checkpoint_dir = os.path.dirname(checkpoint_path)
-
-		# Create checkpoint callback
-		cp_callback = tf.keras.callbacks.ModelCheckpoint(checkpoint_path,
-														 save_weights_only=True,
-														 verbose=0)
-
-	callbacks.append(reduce_lr)
-	callbacks.append(earlyStop)
-	if (('pretrain' in outputFolder) or ('training' in outputFolder)):
-		callbacks.append(cp_callback)
-
-	print (y_train.shape)
-
-	fit = model.fit(
-	        X_train,
-	        y_train,
-	        validation_data=(X_test, y_test),
-	        batch_size=batch_size,
-	        epochs=epochs,
-	        # shuffle=True,
-	        shuffle=False,
-	        callbacks=callbacks,
-	verbose=1)
-
-
-	if (('pretrain' in outputFolder) or ('final' in outputFolder)):
-		addition = ''
-		folder_resultArrays = outputFolder+"/values/"
-		folder_resultPlots = outputFolder+"/plots/"
-	else:
-		addition = str(index)
-		folder_resultArrays = outputFolder+"/values/"+addition+"/"
-		folder_resultPlots = outputFolder+"/plots/"+addition+"/"
-	if not os.path.exists(folder_resultArrays):
-		os.makedirs(folder_resultArrays)
-	if not os.path.exists(folder_resultPlots):
-		os.makedirs(folder_resultPlots)
-
-	np.save(folder_resultArrays + 'loss.npy', fit.history["loss"])
-	np.save(folder_resultArrays + 'val_loss.npy', fit.history["val_loss"])
-	np.save(folder_resultArrays + 'mse.npy', fit.history["mean_squared_error"])
-	np.save(folder_resultArrays + 'val_mse.npy', fit.history["val_mean_squared_error"])
-	np.save(folder_resultArrays + 'mae.npy', fit.history["mean_absolute_error"])
-	np.save(folder_resultArrays + 'val_mae.npy', fit.history["val_mean_absolute_error"])
-
-
-	# plot loss
-	f = plt.figure()
-	plt.plot(fit.history["loss"])
-	plt.plot(fit.history["val_loss"])
-	plt.xlabel("epochs")
-	plt.ylabel("loss")
-	plt.legend(["training loss", "validation loss"], loc="best")
-	plt.grid()
-	f.savefig(folder_resultPlots +"loss.pdf")
-
-	# plot MSE
-	f = plt.figure()
-	plt.plot(fit.history["mean_squared_error"])
-	plt.plot(fit.history["val_mean_squared_error"])
-	plt.xlabel("epochs")
-	plt.ylabel("MSE")
-	plt.legend(["training MSE", "validation MSE"], loc="best")
-	plt.grid()
-	f.savefig(folder_resultPlots +"mse.pdf")
-
-	# plot MAE
-	f = plt.figure()
-	plt.plot(fit.history["mean_absolute_error"])
-	plt.plot(fit.history["val_mean_absolute_error"])
-	plt.xlabel("epochs")
-	plt.ylabel("MAE")
-	plt.legend(["training MAE", "validation MAE"], loc="best")
-	plt.grid()
-	f.savefig(folder_resultPlots +"mae.pdf")
-
-	return  np.min(fit.history["loss"]), \
-		np.min(fit.history["val_loss"]), \
-		np.min(fit.history["mean_squared_error"]), \
-		np.min(fit.history["val_mean_squared_error"]), \
-		np.min(fit.history["mean_absolute_error"]), \
-		np.min(fit.history["val_mean_absolute_error"])
-
-def doTrainingNew(xData1,xData2,xData3, yData, model, outputFolder, learning_rate=1e-4, batch_size=3500, epochs=50):
-
-
-
-	optimizer = tf.keras.optimizers.Adam(lr=learning_rate)
-
-
-	metrics = [
-	    tf.keras.metrics.mean_squared_error,
-	    tf.keras.metrics.mean_absolute_error
-	]
-
-
-	model.compile(optimizer=optimizer, loss=tf.keras.losses.mean_squared_error,metrics=metrics)
-
-
-	callbacks=[]
-
-	reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
-		                              patience=5, min_lr=learning_rate/10.)
-	earlyStop = tf.keras.callbacks.EarlyStopping(monitor='val_loss',patience=3)
-
-
-	callbacks.append(reduce_lr)
-	callbacks.append(earlyStop)
-
-
-	fit = model.fit(
-	        [xData1,xData2,xData3],
-	        yData,
-	        validation_split=0.33,
-	        batch_size=batch_size,
-	        epochs=epochs,
-	        # shuffle=True,
-	        shuffle=False,
-	        callbacks=callbacks,
-	verbose=1)
-
-
-	if (('pretrain' in outputFolder) or ('final' in outputFolder)):
-		addition = ''
-		folder_resultArrays = outputFolder+"/values/"
-		folder_resultPlots = outputFolder+"/plots/"
-	else:
-		addition = str(index)
-		folder_resultArrays = outputFolder+"/values/"+addition+"/"
-		folder_resultPlots = outputFolder+"/plots/"+addition+"/"
-	if not os.path.exists(folder_resultArrays):
-		os.makedirs(folder_resultArrays)
-	if not os.path.exists(folder_resultPlots):
-		os.makedirs(folder_resultPlots)
-
-
-def loadRhoData(path, treeName, nJets=20, maxEvents=0, normX=False, normY=False, normValue=170.):
-    eventInJet=[]
-    eventInOther=[]
-    eventOut=[]
-    eventNBJets=[]
-    eventNJets=[]
-    maxJets=nJets
-
-
-    f = ROOT.TFile.Open(path)
-    tree = f.Get(treeName)
-
-    print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
-
-    # passStep3 = np.array([0], dtype=np.float32)
-    passStep3 = np.array([0], dtype=bool)
-    tree.SetBranchAddress("passStep3", passStep3)
-
-
-    jetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_pt", ROOT.AddressOf(jetPt))
-
-    jetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_eta", ROOT.AddressOf(jetEta))
-
-    jetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_phi", ROOT.AddressOf(jetPhi))
-
-    jetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_m", ROOT.AddressOf(jetM))
-
-    jetBTagged = ROOT.std.vector('bool')()
-    tree.SetBranchAddress("jets_btag", ROOT.AddressOf(jetBTagged))
-
-    jetTopMatched = ROOT.std.vector('bool')()
-    tree.SetBranchAddress("jets_topMatched", ROOT.AddressOf(jetTopMatched))
-
-    genjetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("gen_additional_jets_pt", ROOT.AddressOf(genjetPt))
-
-    genjetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("gen_additional_jets_eta", ROOT.AddressOf(genjetEta))
-
-    genjetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("gen_additional_jets_phi", ROOT.AddressOf(genjetPhi))
-
-    genjetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("gen_additional_jets_m", ROOT.AddressOf(genjetM))
-
-    genrho = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_rho", genrho)
-
-
-
-    lepton1_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_pt", lepton1_pt)
-    lepton1_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_eta", lepton1_eta)
-    lepton1_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_phi", lepton1_phi)
-    lepton1_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_m", lepton1_m)
-
-    lepton2_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_pt", lepton2_pt)
-    lepton2_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_eta", lepton2_eta)
-    lepton2_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_phi", lepton2_phi)
-    lepton2_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_m", lepton2_m)
-
-    met_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_pt", met_pt)
-    met_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_phi", met_phi)
-
-    ##Loop over event tree
-    for i in range(tree.GetEntries()):
-        jets_info=[]
-        jets_matchInfo=[]
-        other_info=[]
-        tree.GetEntry(i)
-
-        if(i%100000==0):
-            print("Reading event: {}".format(i))
-
-        if(maxEvents!=0):
-        	if(i%maxEvents==0 and i!=0):
-        		break
-
-        pass3 = bool(passStep3)
-
-
-        if(pass3==True):
-            numJets = jetPt.size()
-            countB=0.
-            numGenJets = genjetPt.size()
-            if(numJets>1):
-                if(numGenJets>2 and genrho>0.):
-
-                    for idx in range(maxJets):
-                        jet=[]
-                        if(idx<numJets):
-                            jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-                            jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-                            jet.append(jet4.Px())
-                            jet.append(jet4.Py())
-                            jet.append(jet4.Pz())
-                            jet.append(jet4.E())
-
-                            bTagged=int(bool(jetBTagged[idx]))
-                            jet.append(bTagged)
-                            # jets_matchInfo.append(int(bool(jetTopMatched[idx])))
-                            countB=countB+bTagged
-                        else:
-                            jet.append(0.)
-                            jet.append(0.)
-                            jet.append(0.)
-                            jet.append(0.)
-                            jet.append(0.)
-                            jets_matchInfo.append(0.)
-                        jets_info.append(jet)
-                    eventNJets.append(numJets)
-                    eventNBJets.append(countB)
-
-                    lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lep1.SetPtEtaPhiM(lepton1_pt,lepton1_eta,lepton1_phi,lepton1_m)
-                    lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lep2.SetPtEtaPhiM(lepton2_pt,lepton2_eta,lepton2_phi,lepton2_m)
-                    met=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    met.SetPtEtaPhiM(met_pt,0.,met_phi,0.)
-
-                    l1=[]
-                    l2=[]
-                    miss=[]
-                    l1.append(lep1.Px())
-                    l1.append(lep1.Py())
-                    l1.append(lep1.Pz())
-                    l1.append(lep1.E())
-
-                    l2.append(lep2.Px())
-                    l2.append(lep2.Py())
-                    l2.append(lep2.Pz())
-                    l2.append(lep2.E())
-
-                    miss.append(met.Px())
-                    miss.append(met.Py())
-                    miss.append(met.Pz())
-                    miss.append(met.E())
-
-                    other_info.append(l1)
-                    other_info.append(l2)
-                    other_info.append(miss)
-
-                    eventInJet.append(jets_info)
-                    eventInOther.append(other_info)
-                    eventOut.append(genrho[0])
-    return eventInJet,eventInOther,eventOut,eventNJets,eventNBJets
-
-def loadRhoDataFlat(path, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False):
-    eventInJet=[]
-    eventOut=[]
-    weights=[]
-    maxJets=nJets
-
-    f = ROOT.TFile.Open(path)
-    tree = f.Get(treeName)
-
-    print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
-
-    passStep3 = np.array([0], dtype=bool)
-    tree.SetBranchAddress("passStep3", passStep3)
-
-    hasKinRecoSolution = np.array([0], dtype=bool)
-    tree.SetBranchAddress("hasKinRecoSolution", hasKinRecoSolution)
-
-    hasLooseKinRecoSolution = np.array([0], dtype=bool)
-    tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
-
-    jetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_pt", ROOT.AddressOf(jetPt))
-    jetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_eta", ROOT.AddressOf(jetEta))
-    jetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_phi", ROOT.AddressOf(jetPhi))
-    jetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_m", ROOT.AddressOf(jetM))
-
-    bjetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("bjets_pt", ROOT.AddressOf(bjetPt))
-    bjetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("bjets_eta", ROOT.AddressOf(bjetEta))
-    bjetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("bjets_phi", ROOT.AddressOf(bjetPhi))
-    bjetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("bjets_m", ROOT.AddressOf(bjetM))
-
-    lkr_nonbjetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_pt", ROOT.AddressOf(lkr_nonbjetPt))
-    lkr_nonbjetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_eta", ROOT.AddressOf(lkr_nonbjetEta))
-    lkr_nonbjetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_phi", ROOT.AddressOf(lkr_nonbjetPhi))
-    lkr_nonbjetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_m", ROOT.AddressOf(lkr_nonbjetM))
-
-    kr_nonbjetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_pt", ROOT.AddressOf(kr_nonbjetPt))
-    kr_nonbjetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_eta", ROOT.AddressOf(kr_nonbjetEta))
-    kr_nonbjetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_phi", ROOT.AddressOf(kr_nonbjetPhi))
-    kr_nonbjetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_m", ROOT.AddressOf(kr_nonbjetM))
-
-    # jetBTagged = ROOT.std.vector('bool')()
-    # tree.SetBranchAddress("jets_btag", ROOT.AddressOf(jetBTagged))
-
-    # jetCharge = ROOT.std.vector('float')()
-    # tree.SetBranchAddress("jets_charge", ROOT.AddressOf(jetCharge))
-
-    # jetTopMatched = ROOT.std.vector('bool')()
-    # tree.SetBranchAddress("jets_topMatched", ROOT.AddressOf(jetTopMatched))
-
-    genjetPt = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_pt", genjetPt)
-
-    genjetEta = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_eta", genjetEta)
-
-    genjetPhi = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_phi", genjetPhi)
-
-    genjetM = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_m", genjetM)
-
-    genjetWithNuPt = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_withNu_pt", genjetWithNuPt)
-
-    genjetWithNuEta = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_withNu_eta", genjetWithNuEta)
-
-    genjetWithNuPhi = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_withNu_phi", genjetWithNuPhi)
-
-    genjetWithNuM = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_additional_jet_withNu_m", genjetWithNuM)
-
-    # genjetPt = ROOT.std.vector('float')()
-    # tree.SetBranchAddress("gen_additional_jets_pt", ROOT.AddressOf(genjetPt))
-    #
-    # genjetEta = ROOT.std.vector('float')()
-    # tree.SetBranchAddress("gen_additional_jets_eta", ROOT.AddressOf(genjetEta))
-    #
-    # genjetPhi = ROOT.std.vector('float')()
-    # tree.SetBranchAddress("gen_additional_jets_phi", ROOT.AddressOf(genjetPhi))
-    #
-    # genjetM = ROOT.std.vector('float')()
-    # tree.SetBranchAddress("gen_additional_jets_m", ROOT.AddressOf(genjetM))
-
-    genrho = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_rho", genrho)
-    genrhoWithNu = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_rhoWithNu", genrhoWithNu)
-
-    weight = np.array([0], dtype='d')
-    tree.SetBranchAddress("weight", weight)
-    leptonSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("leptonSF", leptonSF)
-    btagSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("btagSF", btagSF)
-    pileupSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("pileupSF", pileupSF)
-    prefiringWeight = np.array([0], dtype='d')
-    tree.SetBranchAddress("l1PrefiringWeight", prefiringWeight)
-
-
-
-    lepton1_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_pt", lepton1_pt)
-    lepton1_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_eta", lepton1_eta)
-    lepton1_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_phi", lepton1_phi)
-    lepton1_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_m", lepton1_m)
-
-    lepton2_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_pt", lepton2_pt)
-    lepton2_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_eta", lepton2_eta)
-    lepton2_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_phi", lepton2_phi)
-    lepton2_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_m", lepton2_m)
-
-    met_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_pt", met_pt)
-    met_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_phi", met_phi)
-    met_significance =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_significance", met_significance)
-
-    kinReco_top_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
-    kinReco_top_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_eta", kinReco_top_eta)
-    kinReco_top_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_phi", kinReco_top_phi)
-    kinReco_top_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_m", kinReco_top_m)
-
-    kinReco_antitop_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_pt", kinReco_antitop_pt)
-    kinReco_antitop_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_eta", kinReco_antitop_eta)
-    kinReco_antitop_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_phi", kinReco_antitop_phi)
-    kinReco_antitop_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_m", kinReco_antitop_m)
-
-    looseKinReco_ttbar_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_pt", looseKinReco_ttbar_pt)
-    looseKinReco_ttbar_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_eta", looseKinReco_ttbar_eta)
-    looseKinReco_ttbar_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_phi", looseKinReco_ttbar_phi)
-    looseKinReco_ttbar_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
-    looseKinReco_ttbar_m =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_nonbjets)
-
-    from progress.bar import IncrementalBar
-
-    if maxEvents!=0:
-        maxEntries = maxEvents
-    else:
-        maxEntries = tree.GetEntries()
-
-    maxForBar = int(maxEntries/200000)
-
-    bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
-    # bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%%')
-
-    for i in range(tree.GetEntries()):
-
-        jets_info=[]
-        jets_matchInfo=[]
-        other_info=[]
-        tree.GetEntry(i)
-        totWeight=1.
-
-        if(i%200000==0):
-            bar.next()
-        # if(i%200000==0):
-            # if maxEvents == 0:
-            #     percentage = np.round(float(i)/float(tree.GetEntries())*100.,2)
-            # else:
-            #     percentage = np.round(float(i)/float(maxEvents)*100.,2)
-            # percentage = np.round(float(i)/float(maxEvents)*100.,2)
-            # print("Reading event: {} | {} %".format(i, percentage))
-
-        if(maxEvents!=0):
-        	if(i%maxEvents==0 and i!=0):
-        		break
-
-        pass3= bool(passStep3)
-        haskrs = bool(hasKinRecoSolution)
-        haslkrs = bool(hasLooseKinRecoSolution)
-        # totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-        totWeight=btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-
-
-
-        if(pass3==True):
-            numJets = jetPt.size()
-            countB=0.
-            # numGenJets = genjetPt.size()
-            # if(numJets>1):
-            if(numJets>2):
-                # if(numGenJets>2 and genrho>0.):
-                # if(numGenJets>0 and genrho>0.):
-                if(genrhoWithNu>0. and genjetWithNuPt>20. and abs(genjetWithNuEta)<2.4):
-                # if(genrho>0. and genjetPt>20. and abs(genjetEta)<2.4):
-
-                    jets = []
-                    for idx in range(maxJets):
-                        if(idx<numJets):
-                            jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-                            jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-                            jets_info.append(jet4.Px())
-                            jets_info.append(jet4.Py())
-                            jets_info.append(jet4.Pz())
-                            jets_info.append(jet4.E())
-                            jets.append(jet4)
-                            # bTagged=int(bool(jetBTagged[idx]))
-                            # if withBTag:
-                            #     jets_info.append(bTagged)
-                            # if withCharge:
-                            #     jets_info.append(jetCharge[idx])
-                        else:
-                            jets_info.append(0.)
-                            jets_info.append(0.)
-                            jets_info.append(0.)
-                            jets_info.append(0.)
-                            # if withBTag:
-                            #     jets_info.append(0.)
-                            # if withCharge:
-                            #     jets_info.append(0.)
-                    weights.append(totWeight)
-
-                    lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lep1.SetPtEtaPhiM(lepton1_pt,lepton1_eta,lepton1_phi,lepton1_m)
-                    lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lep2.SetPtEtaPhiM(lepton2_pt,lepton2_eta,lepton2_phi,lepton2_m)
-                    met=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    met.SetPtEtaPhiM(met_pt,0.,met_phi,0.)
-
-                    kr_top=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    kr_top.SetPtEtaPhiM(kinReco_top_pt,kinReco_top_eta,kinReco_top_phi,kinReco_top_m)
-                    kr_antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt,kinReco_antitop_eta,kinReco_antitop_phi,kinReco_antitop_m)
-                    kr_ttbar= kr_antitop + kr_top
-                    lkr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lkr_ttbar.SetPtEtaPhiM(looseKinReco_ttbar_pt,looseKinReco_ttbar_eta,looseKinReco_ttbar_phi,looseKinReco_ttbar_m)
-
-                    lkr_rho=0.
-                    kr_rho=0.
-                    kr_foundAddjet = False
-                    lkr_foundAddjet = False
-                    for idx in range(lkr_nonbjetPt.size()):
-                        if (lkr_foundAddjet) == False:
-                            lkr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-                            lkr_jettemp.SetPtEtaPhiM(lkr_nonbjetPt[idx],lkr_nonbjetEta[idx],lkr_nonbjetPhi[idx],lkr_nonbjetM[idx])
-                            # if (lkr_jettemp.Pt()>50. and abs(lkr_jettemp.Eta())<2.4):
-                            if (lkr_jettemp.Pt()>0. and abs(lkr_jettemp.Eta())<9.):
-                                lkr_rho = 340./(lkr_jettemp+lkr_ttbar).M()
-                    for idx in range(kr_nonbjetPt.size()):
-                        if (kr_foundAddjet) == False:
-                            kr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-                            kr_jettemp.SetPtEtaPhiM(kr_nonbjetPt[idx],kr_nonbjetEta[idx],kr_nonbjetPhi[idx],kr_nonbjetM[idx])
-                            # if (kr_jettemp.Pt()>50. and abs(kr_jettemp.Eta())<2.4):
-                            if (kr_jettemp.Pt()>0. and abs(kr_jettemp.Eta())<9.):
-                                kr_rho = 340./(kr_jettemp+kr_ttbar).M()
-
-                    mlb_min = 999.
-                    comb = 999
-                    comb1 = 999
-                    comb2 = 999
-                    for i in range(bjetPt.size()):
-                        bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-                        bjettemp.SetPtEtaPhiM(bjetPt[i],bjetEta[i],bjetPhi[i],bjetM[i])
-                        comb1 = (lep1+bjettemp).M()
-                        comb2 = (lep2+bjettemp).M()
-                        comb = comb1 if comb1<comb2 else comb2
-                        if(comb<mlb_min):
-                            mlb_min=comb
-                    if mlb_min == 999:
-                        mlb_min = 0.
-
-                    dR_lepton1_jet1 = lep1.DeltaR(jets[0])
-                    dR_lepton1_jet2 = lep1.DeltaR(jets[1])
-                    dR_lepton1_jet3 = lep1.DeltaR(jets[2])
-                    dR_lepton2_jet1 = lep2.DeltaR(jets[0])
-                    dR_lepton2_jet2 = lep2.DeltaR(jets[1])
-                    dR_lepton2_jet3 = lep2.DeltaR(jets[2])
-
-                    dR_jet1_jet2 = jets[0].DeltaR(jets[1])
-                    dR_jet1_jet3 = jets[0].DeltaR(jets[2])
-                    dR_jet2_jet3 = jets[1].DeltaR(jets[2])
-
-                    # jets_info.append(mlb_min)
-                    # jets_info.append(dR_lepton1_jet1)
-                    # jets_info.append(dR_lepton1_jet2)
-                    # jets_info.append(dR_lepton1_jet3)
-                    # jets_info.append(dR_lepton2_jet1)
-                    # jets_info.append(dR_lepton2_jet2)
-                    # jets_info.append(dR_lepton2_jet3)
-                    # jets_info.append(dR_jet1_jet2)
-                    # jets_info.append(dR_jet1_jet3)
-                    # jets_info.append(dR_jet2_jet3)
-                    #
-                    jets_info.append(lep1.Px())
-                    jets_info.append(lep1.Py())
-                    jets_info.append(lep1.Pz())
-                    jets_info.append(lep1.E())
-
-                    jets_info.append(lep2.Px())
-                    jets_info.append(lep2.Py())
-                    jets_info.append(lep2.Pz())
-                    jets_info.append(lep2.E())
-                    #
-                    # jets_info.append(met.Px())
-                    # jets_info.append(met.Py())
-                    # jets_info.append(met.Pz())
-                    jets_info.append(met.E())
-
-                    jets_info.append(met_significance[0])
-
-                    # print (kr_rho, lkr_rho)
-
-                    # if (haslkrs and not np.isnan(lkr_rho)):
-                    #     jets_info.append(lkr_rho)
-                    # else:
-                    #     jets_info.append(0.)
-                    # if (haskrs and not np.isnan(kr_rho)):
-                    #     jets_info.append(kr_rho)
-                    # else:
-                    #     jets_info.append(0.)
-
-                    # print ("----")
-                    # print (jets_info)
-                    eventInJet.append(jets_info)
-                    # eventOut.append(genrho[0])
-                    eventOut.append(genrhoWithNu[0])
-    return eventInJet,eventOut,weights
-
-def loadMassDataFlat(path, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False):
-    eventInJet=[]
-    eventOut=[]
-    weights=[]
-    maxJets=nJets
-
-    f = ROOT.TFile.Open(path)
-    tree = f.Get(treeName)
-
-    print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
-
-    passStep3 = np.array([0], dtype=bool)
-    tree.SetBranchAddress("passStep3", passStep3)
-
-    hasKinRecoSolution = np.array([0], dtype=bool)
-    tree.SetBranchAddress("hasKinRecoSolution", hasKinRecoSolution)
-
-    hasLooseKinRecoSolution = np.array([0], dtype=bool)
-    tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
-
-    jetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_pt", ROOT.AddressOf(jetPt))
-
-    jetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_eta", ROOT.AddressOf(jetEta))
-
-    jetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_phi", ROOT.AddressOf(jetPhi))
-
-    jetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_m", ROOT.AddressOf(jetM))
-
-    lkr_nonbjetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_pt", ROOT.AddressOf(lkr_nonbjetPt))
-    lkr_nonbjetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_eta", ROOT.AddressOf(lkr_nonbjetEta))
-    lkr_nonbjetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_phi", ROOT.AddressOf(lkr_nonbjetPhi))
-    lkr_nonbjetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("looseKinReco_nonbjets_m", ROOT.AddressOf(lkr_nonbjetM))
-
-    kr_nonbjetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_pt", ROOT.AddressOf(kr_nonbjetPt))
-    kr_nonbjetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_eta", ROOT.AddressOf(kr_nonbjetEta))
-    kr_nonbjetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_phi", ROOT.AddressOf(kr_nonbjetPhi))
-    kr_nonbjetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("kinReco_nonbjets_m", ROOT.AddressOf(kr_nonbjetM))
-
-    # jetBTagged = ROOT.std.vector('bool')()
-    # tree.SetBranchAddress("jets_btag", ROOT.AddressOf(jetBTagged))
-
-    # jetCharge = ROOT.std.vector('float')()
-    # tree.SetBranchAddress("jets_charge", ROOT.AddressOf(jetCharge))
-
-    # jetTopMatched = ROOT.std.vector('bool')()
-    # tree.SetBranchAddress("jets_topMatched", ROOT.AddressOf(jetTopMatched))
-
-    gen_top_pt = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_top_pt", gen_top_pt)
-    gen_top_eta = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_top_eta", gen_top_eta)
-    gen_top_phi = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_top_phi", gen_top_phi)
-    gen_top_m = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_top_m", gen_top_m)
-
-    gen_antitop_pt = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_antitop_pt", gen_antitop_pt)
-    gen_antitop_eta = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_antitop_eta", gen_antitop_eta)
-    gen_antitop_phi = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_antitop_phi", gen_antitop_phi)
-    gen_antitop_m = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_antitop_m", gen_antitop_m)
-
-    weight = np.array([0], dtype='d')
-    tree.SetBranchAddress("weight", weight)
-    leptonSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("leptonSF", leptonSF)
-    btagSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("btagSF", btagSF)
-    pileupSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("pileupSF", pileupSF)
-    prefiringWeight = np.array([0], dtype='d')
-    tree.SetBranchAddress("l1PrefiringWeight", prefiringWeight)
-
-
-
-    lepton1_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_pt", lepton1_pt)
-    lepton1_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_eta", lepton1_eta)
-    lepton1_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_phi", lepton1_phi)
-    lepton1_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_m", lepton1_m)
-
-    lepton2_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_pt", lepton2_pt)
-    lepton2_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_eta", lepton2_eta)
-    lepton2_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_phi", lepton2_phi)
-    lepton2_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_m", lepton2_m)
-
-    met_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_pt", met_pt)
-    met_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_phi", met_phi)
-
-    kinReco_top_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
-    kinReco_top_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_eta", kinReco_top_eta)
-    kinReco_top_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_phi", kinReco_top_phi)
-    kinReco_top_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_m", kinReco_top_m)
-
-    kinReco_antitop_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_pt", kinReco_antitop_pt)
-    kinReco_antitop_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_eta", kinReco_antitop_eta)
-    kinReco_antitop_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_phi", kinReco_antitop_phi)
-    kinReco_antitop_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_m", kinReco_antitop_m)
-
-    looseKinReco_ttbar_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_pt", looseKinReco_ttbar_pt)
-    looseKinReco_ttbar_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_eta", looseKinReco_ttbar_eta)
-    looseKinReco_ttbar_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_phi", looseKinReco_ttbar_phi)
-    looseKinReco_ttbar_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
-    looseKinReco_ttbar_m =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_nonbjets)
-
-    from progress.bar import IncrementalBar
-
-    if maxEvents!=0:
-        maxEntries = maxEvents
-    else:
-        maxEntries = tree.GetEntries()
-
-    maxForBar = int(maxEntries/200000)
-
-    bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
-    # bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%%')
-
-    for i in range(tree.GetEntries()):
-
-        jets_info=[]
-        jets_matchInfo=[]
-        other_info=[]
-        tree.GetEntry(i)
-        totWeight=1.
-
-        if(i%200000==0):
-            bar.next()
-
-        if(maxEvents!=0):
-        	if(i%maxEvents==0 and i!=0):
-        		break
-
-        pass3= bool(passStep3)
-        haskrs = bool(hasKinRecoSolution)
-        haslkrs = bool(hasLooseKinRecoSolution)
-        totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-        # totWeight=btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-
-        if(pass3==True):
-            numJets = jetPt.size()
-            countB=0.
-            # numGenJets = genjetPt.size()
-            if(numJets>1):
-                if(True):
-
-                    for idx in range(maxJets):
-                        if(idx<numJets):
-                            jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-                            jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-                            jets_info.append(jet4.Px())
-                            jets_info.append(jet4.Py())
-                            jets_info.append(jet4.Pz())
-                            jets_info.append(jet4.E())
-
-                            # bTagged=int(bool(jetBTagged[idx]))
-                            # if withBTag:
-                            #     jets_info.append(bTagged)
-                            # if withCharge:
-                            #     jets_info.append(jetCharge[idx])
-                        else:
-                            jets_info.append(0.)
-                            jets_info.append(0.)
-                            jets_info.append(0.)
-                            jets_info.append(0.)
-                            # if withBTag:
-                            #     jets_info.append(0.)
-                            # if withCharge:
-                            #     jets_info.append(0.)
-                    weights.append(totWeight)
-
-                    gen_top = ROOT.TLorentzVector(0.,0.,0.,0.)
-                    gen_top.SetPtEtaPhiM(gen_top_pt, gen_top_eta, gen_top_phi, gen_top_m)
-                    gen_antitop = ROOT.TLorentzVector(0.,0.,0.,0.)
-                    gen_antitop.SetPtEtaPhiM(gen_antitop_pt, gen_antitop_eta, gen_antitop_phi, gen_antitop_m)
-                    gen_ttbarM = (gen_top+gen_antitop).M()
-
-                    lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lep1.SetPtEtaPhiM(lepton1_pt,lepton1_eta,lepton1_phi,lepton1_m)
-                    lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lep2.SetPtEtaPhiM(lepton2_pt,lepton2_eta,lepton2_phi,lepton2_m)
-                    met=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    met.SetPtEtaPhiM(met_pt,0.,met_phi,0.)
-
-                    kr_top=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    kr_top.SetPtEtaPhiM(kinReco_top_pt,kinReco_top_eta,kinReco_top_phi,kinReco_top_m)
-                    kr_antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt,kinReco_antitop_eta,kinReco_antitop_phi,kinReco_antitop_m)
-                    kr_ttbar= kr_antitop + kr_top
-                    lkr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-                    lkr_ttbar.SetPtEtaPhiM(looseKinReco_ttbar_pt,looseKinReco_ttbar_eta,looseKinReco_ttbar_phi,looseKinReco_ttbar_m)
-
-                    lkr_mass=lkr_ttbar.M()
-                    kr_mass=kr_ttbar.M()
-
-                    jets_info.append(lep1.Px())
-                    jets_info.append(lep1.Py())
-                    jets_info.append(lep1.Pz())
-                    jets_info.append(lep1.E())
-
-                    jets_info.append(lep2.Px())
-                    jets_info.append(lep2.Py())
-                    jets_info.append(lep2.Pz())
-                    jets_info.append(lep2.E())
-
-                    # jets_info.append(met.Px())
-                    # jets_info.append(met.Py())
-                    # jets_info.append(met.Pz())
-                    jets_info.append(met.E())
-
-
-                    # if (haslkrs and np.isnan(lkr_mass)):
-                    #     jets_info.append(lkr_mass)
-                    # else:
-                    #     jets_info.append(0.)
-                    # if (haskrs and np.isnan(kr_mass)):
-                    #     jets_info.append(kr_mass)
-                    # else:
-                    #     jets_info.append(0.)
-
-                    eventInJet.append(jets_info)
-                    eventOut.append(gen_ttbarM)
-    return eventInJet,eventOut,weights
-
-# def correlation_coefficient_loss(y_true, y_pred):
-#     x = y_true
-#     y = y_pred
-#     mx = K.mean(x)
-#     my = K.mean(y)
-#     xm, ym = x-mx, y-my
-#     r_num = K.sum(tf.multiply(xm,ym))
-#     r_den = K.sqrt(tf.multiply(K.sum(K.square(xm)), K.sum(K.square(ym))))
-#     r = r_num / r_den
 #
-#     r = K.maximum(K.minimum(r, 1.0), -1.0)
-#     # print (1. - K.square(r))
-#     return 1. - K.square(r)
-# def correlationLoss(x,y, axis=-2):
-# def correlation_coefficient_loss(x,y,sample_weight=None, axis=-2):
-# def correlation_coefficient_loss(x,y, axis=-2):
-def correlation_coefficient_loss(y_true,y_pred,sample_weight=None, axis=-2):
-  """Loss function that maximizes the pearson correlation coefficient between the predicted values and the labels,
-  while trying to have the same mean and variance"""
-  x=y_true
-  y=y_pred
+def getCrossSectionWeight(filename, eventsRead, lumi=30000., year = None):
+    # topxsec = 831.76
+    topxsec = 830.91
 
-  x = tf.convert_to_tensor(x)
-  # y = tf.math_ops.cast(y, x.dtype)
-  y = tf.cast(y, x.dtype)
-  n = tf.cast(tf.shape(x)[axis], x.dtype)
-  xsum = tf.reduce_sum(x, axis=axis)
-  ysum = tf.reduce_sum(y, axis=axis)
-  xmean = xsum / n
-  ymean = ysum / n
-  xsqsum = tf.reduce_sum( tf.squared_difference(x, xmean), axis=axis)
-  ysqsum = tf.reduce_sum( tf.squared_difference(y, ymean), axis=axis)
-  cov = tf.reduce_sum( (x - xmean) * (y - ymean), axis=axis)
-  corr = cov / tf.sqrt(xsqsum * ysqsum)
-  # absdif = tmean(tf.abs(x - y), axis=axis) / tf.sqrt(yvar)
-  sqdif = tf.reduce_sum(tf.squared_difference(x, y), axis=axis) / n / tf.sqrt(ysqsum / n)
-  # meandif = tf.abs(xmean - ymean) / tf.abs(ymean)
-  # vardif = tf.abs(xvar - yvar) / yvar
-  # return tf.convert_to_tensor( K.mean(tf.constant(1.0, dtype=x.dtype) - corr + (meandif * 0.01) + (vardif * 0.01)) , dtype=tf.float32 )
-  return tf.convert_to_tensor( K.mean(tf.constant(1.0, dtype=x.dtype) - corr + (0.01 * sqdif)) , dtype=tf.float32 )
+    f = ROOT.TFile.Open(filename,"READ")
+    h = f.Get("weightedEvents")
+    h.SetDirectory(0)
+    nEventsTotal = h.GetBinContent(1)
+    nEventsTree = f.Get("miniTree").GetEntries()
 
+    eventFraction = eventsRead/nEventsTree if nEventsTree > 0. else 0.
+    if eventFraction>1.:
+        eventFraction=1.
 
-def loadTaggerData(path, treeName, nJets=20, maxEvents=0, normX=False, normY=False, normValue=170.):
-    ##Initliaze all containers
-    # jets_info=[]
-    # jets_matchInfo=[]
-    # other_info=[]
+    xSec = 1.
+    if ("run" in filename):
+        xSec = 1.
+    elif ("fromDilepton" in filename):
+        xSec = topxsec * 0.10706
+    elif ("fromLjets" in filename):
+        xSec = topxsec * 0.44113
+    elif ("fromHadronic" in filename):
+        xSec = topxsec * 0.45441
+    elif ("ttbar" in filename and not "ttbarW" in filename and not "ttbarZ" in filename):
+        xSec = topxsec
+    elif ("single" in filename and "tw" in filename and "NoFullyHadronicDecays" in filename):
+        xSec = (35.85*(1 - 0.45441))
+    elif ("single" in filename and "tw" in filename):
+        xSec = (35.85)
+    elif ("singletop" in filename and "_t" in filename):
+        xSec = (136.02)
+    elif ("singleantitop" in filename and "_t" in filename):
+        xSec = (80.95)
+    elif ("single" in filename and "_s" in filename):
+        xSec = (10.32)
+    elif ("ww" in filename):
+        xSec = 118.7
+    elif ("wz" in filename):
+        xSec = 47.13
+    elif ("zz" in filename):
+        xSec = 16.523
+    elif ("1050" in filename):
+        xSec = 18610.
+    elif ("0j_amcatnlofxfx" in filename):
+        xSec = 4620.52
+    elif ("1j_amcatnlofxfx" in filename):
+        xSec = 859.59
+    elif ("2j_amcatnlofxfx" in filename):
+        xSec = 338.26
+    elif ("50inf_ht0040to0070" in filename):
+        xSec = 310.7*1.23
+    elif ("50inf_ht0070to0100" in filename):
+        xSec = 169.9*1.23
+        if year=="2016": xSec = xSec*0.889
+        elif year=="2017": xSec = xSec*0.799
+        elif year=="2018": xSec = xSec*0.801
+    elif ("50inf_ht0100to0200" in filename):
+        xSec = 147.40*1.23
+        if year=="2016": xSec = xSec*1.012
+        elif year=="2017": xSec = xSec*1.012
+        elif year=="2018": xSec = xSec*1.002
+    elif ("50inf_ht0200to0400" in filename):
+        xSec = 40.99*1.23
+        if year=="2016": xSec = xSec*1.004
+        elif year=="2017": xSec = xSec*1.096
+        elif year=="2018": xSec = xSec*1.09
+    elif ("50inf_ht0400to0600" in filename):
+        xSec = 5.678*1.23
+        if year=="2016": xSec = xSec*0.995
+        elif year=="2017": xSec = xSec*1.12
+        elif year=="2018": xSec = xSec*1.13
+    elif ("50inf_ht0600to0800" in filename):
+        xSec = 1.367*1.23
+        if year=="2016": xSec = xSec*0.99
+        elif year=="2017": xSec = xSec*1.16
+        elif year=="2018": xSec = xSec*1.16
+    elif ("50inf_ht0800to1200" in filename):
+        xSec = 0.6304*1.23
+        if year=="2016": xSec = xSec*0.97
+        elif year=="2017": xSec = xSec*1.06
+        elif year=="2018": xSec = xSec*1.095
+    elif ("50inf_ht1200to2500" in filename):
+        xSec = 0.1514*1.23
+        if year=="2016": xSec = xSec*1.0
+        elif year=="2017": xSec = xSec*1.27
+        elif year=="2018": xSec = xSec*1.27
+    elif ("50inf_ht2500toINFT" in filename):
+        xSec = 0.003565*1.23
+        if year=="2016": xSec = xSec*0.72
+        elif year=="2017": xSec = xSec*0.65
+        elif year=="2018": xSec = xSec*0.67
+    elif ("50inf" in filename):
+        xSec = 6077.22
+    elif ("wtolnu" in filename):
+        xSec = 61526.7
+    elif ("ttgjets" in filename):
+        xSec = 3.697
+    elif ("ttbarWjetstolnu" in filename):
+        xSec = 0.2043
+    elif ("ttbarWjetstoqq" in filename):
+        xSec = 0.4062
+    elif ("ttbarZtollnunu" in filename):
+        xSec = 0.2529
+    elif ("ttbarZtoqq" in filename):
+        xSec = 0.5297
+    else:
+        print ("SHOULD NOT BE HERE")
+        xSec=1.
+
+    print ("Getting xsec weight for",filename,":")
+    print ("lumi:",lumi," xSec:",xSec,"nEventsTotal",nEventsTotal,"nEventsTree",nEventsTree,"eventsRead",eventsRead,"eventFraction",eventFraction)
+    print("->",lumi * xSec / nEventsTotal / eventFraction if nEventsTotal>0. and eventFraction>0 else 0.)
+    f.Close()
+    return lumi * xSec / nEventsTotal / eventFraction if nEventsTotal >0. and eventFraction>0 else 0.
+
+def getClassOneHot(label):
+    if label==0:
+        return [1,0,0]
+    elif label==1:
+        return [0,1,0]
+    else:
+        return [0,0,1]
+
+def getClassLabelFromFilename(filename):
+    if "dy" in filename:
+        return class_labels["DY"]
+    elif "amcatnlofxfx" in filename or "fromDilepton" in filename:
+        return -1
+    else:
+        return class_labels["tt_background"]
+
+# @jit
+def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False):
     eventInJet=[]
-    eventInOther=[]
     eventOut=[]
+    weights=[]
+    lumiWeight=[]
     maxJets=nJets
 
+    decideOnTheFly = False
+    classLabel = getClassLabelFromFilename(filename)
+    if classLabel < 0: #is ttbar file, decide on the fly
+        decideOnTheFly = True
+
+    print ("classLabel",classLabel)
+    print ("decideOnTheFly",decideOnTheFly)
+    isEMuChannel = False
+    if ("emu_") in filename:
+        isEMuChannel = True
+    print ("IsEMUChannel",isEMuChannel)
+
+    doDYCut = False
+    if "50inf.root" in filename:
+        doDYCut = True
+    print ("doDYCut",doDYCut)
 
     f = ROOT.TFile.Open(path)
-
-
     tree = f.Get(treeName)
 
-    print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
+    channel = None
+    channelID = None
+    year = None
+    yearID = None
 
-    # passStep3 = np.array([0], dtype=np.float32)
+    if ("emu_") in filename:
+        isEMuChannel = True
+        channel = "emu"
+        channelID = 0
+    elif ("mumu_") in filename:
+        channel = "mumu"
+        channelID = -1
+    elif ("ee_") in filename:
+        channel = "ee"
+        channelID = 1
+
+    if ("/2016/") in path:
+        year = "2016"
+        yearID = -1
+    elif ("/2017/") in path:
+        year = "2017"
+        yearID = 0
+    elif ("/2018/") in path:
+        year = "2018"
+        yearID = 1
+
+    print (path, filename, year, yearID, channel, channelID)
+    print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
+    tree.SetBranchStatus("*",1)
+    # tree.SetBranchStatus("var_*",0)
+    # if (classLabel>1):
+    # if (classLabel>2):
+    # if (classLabel>4):
+    #     tree.SetBranchStatus("gen_*",0)
+    # else:
+    #     tree.SetBranchStatus("gen_*",1)
+
     passStep3 = np.array([0], dtype=bool)
     tree.SetBranchAddress("passStep3", passStep3)
 
-    jetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_pt", ROOT.AddressOf(jetPt))
+    hasKinRecoSolution = np.array([0], dtype=bool)
+    tree.SetBranchAddress("hasKinRecoSolution", hasKinRecoSolution)
 
-    jetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_eta", ROOT.AddressOf(jetEta))
+    hasLooseKinRecoSolution = np.array([0], dtype=bool)
+    tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
 
-    jetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_phi", ROOT.AddressOf(jetPhi))
+    # njets = np.array([0]*20, dtype='uint')
+    njets = np.array([0], dtype='uint')
+    tree.SetBranchAddress("n_jets", njets)
+    jetPt = np.array([0]*20, dtype='f')
+    tree.SetBranchAddress("jets_pt", jetPt)
+    jetEta = np.array([0]*20, dtype='f')
+    tree.SetBranchAddress("jets_eta", jetEta)
+    jetPhi = np.array([0]*20, dtype='f')
+    tree.SetBranchAddress("jets_phi", jetPhi)
+    jetM = np.array([0]*20, dtype='f')
+    tree.SetBranchAddress("jets_m", jetM)
 
-    jetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_m", ROOT.AddressOf(jetM))
+    lkr_nonbjetPt = np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_nonbjet_pt", lkr_nonbjetPt)
+    lkr_nonbjetEta = np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_nonbjet_eta", lkr_nonbjetEta)
+    lkr_nonbjetPhi = np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_nonbjet_phi", lkr_nonbjetPhi)
+    lkr_nonbjetM = np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_nonbjet_m", lkr_nonbjetM)
+    lkr_rho = np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_rho", lkr_rho)
 
-    jetBTagged = ROOT.std.vector('bool')()
-    tree.SetBranchAddress("jets_btag", ROOT.AddressOf(jetBTagged))
+    kr_nonbjetPt = np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_nonbjet_pt", kr_nonbjetPt)
+    kr_nonbjetEta = np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_nonbjet_eta", kr_nonbjetEta)
+    kr_nonbjetPhi = np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_nonbjet_phi", kr_nonbjetPhi)
+    kr_nonbjetM = np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_nonbjet_m", kr_nonbjetM)
+    kr_rho = np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_rho", kr_rho)
 
-    jetCharge = ROOT.std.vector('bool')()
-    tree.SetBranchAddress("jets_charge", ROOT.AddressOf(jetCharge))
+    jetBTagged = np.array([0]*20, dtype='f')
+    tree.SetBranchAddress("jets_btag", (jetBTagged))
 
-    jetTopMatched = ROOT.std.vector('bool')()
-    tree.SetBranchAddress("jets_topMatched", ROOT.AddressOf(jetTopMatched))
+    # jetCharge = ROOT.std.vector('float')()
+    # tree.SetBranchAddress("jets_charge", ROOT.AddressOf(jetCharge))
+
+    if (doDYCut):
+        genHT = np.array([0], dtype='f')
+        tree.SetBranchAddress("DY_ME_HT", genHT)
+
+    genpartonjetPt = np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_partonLevel_additional_jet_pt", genpartonjetPt)
+    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_pt", genpartonjetPt)
+
+    genpartonjetEta = np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_partonLevel_additional_jet_eta", genpartonjetEta)
+    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_eta", genpartonjetEta)
+
+    genpartonjetPhi = np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_partonLevel_additional_jet_phi", genpartonjetPhi)
+    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_phi", genpartonjetPhi)
+
+    genpartonjetM = np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_partonLevel_additional_jet_m", genpartonjetM)
+    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_m", genpartonjetM)
+
+    genpartonrho = np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_partonLevel_rho", genpartonrho)
+    tree.SetBranchAddress("gen_partonLevelGhostCleaned_rho", genpartonrho)
+
+    weight = np.array([0], dtype='d')
+    tree.SetBranchAddress("weight", weight)
+    leptonSF = np.array([0], dtype='f')
+    tree.SetBranchAddress("leptonSF", leptonSF)
+    btagSF = np.array([0], dtype='f')
+    tree.SetBranchAddress("btagSF", btagSF)
+    pileupSF = np.array([0], dtype='f')
+    tree.SetBranchAddress("pileupSF", pileupSF)
+    prefiringWeight = np.array([0], dtype='f')
+    tree.SetBranchAddress("l1PrefiringWeight", prefiringWeight)
+
+    # gen_top_pt =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_top_pt", gen_top_pt)
+    # gen_top_eta =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_top_eta", gen_top_eta)
+    # gen_top_phi =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_top_phi", gen_top_phi)
+    # gen_top_m =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_top_m", gen_top_m)
+    # gen_antitop_pt =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_antitop_pt", gen_antitop_pt)
+    # gen_antitop_eta =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_antitop_eta", gen_antitop_eta)
+    # gen_antitop_phi =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_antitop_phi", gen_antitop_phi)
+    # gen_antitop_m =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("gen_antitop_m", gen_antitop_m)
 
     lepton1_pt =  np.array([0], dtype='f')
     tree.SetBranchAddress("lepton1_pt", lepton1_pt)
@@ -1070,280 +398,1306 @@ def loadTaggerData(path, treeName, nJets=20, maxEvents=0, normX=False, normY=Fal
     tree.SetBranchAddress("met_pt", met_pt)
     met_phi =  np.array([0], dtype='f')
     tree.SetBranchAddress("met_phi", met_phi)
+    # met_significance =  np.array([0], dtype='f')
+    # tree.SetBranchAddress("met_significance", met_significance)
 
-    ##Loop over event tree
+    kinReco_top_pt =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
+    kinReco_top_eta =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_top_eta", kinReco_top_eta)
+    kinReco_top_phi =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_top_phi", kinReco_top_phi)
+    kinReco_top_m =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_top_m", kinReco_top_m)
+
+    kinReco_antitop_pt =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_antitop_pt", kinReco_antitop_pt)
+    kinReco_antitop_eta =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_antitop_eta", kinReco_antitop_eta)
+    kinReco_antitop_phi =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_antitop_phi", kinReco_antitop_phi)
+    kinReco_antitop_m =  np.array([0], dtype='f')
+    tree.SetBranchAddress("kinReco_antitop_m", kinReco_antitop_m)
+
+    looseKinReco_ttbar_pt =  np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_ttbar_pt", looseKinReco_ttbar_pt)
+    looseKinReco_ttbar_eta =  np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_ttbar_eta", looseKinReco_ttbar_eta)
+    looseKinReco_ttbar_phi =  np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_ttbar_phi", looseKinReco_ttbar_phi)
+    looseKinReco_ttbar_m =  np.array([0], dtype='f')
+    tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
+    # looseKinReco_ttbar_m =  np.array([0], dtype='f')
+
+    from progress.bar import IncrementalBar
+
+    maxEntries = tree.GetEntries()
+
+    if maxEvents!=0:
+        maxEntries = maxEvents
+    else:
+        maxEntries = tree.GetEntries()
+
+    myLumiWeight =    getCrossSectionWeight(path, maxEntries, lumi=41530., year=year)
+
+    # print (float(maxEntries)/200000.)
+
+    # maxForBar = int(float(maxEntries)/200000.)
+    maxForBar = float(maxEntries)/200000.
+
+    bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
+
+    # print (maxEvents,maxEntries,maxForBar)
+
+    lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
+    lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
+    jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
+    met=ROOT.TLorentzVector(0.,0.,0.,0.)
+    kr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
+    kr_top=ROOT.TLorentzVector(0.,0.,0.,0.)
+    kr_antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
+    lkr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
+    kr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
+    lkr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
+    bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+    dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
+
     for i in range(tree.GetEntries()):
-    # for i in range(100):
+
+        lep1.SetPtEtaPhiM(0.,0.,0.,0.)
+        lep2.SetPtEtaPhiM(0.,0.,0.,0.)
+        jet4.SetPtEtaPhiM(0.,0.,0.,0.)
+        met.SetPtEtaPhiM(0.,0.,0.,0.)
+        kr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
+        kr_top.SetPtEtaPhiM(0.,0.,0.,0.)
+        kr_antitop.SetPtEtaPhiM(0.,0.,0.,0.)
+        lkr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
+        kr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
+        lkr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
+        bjettemp.SetPtEtaPhiM(0.,0.,0.,0.)
+        dilepton.SetPtEtaPhiM(0.,0.,0.,0.)
+
         jets_info=[]
-        jets_matchInfo=[]
-        other_info=[]
         tree.GetEntry(i)
+        totWeight=1.
 
-        if(i%100000==0):
-            print("Reading event: {}".format(i))
+        if (i%200000==0):
+            bar.next()
 
-        if(maxEvents!=0):
-            if(i%maxEvents==0 and i!=0):
+        if (maxEvents!=0):
+            if (i%maxEvents==0 and i!=0):
                 break
 
-        pass3= bool(passStep3)
+        # print (passStep3)
+        # print (njets)
+        # print (jetPt)
+        # print (lkr_nonbjetPt)
+        # print (lepton1_pt)
 
-        if(pass3==True):
-            # print("pass ",passStep3,pass3)
-            numJets = jetPt.size()
-            if(numJets>1):
-                # for idx in range(jetPt.size()):
-                for idx in range(maxJets):
-                    jet=[]
-                    if(idx<numJets):
-                        jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-                        jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-                        jet.append(jet4.Px())
-                        jet.append(jet4.Py())
-                        jet.append(jet4.Pz())
-                        jet.append(jet4.E())
-                        jet.append(int(bool(jetBTagged[idx])))
-                        jet.append(jetCharge[idx])
-                        # print (int(bool(jetBTagged[idx])))
-                        jets_matchInfo.append(int(bool(jetTopMatched[idx])))
+        pass3 = bool(passStep3[0])
+        haskrs = bool(hasKinRecoSolution[0])
+        haslkrs = bool(hasLooseKinRecoSolution[0])
+        totWeight = weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+        # totWeight=btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+
+        # print (passStep3,pass3)
+        # print (hasKinRecoSolution,haskrs)
+        # print (hasLooseKinRecoSolution,haslkrs)
+        # print ("looseKinReco_rho",lkr_rho)
+        # print ("kinReco_rho",kr_rho)
+
+
+        passDY = True
+        if (doDYCut):
+            if genHT[0]<70.:
+                passDY = False
+
+
+        # if not((i==7782) or (i==7755)):
+        #     continue
+        # lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
+        if (pass3==True):
+            lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
+            # lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
+            lep2.SetPtEtaPhiM(lepton2_pt[0],lepton2_eta[0],lepton2_phi[0],lepton2_m[0])
+        else:
+            lep1.SetPtEtaPhiM(0,0,0,0)
+            lep2.SetPtEtaPhiM(0,0,0,0)
+        dilepton=lep1+lep2
+
+        # pass3 = pass3 and (i==7777)
+
+        passMLLCut = False
+
+
+        # if (isEMuChannel or (not isEMuChannel and (dilepton.M()>76. and dilepton.M()<106.))):
+        #     print (isEMuChannel,(not isEMuChannel and (dilepton.M()>76. and dilepton.M()<106.)),(dilepton.M()>76. and dilepton.M()<106.))
+        #     passMLLCut = True
+        if isEMuChannel:
+             passMLLCut = True
+        elif not (dilepton.M()>76. and dilepton.M()<106.):
+            passMLLCut = True
+        else:
+            passMLLCut = False
+        # print (isEMuChannel,dilepton.M(),passMLLCut)
+        passMETCut = False
+        # print (met_pt)
+        # if (isEMuChannel or (not isEMuChannel and met_pt[0]>40.)):
+        #     passMETCut = True
+
+        if isEMuChannel:
+            passMETCut = True
+        elif (met_pt[0]>40.):
+            passMETCut = True
+        else:
+            passMETCut = False
+
+        # print (passMETCut,passMLLCut)
+
+        # isSignal = False
+        # classLabelTT = class_labels["tt_0jet"]
+        classLabelTT = class_labels["tt_background"]
+
+        # print ("\n")
+        # print (i)
+        # print (dilepton.Pt())
+        # print (pass3,njets[0],passMETCut,dilepton.M(),passDY,passMLLCut)
+
+        if (pass3==True):
+            # numJets = njets[0]
+            numJets = njets[0]
+            countB=0.
+            # print (njets,numJets)
+            if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passDY and passMLLCut):
+                # print (numJets)
+                # if (genpartonrho>0. and genpartonjetPt>50. and abs(genpartonjetEta)<2.4):
+                # print("genpartonrho",genpartonrho[0])
+                # print("genpartonjetPt",genpartonjetPt[0])
+                if (genpartonrho[0]>0. and genpartonjetPt[0]>30. and abs(genpartonjetEta[0])<2.4):
+                    # isSignal = True
+                    # if (genpartonrho>=0.71):
+                    #     classLabelTT = class_labels["tt_signal_3"]
+                    # elif (genpartonrho>=0.62):
+                    #     classLabelTT = class_labels["tt_signal_2"]
+                    # elif (genpartonrho>=0.52):
+                    #     classLabelTT = class_labels["tt_signal_1"]
+                    # elif (genpartonrho>=0.0):
+                    #     classLabelTT = class_labels["tt_signal_0"]
+                    # else:
+                    #     classLabelTT = class_labels["tt_background"]
+                    # if (genpartonrho[0]>=0.75):
+                    #     classLabelTT = class_labels["tt_signal_2"]
+                    # elif (genpartonrho[0]>=0.65):
+                    #     classLabelTT = class_labels["tt_signal_1"]
+                    # elif (genpartonrho[0]>=0.0):
+                    #     classLabelTT = class_labels["tt_signal_0"]
+                    # else:
+                    #     # print (genpartonrho[0])
+                    #     classLabelTT = class_labels["tt_background"]
+                    if (genpartonrho[0]>=0.7):
+                        classLabelTT = class_labels["tt_signal_3"]
+                    elif (genpartonrho[0]>=0.45):
+                        classLabelTT = class_labels["tt_signal_2"]
+                    elif (genpartonrho[0]>=0.3):
+                        classLabelTT = class_labels["tt_signal_1"]
+                    elif (genpartonrho[0]>=0.0):
+                        classLabelTT = class_labels["tt_signal_0"]
                     else:
-                        jet.append(-999.)
-                        jet.append(-999.)
-                        jet.append(-999.)
-                        jet.append(-999.)
-                        jet.append(-999.)
-                        jet.append(-999.)
-                        jets_matchInfo.append(0.)
-                    jets_info.append(jet)
+                        # print (genpartonrho[0])
+                        classLabelTT = class_labels["tt_background"]
+                else:
+                    classLabelTT = class_labels["tt_background"]
+                #
+                # print("classLabelTT",classLabelTT)
+                # print("genpartonrho",genpartonrho[0])
+                # print("genpartonjetPt",genpartonjetPt[0])
 
-
-                lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
-                lep1.SetPtEtaPhiM(lepton1_pt,lepton1_eta,lepton1_phi,lepton1_m)
-                lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-                lep2.SetPtEtaPhiM(lepton2_pt,lepton2_eta,lepton2_phi,lepton2_m)
-                met=ROOT.TLorentzVector(0.,0.,0.,0.)
-                met.SetPtEtaPhiM(met_pt,0.,met_phi,0.)
-
-                l1=[]
-                l2=[]
-                miss=[]
-                l1.append(lep1.Px())
-                l1.append(lep1.Py())
-                l1.append(lep1.Pz())
-                l1.append(lep1.E())
-
-                l2.append(lep2.Px())
-                l2.append(lep2.Py())
-                l2.append(lep2.Pz())
-                l2.append(lep2.E())
-
-                miss.append(met.Px())
-                miss.append(met.Py())
-                miss.append(met.Pz())
-                miss.append(met.E())
-
-                other_info.append(l1)
-                other_info.append(l2)
-                other_info.append(miss)
-
-                # print (jets_info)
-                # print (jets_matchInfo)
-                # print (other_info)
-
-                eventInJet.append(jets_info)
-                eventInOther.append(other_info)
-                eventOut.append(jets_matchInfo)
-    return eventInJet,eventInOther,eventOut
-
-
-def loadTaggerDataBinned(path, treeName, nJets=6, maxEvents=0, normX=False, normY=False, normValue=170.):
-    ##Initliaze all containers
-    # jets_info=[]
-    # jets_matchInfo=[]
-    # other_info=[]
-    eventInJet=[]
-    # eventInOther=[]
-    eventOut=[]
-    eventNBJets=[]
-    eventNJets=[]
-    weights=[]
-    maxJets=nJets
-
-
-    f = ROOT.TFile.Open(path)
-
-
-    tree = f.Get(treeName)
-
-    print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
-
-    # passStep3 = np.array([0], dtype=np.float32)
-    passStep3 = np.array([0], dtype=bool)
-    tree.SetBranchAddress("passStep3", passStep3)
-
-    jetPt = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_pt", ROOT.AddressOf(jetPt))
-
-    jetEta = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_eta", ROOT.AddressOf(jetEta))
-
-    jetPhi = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_phi", ROOT.AddressOf(jetPhi))
-
-    jetM = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_m", ROOT.AddressOf(jetM))
-
-    jetBTagged = ROOT.std.vector('bool')()
-    tree.SetBranchAddress("jets_btag", ROOT.AddressOf(jetBTagged))
-
-    jetCharge = ROOT.std.vector('float')()
-    tree.SetBranchAddress("jets_charge", ROOT.AddressOf(jetCharge))
-
-    jetTopMatched = ROOT.std.vector('bool')()
-    tree.SetBranchAddress("jets_topMatched", ROOT.AddressOf(jetTopMatched))
-
-    lepton1_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_pt", lepton1_pt)
-    lepton1_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_eta", lepton1_eta)
-    lepton1_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_phi", lepton1_phi)
-    lepton1_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_m", lepton1_m)
-
-    lepton2_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_pt", lepton2_pt)
-    lepton2_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_eta", lepton2_eta)
-    lepton2_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_phi", lepton2_phi)
-    lepton2_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_m", lepton2_m)
-
-    met_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_pt", met_pt)
-    met_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_phi", met_phi)
-
-    weight = np.array([0], dtype='d')
-    tree.SetBranchAddress("weight", weight)
-    leptonSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("leptonSF", leptonSF)
-    btagSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("btagSF", btagSF)
-    pileupSF = np.array([0], dtype='d')
-    tree.SetBranchAddress("pileupSF", pileupSF)
-
-    ##Loop over event tree
-    for i in range(tree.GetEntries()):
-    # for i in range(100):
-        jets_info=[]
-        jets_matchInfo=[]
-        other_info=[]
-        tree.GetEntry(i)
-        # totWeight=1.
-
-        breakEvents=tree.GetEntries() if maxEvents==0 else maxEvents
-
-        if(i%100000==0):
-            # print("Reading event: "+str(i)+" ("+str(np.round(float(i)/tree.GetEntries()*100.,2))+"%)")
-            print("Reading event: "+str(i)+" ("+str(np.round(float(i)/breakEvents*100.,2))+"%)")
-
-        if(maxEvents!=0):
-        	if(i%maxEvents==0 and i!=0):
-        		break
-
-        pass3= bool(passStep3)
-
-        if(pass3==True):
-            # print("pass ",passStep3,pass3)
-            numJets = jetPt.size()
-
-            countB=0
-            if(numJets>1):
-				# for idx in range(jetPt.size()):
+                jets = []
+                bjets = []
+                ht = 0.
+                nbjets = 0
+                # print (numJets,jetPt)
                 for idx in range(maxJets):
-                    # jet=[]
-                    if(idx<numJets):
-                        jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
+                    if (idx<numJets):
+                        # print (idx,numJets,jetPt[idx],maxJets)
+                        # jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
                         jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-                        jets_info.append(jet4.Px())
-                        jets_info.append(jet4.Py())
-                        jets_info.append(jet4.Pz())
-                        jets_info.append(jet4.E())
-                        jets_info.append(int(bool(jetBTagged[idx])))
-                        jets_info.append(jetCharge[idx])
-                        countB+=int(bool(jetBTagged[idx]))
-                        # print (int(bool(jetBTagged[idx])))
-                        jets_matchInfo.append(int(bool(jetTopMatched[idx])))
+                        jets_info.append(jet4.Pt())
+                        jets_info.append(jet4.Eta())
+                        jets_info.append(jet4.Phi())
+                        jets_info.append(jet4.M())
+                        jets.append(jet4) #1-12
+                        ht = ht+jet4.Pt()
+                        bTagged=int(bool(jetBTagged[idx]))
+                        if withBTag:
+                            jets_info.append(bTagged) #13-15
+                        # if withCharge:
+                        #     jets_info.append(jetCharge[idx])
+                        if (bTagged):
+                            bjets.append(jet4)
                     else:
-                        # jet.append(-999.)
-                        # jet.append(-999.)
-                        # jet.append(-999.)
-                        # jet.append(-999.)
-                        # jet.append(-999.)
                         jets_info.append(0.)
                         jets_info.append(0.)
                         jets_info.append(0.)
                         jets_info.append(0.)
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                        jets_matchInfo.append(0.)
-                    # jets_info.append(jet)
-                eventNJets.append([numJets])
-                eventNBJets.append([countB])
-
-                lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
-                lep1.SetPtEtaPhiM(lepton1_pt,lepton1_eta,lepton1_phi,lepton1_m)
-                lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-                lep2.SetPtEtaPhiM(lepton2_pt,lepton2_eta,lepton2_phi,lepton2_m)
-                met=ROOT.TLorentzVector(0.,0.,0.,0.)
-                met.SetPtEtaPhiM(met_pt,0.,met_phi,0.)
-
-                # l1=[]
-                # l2=[]
-                # miss=[]
-                jets_info.append(lep1.Px())
-                jets_info.append(lep1.Py())
-                jets_info.append(lep1.Pz())
-                jets_info.append(lep1.E())
-
-                jets_info.append(lep2.Px())
-                jets_info.append(lep2.Py())
-                jets_info.append(lep2.Pz())
-                jets_info.append(lep2.E())
-
-                jets_info.append(met.Px())
-                jets_info.append(met.Py())
-                jets_info.append(met.Pz())
-                jets_info.append(met.E())
-
-                # other_info.append(l1)
-                # other_info.append(l2)
-                # other_info.append(miss)
-
-                # print (jets_info)
-                # print (jets_matchInfo)
-                # print (other_info)
-
-                eventInJet.append(jets_info)
-                # eventInOther.append(other_info)
-                eventOut.append(jets_matchInfo)
-                totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]
+                        if withBTag:
+                            jets_info.append(0.)
+                        # if withCharge:
+                        #     jets_info.append(0.)
                 weights.append(totWeight)
-    # return eventInJet,eventInOther,eventOut,eventNJets,eventNBJets
-    return eventInJet,eventOut,eventNJets,eventNBJets,weights
+                lumiWeight.append(myLumiWeight) #value for 2017
 
 
+                # met=ROOT.TLorentzVector(0.,0.,0.,0.)
+                met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
+                # top=ROOT.TLorentzVector(0.,0.,0.,0.)
+                # top.SetPtEtaPhiM(gen_top_pt,gen_top_eta,gen_top_phi,gen_top_m)
+                # antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
+                # antitop.SetPtEtaPhiM(gen_antitop_pt,gen_antitop_eta,gen_antitop_phi,gen_antitop_m)
+                # ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
+                # ttbar = top+antitop
 
 
-def normalizeData(data, scaleValue, invert=False):
-	if invert:
-		out = data * scaleValue
+                kr_top.SetPtEtaPhiM(kinReco_top_pt[0], kinReco_top_eta[0], kinReco_top_phi[0], kinReco_top_m[0])
+                kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0], kinReco_antitop_eta[0], kinReco_antitop_phi[0], kinReco_antitop_m[0])
+                kr_ttbar= kr_antitop + kr_top
+                lkr_ttbar.SetPtEtaPhiM(looseKinReco_ttbar_pt[0], looseKinReco_ttbar_eta[0], looseKinReco_ttbar_phi[0], looseKinReco_ttbar_m[0])
+
+                if(kr_nonbjetPt[0]>30. and abs(kr_nonbjetEta)<2.4):
+                    kr_nonbjet.SetPtEtaPhiM(kr_nonbjetPt[0],kr_nonbjetEta[0],kr_nonbjetPhi[0],kr_nonbjetM[0])
+                if(lkr_nonbjetPt[0]>30. and abs(lkr_nonbjetEta)<2.4):
+                    lkr_nonbjet.SetPtEtaPhiM(lkr_nonbjetPt[0],lkr_nonbjetEta[0],lkr_nonbjetPhi[0],lkr_nonbjetM[0])
+
+                # lkr_rho=0.
+                # kr_rho=0.
+                # kr_foundAddjet = False
+                # lkr_foundAddjet = False
+                # for idx in range(lkr_nonbjetPt.size()):
+                # 	if (lkr_foundAddjet) == False:
+                # 		lkr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+                # 		lkr_jettemp.SetPtEtaPhiM(lkr_nonbjetPt[idx],lkr_nonbjetEta[idx],lkr_nonbjetPhi[idx],lkr_nonbjetM[idx])
+                # 		# if (lkr_jettemp.Pt()>50. and abs(lkr_jettemp.Eta())<2.4):
+                # 		if (lkr_jettemp.Pt()>20. and abs(lkr_jettemp.Eta())<2.5):
+                # 			lkr_rho = 340./(lkr_jettemp+lkr_ttbar).M()
+                # 			lkr_foundAddjet=True
+                # for idx in range(kr_nonbjetPt.size()):
+                # 	if (kr_foundAddjet) == False:
+                # 		kr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+                # 		kr_jettemp.SetPtEtaPhiM(kr_nonbjetPt[idx],kr_nonbjetEta[idx],kr_nonbjetPhi[idx],kr_nonbjetM[idx])
+                # 		# if (kr_jettemp.Pt()>50. and abs(kr_jettemp.Eta())<2.4):
+                # 		if (kr_jettemp.Pt()>20. and abs(kr_jettemp.Eta())<2.5):
+                # 			kr_rho = 340./(kr_jettemp+kr_ttbar).M()
+                # 			kr_foundAddjet=True
+
+                # if hasKinRecoSolution:
+                # if kr_nonbjetPt > 20:
+                # 	kr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+                # 	kr_jettemp.SetPtEtaPhiM(kr_nonbjetPt,kr_nonbjetEta,kr_nonbjetPhi,kr_nonbjetM)
+                # 	kr_rho__ = 340./(kr_jettemp+kr_ttbar).M()
+                # 	print (kr_rho, kr_rho__)
+                # if kr_rho > 0:
+                # 	print (kr_rho)
+
+                mlb_min = 9999.
+                comb = 9999
+                comb1 = 9999
+                comb2 = 9999
+                nBJets = len(bjets)
+                nbjets = len(bjets)
+                for i_nb in range(nBJets):
+                    # bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+                    bjettemp.SetPtEtaPhiM(bjets[i_nb].Pt(),bjets[i_nb].Eta(),bjets[i_nb].Phi(),bjets[i_nb].M())
+                    comb1 = (lep1+bjettemp).M()
+                    comb2 = (lep2+bjettemp).M()
+                    comb = comb1 if comb1<comb2 else comb2
+                    if (comb<mlb_min):
+                        mlb_min=comb
+                if mlb_min > 9990:
+                    mlb_min = 0.
+
+                dR_lepton1_jet1 = lep1.DeltaR(jets[0])
+                dR_lepton1_jet2 = lep1.DeltaR(jets[1])
+                dR_lepton1_jet3 = lep1.DeltaR(jets[2])
+                dR_lepton2_jet1 = lep2.DeltaR(jets[0])
+                dR_lepton2_jet2 = lep2.DeltaR(jets[1])
+                dR_lepton2_jet3 = lep2.DeltaR(jets[2])
+
+                dR_jet1_jet2 = jets[0].DeltaR(jets[1])
+                dR_jet1_jet3 = jets[0].DeltaR(jets[2])
+                dR_jet2_jet3 = jets[1].DeltaR(jets[2])
+
+                jets_info.append(ht)  # 16
+                jets_info.append(nbjets) #17
+
+                jets_info.append(mlb_min) #13
+                # jets_info.append((lep1+jets[0]).M()) #18
+                # jets_info.append((lep2+jets[0]).M()) #19
+                # jets_info.append((lep1+jets[1]).M()) #20
+                # jets_info.append((lep2+jets[1]).M()) #21
+                # jets_info.append((lep1+jets[2]).M()) #22
+                # jets_info.append((lep2+jets[2]).M()) #23
+                jets_info.append(dR_lepton1_jet1) #24
+                jets_info.append(dR_lepton1_jet2) #25
+                jets_info.append(dR_lepton1_jet3)#26
+                jets_info.append(dR_lepton2_jet1)#27
+                jets_info.append(dR_lepton2_jet2)#28
+                jets_info.append(dR_lepton2_jet3)#29
+                jets_info.append(dR_jet1_jet2)#30
+                jets_info.append(dR_jet1_jet3)#31
+                jets_info.append(dR_jet2_jet3)#32
+
+
+                jets_info.append(dilepton.Pt())#33
+                jets_info.append(dilepton.Eta())#34
+                jets_info.append(dilepton.Phi())#35
+                jets_info.append(dilepton.M())#36
+
+
+                # print (dilepton.Pt())
+
+                jets_info.append(lep1.Pt()) #37
+                jets_info.append(lep1.Eta())#38
+                jets_info.append(lep1.Phi())#39
+                jets_info.append(lep1.M())#40
+
+                jets_info.append(lep2.Pt())#41
+                jets_info.append(lep2.Eta())#42
+                jets_info.append(lep2.Phi())#43
+                jets_info.append(lep2.M())#44
+
+                jets_info.append(met.Pt())#45
+                # jets_info.append(met.Eta())
+                jets_info.append(met.Phi())#46
+                # jets_info.append(met.M())
+
+                # jets_info.append(met_significance[0])#45
+
+                if (haslkrs and lkr_rho[0]>0.):
+                    jets_info.append(lkr_rho[0])#47
+                else:
+                    jets_info.append(0.)
+                if (haskrs and kr_rho[0]>0.):
+                    jets_info.append(kr_rho[0])#48
+                else:
+                    jets_info.append(0.)
+
+                # if (haskrs and kr_foundAddjet and not np.isnan(kr_rho)):
+                if (haskrs and kr_ttbar.M()>0.1):
+                    # jets_info.append(kr_rho) #51
+                    jets_info.append(kr_ttbar.Pt())#49
+                    jets_info.append(kr_ttbar.Eta())#50
+                    jets_info.append(kr_ttbar.Phi())#51
+                    jets_info.append(kr_ttbar.M())#52
+                    jets_info.append(kr_top.Pt())#53
+                    jets_info.append(kr_top.Eta())#54
+                    jets_info.append(kr_top.Phi())#55
+                    # jets_info.append(kr_top.M())
+                    jets_info.append(kr_antitop.Pt())#56
+                    jets_info.append(kr_antitop.Eta())#57
+                    jets_info.append(kr_antitop.Phi())#58
+                    # jets_info.append(kr_antitop.M())
+                    if (kr_nonbjet.M()>0.1):
+                        jets_info.append(kr_nonbjet.Pt())#59
+                        jets_info.append(kr_nonbjet.Eta())#60
+                        jets_info.append(kr_nonbjet.Phi())#61
+                        jets_info.append(kr_nonbjet.M())#62
+                    else:
+                        jets_info.append(0.)#
+                        jets_info.append(0.)
+                        jets_info.append(0.)
+                        jets_info.append(0.)
+                else:
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+
+                jets_info.append((dilepton+jets[0]).Pt()) #63
+                jets_info.append((dilepton+jets[0]).Eta()) #64
+                jets_info.append((dilepton+jets[0]).Phi()) #65
+                jets_info.append((dilepton+jets[0]).M()) #66
+                jets_info.append((dilepton+jets[1]).Pt()) #67
+                jets_info.append((dilepton+jets[1]).Eta()) #68
+                jets_info.append((dilepton+jets[1]).Phi()) #69
+                jets_info.append((dilepton+jets[1]).M()) #70
+                jets_info.append((dilepton+jets[2]).Pt()) #71
+                jets_info.append((dilepton+jets[2]).Eta()) #72
+                jets_info.append((dilepton+jets[2]).Phi()) #73
+                jets_info.append((dilepton+jets[2]).M()) #74
+
+                jets_info.append((lep1+jets[0]).Pt()) #75
+                jets_info.append((lep1+jets[0]).Eta()) #76
+                jets_info.append((lep1+jets[0]).Phi()) #77
+                jets_info.append((lep1+jets[0]).M()) #78
+                jets_info.append((lep1+jets[1]).Pt()) #79
+                jets_info.append((lep1+jets[1]).Eta()) #80
+                jets_info.append((lep1+jets[1]).Phi()) #81
+                jets_info.append((lep1+jets[1]).M()) #82
+                jets_info.append((lep1+jets[2]).Pt()) #83
+                jets_info.append((lep1+jets[2]).Eta()) #84
+                jets_info.append((lep1+jets[2]).Phi()) #85
+                jets_info.append((lep1+jets[2]).M()) #86
+
+                jets_info.append((lep2+jets[0]).Pt()) #87
+                jets_info.append((lep2+jets[0]).Eta()) #88
+                jets_info.append((lep2+jets[0]).Phi()) #89
+                jets_info.append((lep2+jets[0]).M()) #90
+                jets_info.append((lep2+jets[1]).Pt()) #91
+                jets_info.append((lep2+jets[1]).Eta()) #92
+                jets_info.append((lep2+jets[1]).Phi()) #93
+                jets_info.append((lep2+jets[1]).M()) #94
+                jets_info.append((lep2+jets[2]).Pt()) #95
+                jets_info.append((lep2+jets[2]).Eta()) #96
+                jets_info.append((lep2+jets[2]).Phi()) #97
+                jets_info.append((lep2+jets[2]).M()) #98
+
+                jets_info.append(numJets) #99
+
+                if (haslkrs and lkr_ttbar.M()>0.1):
+                    jets_info.append(lkr_ttbar.Pt()) #100
+                    jets_info.append(lkr_ttbar.Eta())#101
+                    jets_info.append(lkr_ttbar.Phi())#102
+                    jets_info.append(lkr_ttbar.M())#103
+                    if (lkr_nonbjet.M()>0.1):
+                        jets_info.append(lkr_nonbjet.Pt())#104
+                        jets_info.append(lkr_nonbjet.Eta())#105
+                        jets_info.append(lkr_nonbjet.Phi())#106
+                        jets_info.append(lkr_nonbjet.M())#107
+                    else:
+                        jets_info.append(0.)
+                        jets_info.append(0.)
+                        jets_info.append(0.)
+                        jets_info.append(0.)
+                else:
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+                    jets_info.append(0.)
+
+                jets_info.append(yearID)
+                jets_info.append(channelID)
+                # print ("\n")
+                # print (i)
+                # print (dilepton.Pt())
+                # print (jets_info)
+
+                eventInJet.append(jets_info)
+                if decideOnTheFly:
+                    classLabel = classLabelTT
+                eventOut.append([classLabel])
+
+    tree.SetBranchStatus("*",1)
+    f.Close()
+    return eventInJet, eventOut, weights, lumiWeight
+
+
+def loadClassificationData(path, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False):
+    pathToSearch = path.replace("FR2","*")
+    # fileNames = glob.glob(path+'*.root')
+    fileNames = glob.glob(pathToSearch+'*.root')
+    eventInJet, eventOut, weights,lumW = [],[],[],[]
+    n=0
+    for filename in fileNames:
+        n = n+1
+        filename = filename.replace(path,"")
+        print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
+        # print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
+        # a,b,c,l = loadTreeToClassArray(path+filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge)
+        a,b,c,l = loadTreeToClassArray(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge)
+        eventInJet+=a
+        eventOut+=b
+        weights+=c
+        lumW+=l
+    return eventInJet, eventOut, weights,lumW
+
+######################### REGRESSION ##################################################################
+
+
+def loadRegressionData(path, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False, pTEtaPhiMode=False):
+    pathToSearch = path.replace("FR2","*")
+    # fileNames = glob.glob(path+'*.root')
+    fileNames = glob.glob(pathToSearch+'*.root')
+    print (path)
+    print (fileNames)
+    # fileNames = [
+    #     "DY.root","other.root","singletop.root","ttbar.root"
+    #     ]
+    eventInJet, eventOut, weights,lumW,kr = [],[],[],[],[]
+    n=0
+    # fileNames = fileNames[0:1]+["mumu_ttbarsignalplustau_fromDilepton_PSweights.root"]+["emu_ttbarsignalplustau_fromDilepton_PSweights.root"]+["ee_ttbarsignalplustau_fromDilepton_PSweights.root"]
+    # fileNames = ["emu_ttbarsignalplustau_fromDilepton_PSweights.root"]
+    for filename in fileNames:
+        n = n+1
+        filename = filename.replace(path,"")
+        print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
+        # eventInJet,eventOut,weights, lKinRecoOut, kinRecoOut
+        # a,b,c,l,k = loadRhoDataFlat(path+filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge, pTEtaPhiMode = pTEtaPhiMode)
+        a,b,c,l,k = loadRhoDataFlat(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge, pTEtaPhiMode = pTEtaPhiMode)
+        eventInJet+=a
+        eventOut+=b
+        weights+=c
+        lumW+=l
+        kr+=k
+    return eventInJet, eventOut, weights,lumW,kr
+
+
+def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False, pTEtaPhiMode=False):
+	eventInJet=[]
+	eventOut=[]
+	kinRecoOut=[]
+	lKinRecoOut=[]
+	weights=[]
+	maxJets=nJets
+
+	# f = ROOT.TFile.Open(path)
+	f = ROOT.TFile.Open(path)
+	tree = f.Get(treeName)
+
+	channel = None
+	channelID = None
+	year = None
+	yearID = None
+
+	isEMuChannel = False
+	if ("emu_") in filename:
+		isEMuChannel = True
+		channel = "emu"
+		channelID = 0
+	elif ("mumu_") in filename:
+		channel = "mumu"
+		channelID = -1
+	elif ("ee_") in filename:
+		channel = "ee"
+		channelID = 1
+
+	if ("/2016/") in path:
+		year = "2016"
+		yearID = -1
+	elif ("/2017/") in path:
+		year = "2017"
+		yearID = 0
+	elif ("/2018/") in path:
+		year = "2018"
+		yearID = 1
+
+	print (path, filename, year, yearID, channel, channelID)
+
+	print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
+
+	tree.SetBranchStatus("var_*",0)
+
+	passStep3 = np.array([0], dtype=bool)
+	tree.SetBranchAddress("passStep3", passStep3)
+
+	hasKinRecoSolution = np.array([0], dtype=bool)
+	tree.SetBranchAddress("hasKinRecoSolution", hasKinRecoSolution)
+
+	hasLooseKinRecoSolution = np.array([0], dtype=bool)
+	tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
+
+	njets = np.array([0]*20, dtype='uint')
+	tree.SetBranchAddress("n_jets", njets)
+	jetPt = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_pt", jetPt)
+	jetEta = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_eta", jetEta)
+	jetPhi = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_phi", jetPhi)
+	jetM = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_m", jetM)
+
+
+	lkr_nonbjetPt = np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_nonbjet_pt", lkr_nonbjetPt)
+	lkr_nonbjetEta = np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_nonbjet_eta", lkr_nonbjetEta)
+	lkr_nonbjetPhi = np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_nonbjet_phi", lkr_nonbjetPhi)
+	lkr_nonbjetM = np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_nonbjet_m", lkr_nonbjetM)
+	lkr_rho = np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_rho", lkr_rho)
+
+	kr_nonbjetPt = np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_nonbjet_pt", kr_nonbjetPt)
+	kr_nonbjetEta = np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_nonbjet_eta", kr_nonbjetEta)
+	kr_nonbjetPhi = np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_nonbjet_phi", kr_nonbjetPhi)
+	kr_nonbjetM = np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_nonbjet_m", kr_nonbjetM)
+	kr_rho = np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_rho", kr_rho)
+
+	jetBTagged = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_btag", (jetBTagged))
+
+	genpartonjetPt = np.array([0], dtype='f')
+	# tree.SetBranchAddress("gen_partonLevel_additional_jet_pt", genpartonjetPt)
+	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_pt", genpartonjetPt)
+
+	genpartonjetEta = np.array([0], dtype='f')
+	# tree.SetBranchAddress("gen_partonLevel_additional_jet_eta", genpartonjetEta)
+	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_eta", genpartonjetEta)
+
+	genpartonjetPhi = np.array([0], dtype='f')
+	# tree.SetBranchAddress("gen_partonLevel_additional_jet_phi", genpartonjetPhi)
+	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_phi", genpartonjetPhi)
+
+	genpartonjetM = np.array([0], dtype='f')
+	# tree.SetBranchAddress("gen_partonLevel_additional_jet_m", genpartonjetM)
+	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_m", genpartonjetM)
+
+	genpartonrho = np.array([0], dtype='f')
+	# tree.SetBranchAddress("gen_partonLevel_rho", genpartonrho)
+	tree.SetBranchAddress("gen_partonLevelGhostCleaned_rho", genpartonrho)
+
+	weight = np.array([0], dtype='d')
+	tree.SetBranchAddress("weight", weight)
+	leptonSF = np.array([0], dtype='f')
+	tree.SetBranchAddress("leptonSF", leptonSF)
+	btagSF = np.array([0], dtype='f')
+	tree.SetBranchAddress("btagSF", btagSF)
+	pileupSF = np.array([0], dtype='f')
+	tree.SetBranchAddress("pileupSF", pileupSF)
+	prefiringWeight = np.array([0], dtype='f')
+	tree.SetBranchAddress("l1PrefiringWeight", prefiringWeight)
+
+	gen_top_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_top_pt", gen_top_pt)
+	gen_top_eta =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_top_eta", gen_top_eta)
+	gen_top_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_top_phi", gen_top_phi)
+	gen_top_m =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_top_m", gen_top_m)
+	gen_antitop_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_antitop_pt", gen_antitop_pt)
+	gen_antitop_eta =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_antitop_eta", gen_antitop_eta)
+	gen_antitop_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_antitop_phi", gen_antitop_phi)
+	gen_antitop_m =  np.array([0], dtype='f')
+	tree.SetBranchAddress("gen_antitop_m", gen_antitop_m)
+
+	lepton1_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton1_pt", lepton1_pt)
+	lepton1_eta =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton1_eta", lepton1_eta)
+	lepton1_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton1_phi", lepton1_phi)
+	lepton1_m =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton1_m", lepton1_m)
+
+	lepton2_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton2_pt", lepton2_pt)
+	lepton2_eta =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton2_eta", lepton2_eta)
+	lepton2_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton2_phi", lepton2_phi)
+	lepton2_m =  np.array([0], dtype='f')
+	tree.SetBranchAddress("lepton2_m", lepton2_m)
+
+	met_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("met_pt", met_pt)
+	met_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("met_phi", met_phi)
+	# met_significance =  np.array([0], dtype='f')
+	# tree.SetBranchAddress("met_significance", met_significance)
+
+	kinReco_top_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
+	kinReco_top_eta =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_top_eta", kinReco_top_eta)
+	kinReco_top_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_top_phi", kinReco_top_phi)
+	kinReco_top_m =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_top_m", kinReco_top_m)
+
+	kinReco_antitop_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_antitop_pt", kinReco_antitop_pt)
+	kinReco_antitop_eta =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_antitop_eta", kinReco_antitop_eta)
+	kinReco_antitop_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_antitop_phi", kinReco_antitop_phi)
+	kinReco_antitop_m =  np.array([0], dtype='f')
+	tree.SetBranchAddress("kinReco_antitop_m", kinReco_antitop_m)
+
+	looseKinReco_ttbar_pt =  np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_ttbar_pt", looseKinReco_ttbar_pt)
+	looseKinReco_ttbar_eta =  np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_ttbar_eta", looseKinReco_ttbar_eta)
+	looseKinReco_ttbar_phi =  np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_ttbar_phi", looseKinReco_ttbar_phi)
+	looseKinReco_ttbar_m =  np.array([0], dtype='f')
+	tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
+	# looseKinReco_ttbar_m =  np.array([0], dtype='f')
+
+	from progress.bar import IncrementalBar
+
+	if maxEvents!=0:
+	    maxEntries = maxEvents
 	else:
-		out = data / scaleValue
-	return out
+	    maxEntries = tree.GetEntries()
 
+	maxForBar = int(maxEntries/200000)
+
+	lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
+	lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
+	jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
+	met=ROOT.TLorentzVector(0.,0.,0.,0.)
+	kr_top=ROOT.TLorentzVector(0.,0.,0.,0.)
+	kr_antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
+	lkr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
+	kr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
+	lkr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
+	kr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
+	bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+	top=ROOT.TLorentzVector(0.,0.,0.,0.)
+	antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
+	ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
+	dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
+
+	bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
+
+	for i in range(tree.GetEntries()):
+
+		lep1.SetPtEtaPhiM(0.,0.,0.,0.)
+		lep2.SetPtEtaPhiM(0.,0.,0.,0.)
+		jet4.SetPtEtaPhiM(0.,0.,0.,0.)
+		met.SetPtEtaPhiM(0.,0.,0.,0.)
+		kr_top.SetPtEtaPhiM(0.,0.,0.,0.)
+		kr_antitop.SetPtEtaPhiM(0.,0.,0.,0.)
+		lkr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
+		kr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
+		kr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
+		lkr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
+		bjettemp.SetPtEtaPhiM(0.,0.,0.,0.)
+		top.SetPtEtaPhiM(0.,0.,0.,0.)
+		antitop.SetPtEtaPhiM(0.,0.,0.,0.)
+		ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
+		dilepton.SetPtEtaPhiM(0.,0.,0.,0.)
+
+		jets_info=[]
+		jets_matchInfo=[]
+		other_info=[]
+		tree.GetEntry(i)
+		totWeight=1.
+
+		if(i%200000==0):
+		    bar.next()
+
+		if(maxEvents!=0):
+			if(i%maxEvents==0 and i!=0):
+				break
+
+		pass3= bool(passStep3[0])
+		haskrs = bool(hasKinRecoSolution[0])
+		haslkrs = bool(hasLooseKinRecoSolution[0])
+		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+		# totWeight=btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+
+		if (pass3==True):
+			lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
+			lep2.SetPtEtaPhiM(lepton2_pt[0],lepton2_eta[0],lepton2_phi[0],lepton2_m[0])
+		else:
+			lep1.SetPtEtaPhiM(0,0,0,0)
+			lep2.SetPtEtaPhiM(0,0,0,0)
+		dilepton=lep1+lep2
+
+		passMLLCut = False
+
+		if isEMuChannel:
+			passMLLCut = True
+		elif not (dilepton.M()>76. and dilepton.M()<106.):
+			passMLLCut = True
+		else:
+			passMLLCut = False
+		passMETCut = False
+
+		if isEMuChannel:
+			passMETCut = True
+		elif (met_pt[0]>40.):
+			passMETCut = True
+		else:
+			passMETCut = False
+
+		if(pass3==True):
+			numJets = njets[0]
+			countB=0.
+
+			# if(numJets>2):
+            # if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passDY and passMLLCut):
+			if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
+				# if(genpartonrho>0. and genpartonjetPt>50. and abs(genpartonjetEta)<2.4):
+				if(genpartonrho>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):
+					jets = []
+					bjets = []
+					nbjets = 0
+					ht = 0
+					for idx in range(maxJets):
+						if(idx<numJets):
+							jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
+							jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
+							if pTEtaPhiMode:
+								jets_info.append(jet4.Pt())
+								jets_info.append(jet4.Eta())
+								jets_info.append(jet4.Phi())
+								jets_info.append(jet4.M())
+							else:
+								jets_info.append(jet4.Px()) #1
+								jets_info.append(jet4.Py())#2
+								jets_info.append(jet4.Pz())#3
+								jets_info.append(jet4.E())#4
+							jets.append(jet4) #1-12
+							bTagged=int(bool(jetBTagged[idx]))
+							ht = ht+jet4.Pt()
+							if withBTag:
+								jets_info.append(bTagged)
+							if(bTagged):
+								bjets.append(jet4)
+							# if withCharge:
+							#     jets_info.append(jetCharge[idx])
+						else:
+							jets_info.append(0.)
+							jets_info.append(0.)
+							jets_info.append(0.)
+							jets_info.append(0.)
+							if withBTag:
+							    jets_info.append(0.)
+							# if withCharge:
+							#     jets_info.append(0.)
+					weights.append(totWeight)
+
+					lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
+					lep2.SetPtEtaPhiM(lepton2_pt[0],lepton2_eta[0],lepton2_phi[0],lepton2_m[0])
+					met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
+					top.SetPtEtaPhiM(gen_top_pt[0],gen_top_eta[0],gen_top_phi[0],gen_top_m[0])
+					antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
+					ttbar = top+antitop
+
+					dilepton=lep1+lep2
+
+					kr_top.SetPtEtaPhiM(kinReco_top_pt[0],kinReco_top_eta[0],kinReco_top_phi[0],kinReco_top_m[0])
+					kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0],kinReco_antitop_eta[0],kinReco_antitop_phi[0],kinReco_antitop_m[0])
+					kr_ttbar= kr_antitop + kr_top
+					lkr_ttbar.SetPtEtaPhiM(looseKinReco_ttbar_pt[0],looseKinReco_ttbar_eta[0],looseKinReco_ttbar_phi[0],looseKinReco_ttbar_m[0])
+
+					if (kr_nonbjetPt[0]>30. and abs(kr_nonbjetEta[0])<2.4):
+						kr_nonbjet.SetPtEtaPhiM(kr_nonbjetPt[0],kr_nonbjetEta[0],kr_nonbjetPhi[0],kr_nonbjetM[0])
+					if (lkr_nonbjetPt[0]>30. and abs(lkr_nonbjetEta[0])<2.4):
+						lkr_nonbjet.SetPtEtaPhiM(lkr_nonbjetPt[0],lkr_nonbjetEta[0],lkr_nonbjetPhi[0],lkr_nonbjetM[0])
+
+					mlb_min = 9999.
+					comb = 9999
+					comb1 = 9999
+					comb2 = 9999
+					nBJets = len(bjets)
+					nbjets = len(bjets)
+					for i in range(nBJets):
+					    # bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+					    bjettemp.SetPtEtaPhiM(bjets[i].Pt(),bjets[i].Eta(),bjets[i].Phi(),bjets[i].M())
+					    comb1 = (lep1+bjettemp).M()
+					    comb2 = (lep2+bjettemp).M()
+					    comb = comb1 if comb1<comb2 else comb2
+					    if(comb<mlb_min):
+					        mlb_min=comb
+					if mlb_min > 9990:
+					    mlb_min = 0.
+
+					dR_lepton1_jet1 = lep1.DeltaR(jets[0])
+					dR_lepton1_jet2 = lep1.DeltaR(jets[1])
+					dR_lepton1_jet3 = lep1.DeltaR(jets[2])
+					dR_lepton2_jet1 = lep2.DeltaR(jets[0])
+					dR_lepton2_jet2 = lep2.DeltaR(jets[1])
+					dR_lepton2_jet3 = lep2.DeltaR(jets[2])
+
+					dR_jet1_jet2 = jets[0].DeltaR(jets[1])
+					dR_jet1_jet3 = jets[0].DeltaR(jets[2])
+					dR_jet2_jet3 = jets[1].DeltaR(jets[2])
+
+					jets_info.append(ht)  # 16
+					jets_info.append(nbjets) #17
+
+					jets_info.append(mlb_min) #13
+					# jets_info.append((lep1+jets[0]).M()) #18
+					# jets_info.append((lep2+jets[0]).M()) #19
+					# jets_info.append((lep1+jets[1]).M()) #20
+					# jets_info.append((lep2+jets[1]).M()) #21
+					# jets_info.append((lep1+jets[2]).M()) #22
+					# jets_info.append((lep2+jets[2]).M()) #23
+					jets_info.append(dR_lepton1_jet1) #24
+					jets_info.append(dR_lepton1_jet2) #25
+					jets_info.append(dR_lepton1_jet3)#26
+					jets_info.append(dR_lepton2_jet1)#27
+					jets_info.append(dR_lepton2_jet2)#28
+					jets_info.append(dR_lepton2_jet3)#29
+					jets_info.append(dR_jet1_jet2)#30
+					jets_info.append(dR_jet1_jet3)#31
+					jets_info.append(dR_jet2_jet3)#32
+
+
+					jets_info.append(dilepton.Pt())#33
+					jets_info.append(dilepton.Eta())#34
+					jets_info.append(dilepton.Phi())#35
+					jets_info.append(dilepton.M())#36
+
+
+					jets_info.append(lep1.Pt()) #37
+					jets_info.append(lep1.Eta())#38
+					jets_info.append(lep1.Phi())#39
+					jets_info.append(lep1.M())#40
+
+					jets_info.append(lep2.Pt())#41
+					jets_info.append(lep2.Eta())#42
+					jets_info.append(lep2.Phi())#43
+					jets_info.append(lep2.M())#44
+
+					jets_info.append(met.Pt())#45
+					# jets_info.append(met.Eta())
+					jets_info.append(met.Phi())#46
+					# jets_info.append(met.M())
+
+					# jets_info.append(met_significance[0])#45
+
+					if (haslkrs and lkr_rho>0.):
+					    jets_info.append(lkr_rho[0])#47
+					    lKinRecoOut.append(lkr_rho[0])#47
+					else:
+					    jets_info.append(0.)
+					    lKinRecoOut.append(0.)
+					if (haskrs and kr_rho>0.):
+					    jets_info.append(kr_rho[0])#48
+					    kinRecoOut.append(kr_rho[0])#48
+					else:
+					    jets_info.append(0.)
+					    kinRecoOut.append(0.)
+
+					# if (haskrs and kr_foundAddjet and not np.isnan(kr_rho)):
+					if (haskrs and kr_ttbar.M()>0.1):
+					    # jets_info.append(kr_rho) #51
+					    jets_info.append(kr_ttbar.Pt())#49
+					    jets_info.append(kr_ttbar.Eta())#50
+					    jets_info.append(kr_ttbar.Phi())#51
+					    jets_info.append(kr_ttbar.M())#52
+					    jets_info.append(kr_top.Pt())#53
+					    jets_info.append(kr_top.Eta())#54
+					    jets_info.append(kr_top.Phi())#55
+					    # jets_info.append(kr_top.M())
+					    jets_info.append(kr_antitop.Pt())#56
+					    jets_info.append(kr_antitop.Eta())#57
+					    jets_info.append(kr_antitop.Phi())#58
+					    # jets_info.append(kr_antitop.M())
+					    if(kr_nonbjet.M()>0.1):
+					        jets_info.append(kr_nonbjet.Pt())#59
+					        jets_info.append(kr_nonbjet.Eta())#60
+					        jets_info.append(kr_nonbjet.Phi())#61
+					        jets_info.append(kr_nonbjet.M())#62
+					    else:
+					        jets_info.append(0.)#
+					        jets_info.append(0.)
+					        jets_info.append(0.)
+					        jets_info.append(0.)
+					else:
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+
+					jets_info.append((dilepton+jets[0]).Pt()) #63
+					jets_info.append((dilepton+jets[0]).Eta()) #64
+					jets_info.append((dilepton+jets[0]).Phi()) #65
+					jets_info.append((dilepton+jets[0]).M()) #66
+					jets_info.append((dilepton+jets[1]).Pt()) #67
+					jets_info.append((dilepton+jets[1]).Eta()) #68
+					jets_info.append((dilepton+jets[1]).Phi()) #69
+					jets_info.append((dilepton+jets[1]).M()) #70
+					jets_info.append((dilepton+jets[2]).Pt()) #71
+					jets_info.append((dilepton+jets[2]).Eta()) #72
+					jets_info.append((dilepton+jets[2]).Phi()) #73
+					jets_info.append((dilepton+jets[2]).M()) #74
+
+					jets_info.append((lep1+jets[0]).Pt()) #75
+					jets_info.append((lep1+jets[0]).Eta()) #76
+					jets_info.append((lep1+jets[0]).Phi()) #77
+					jets_info.append((lep1+jets[0]).M()) #78
+					jets_info.append((lep1+jets[1]).Pt()) #79
+					jets_info.append((lep1+jets[1]).Eta()) #80
+					jets_info.append((lep1+jets[1]).Phi()) #81
+					jets_info.append((lep1+jets[1]).M()) #82
+					jets_info.append((lep1+jets[2]).Pt()) #83
+					jets_info.append((lep1+jets[2]).Eta()) #84
+					jets_info.append((lep1+jets[2]).Phi()) #85
+					jets_info.append((lep1+jets[2]).M()) #86
+
+					jets_info.append((lep2+jets[0]).Pt()) #87
+					jets_info.append((lep2+jets[0]).Eta()) #88
+					jets_info.append((lep2+jets[0]).Phi()) #89
+					jets_info.append((lep2+jets[0]).M()) #90
+					jets_info.append((lep2+jets[1]).Pt()) #91
+					jets_info.append((lep2+jets[1]).Eta()) #92
+					jets_info.append((lep2+jets[1]).Phi()) #93
+					jets_info.append((lep2+jets[1]).M()) #94
+					jets_info.append((lep2+jets[2]).Pt()) #95
+					jets_info.append((lep2+jets[2]).Eta()) #96
+					jets_info.append((lep2+jets[2]).Phi()) #97
+					jets_info.append((lep2+jets[2]).M()) #98
+
+					jets_info.append(numJets) #99
+
+					if (haslkrs and lkr_ttbar.M()>0.1):
+					    jets_info.append(lkr_ttbar.Pt()) #100
+					    jets_info.append(lkr_ttbar.Eta())#101
+					    jets_info.append(lkr_ttbar.Phi())#102
+					    jets_info.append(lkr_ttbar.M())#103
+					    if(lkr_nonbjet.M()>0.1):
+					        jets_info.append(lkr_nonbjet.Pt())#104
+					        jets_info.append(lkr_nonbjet.Eta())#105
+					        jets_info.append(lkr_nonbjet.Phi())#106
+					        jets_info.append(lkr_nonbjet.M())#107
+					    else:
+					        jets_info.append(0.)
+					        jets_info.append(0.)
+					        jets_info.append(0.)
+					        jets_info.append(0.)
+					else:
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+					    jets_info.append(0.)
+
+					jets_info.append(yearID)
+					jets_info.append(channelID)
+
+					eventInJet.append(jets_info)
+					eventOut.append([genpartonrho[0]])
+	tree.SetBranchStatus("*",1)
+	return eventInJet,eventOut,weights, lKinRecoOut, kinRecoOut
+
+######################### TOOLS ##################################################################
+
+#
+def getReducedFeatureNames(tokeep=None):
+    feature_names = [i for i in feature_names_all]
+    for i in range(len(feature_names)):
+        feature_names[i]=feature_names[i].replace(feature_names[i],str(i)+"_"+feature_names[i])
+
+    feature_names_new = []
+
+    to_remove = []
+    if tokeep == None:
+        to_keep = [i for i in range(len(feature_names))] #all
+    else:
+        to_keep = tokeep
+    # to_keep = [10,53,30,41,39,42,34,38,93,31] #madgraph new dy correct 2 classifier
+
+    for i in range(len(feature_names)):
+        if i in to_keep:
+            feature_names_new.append(feature_names[i])
+        else:
+            to_remove.append(i)
+
+    feature_names = feature_names_new
+
+    return feature_names
+
+#
+def getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=None):
+    feature_names = [i for i in feature_names_all]
+    for i in range(len(feature_names)):
+        feature_names[i]=feature_names[i].replace(feature_names[i],str(i)+"_"+feature_names[i])
+
+    feature_names_new = []
+
+    to_remove = []
+    if tokeep == None:
+        to_keep = [i for i in range(len(feature_names))] #all
+    else:
+        to_keep = tokeep
+    # to_keep = [10,53,30,41,39,42,34,38,93,31] #madgraph new dy correct 2 classifier
+
+    for i in range(len(feature_names)):
+        if i in to_keep:
+            feature_names_new.append(feature_names[i])
+        else:
+            to_remove.append(i)
+
+    feature_names = feature_names_new
+
+    inX_train=np.delete(inX_train,  to_remove,1)
+    inX_test=np.delete(inX_test,  to_remove,1)
+
+    return feature_names, inX_train, inX_test
+
+#
+def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=None, tokeep2=None, regDNNPath = "", removeRho = False):
+
+    model_reg_temp = tf.keras.models.load_model(regDNNPath)
+
+    feature_names = [i for i in feature_names_all]
+    feature_names2 = [i for i in feature_names_all]
+    feature_names_krRho = [i for i in feature_names_all]
+    feature_names_lkrRho = [i for i in feature_names_all]
+    for i in range(len(feature_names)):
+        feature_names[i]=feature_names[i].replace(feature_names[i],str(i)+"_"+feature_names[i])
+        feature_names2[i]=feature_names[i].replace(feature_names[i],str(i)+"_"+feature_names[i])
+        feature_names_krRho[i]=feature_names[i].replace(feature_names[i],str(i)+"_"+feature_names[i])
+        feature_names_lkrRho[i]=feature_names[i].replace(feature_names[i],str(i)+"_"+feature_names[i])
+
+    feature_names_new = []
+    feature_names_new2 = []
+    feature_names_new_krRho = []
+    feature_names_new_lkrRho = []
+
+    to_remove = []
+    if tokeep == None:
+        to_keep = [i for i in range(len(feature_names))] #all
+    else:
+        to_keep = tokeep
+    # to_keep = [10,53,30,41,39,42,34,38,93,31] #madgraph new dy correct 2 classifier
+
+    for i in range(len(feature_names)):
+        if i in to_keep:
+            feature_names_new.append(feature_names[i])
+        else:
+            to_remove.append(i)
+    if removeRho:
+        to_remove.append(41)
+        to_remove.append(42)
+
+    feature_names = feature_names_new
+
+    inX_train1=np.delete(inX_train,  to_remove,1)
+    inX_test1=np.delete(inX_test,  to_remove,1)
+
+    to_remove2 = []
+    if tokeep2 == None:
+        to_keep2 = [i for i in range(len(feature_names2))] #all
+    else:
+        to_keep2 = tokeep2
+
+    for i in range(len(feature_names2)):
+        if i in to_keep2:
+            feature_names_new2.append(feature_names2[i])
+        else:
+            to_remove2.append(i)
+
+    feature_names2 = feature_names_new2
+
+    to_remove_krRho = []
+    tokeep_krRho = [42]
+    to_remove_lkrRho = []
+    tokeep_lkrRho = [41]
+    if tokeep_krRho == None:
+        to_keep_krRho = [i for i in range(len(feature_names_krRho))] #all
+    else:
+        to_keep_krRho = tokeep_krRho
+    if tokeep_lkrRho == None:
+        to_keep_lkrRho = [i for i in range(len(feature_names_lkrRho))] #all
+    else:
+        to_keep_lkrRho = tokeep_lkrRho
+
+    for i in range(len(feature_names_krRho)):
+        if i in to_keep_krRho:
+            feature_names_new_krRho.append(feature_names_krRho[i])
+        else:
+            to_remove_krRho.append(i)
+    for i in range(len(feature_names_lkrRho)):
+        if i in to_keep_lkrRho:
+            feature_names_new_lkrRho.append(feature_names_lkrRho[i])
+        else:
+            to_remove_lkrRho.append(i)
+
+    feature_names_krRho = feature_names_new_krRho
+    feature_names_lkrRho = feature_names_new_lkrRho
+
+    # print (to_remove, to_remove2)
+
+    inX_train2=np.delete(inX_train,  to_remove2,1)
+    inX_test2=np.delete(inX_test,  to_remove2,1)
+    inX_train_krRho=np.delete(inX_train,  to_remove_krRho, 1)
+    inX_test_krRho=np.delete(inX_test,  to_remove_krRho, 1)
+    inX_train_lkrRho=np.delete(inX_train,  to_remove_lkrRho, 1)
+    inX_test_lkrRho=np.delete(inX_test,  to_remove_lkrRho, 1)
+
+    outRho=[]
+    outRho_test=[]
+
+    for x, krRho, lkrRho in zip(inX_train2,inX_train_krRho,inX_train_lkrRho):
+        # print(x, krRho, lkrRho)
+        arAv = []
+        if krRho[0] >0.:
+            arAv.append(np.array(krRho[0]))
+            # outRho.append(krRho[0])
+        if lkrRho[0] >0.:
+            arAv.append(np.array(lkrRho[0]))
+            # outRho.append(krRho[0])
+        # else:
+        #     r = model_reg_temp.predict(np.array([x],dtype='float'))
+        #     outRho.append(r.flatten())
+        # r = model_reg_temp.predict(np.array([x],dtype='float'))
+        r = model_reg_temp.predict(np.array([x]))
+        # arAv.append(r.flatten())
+        arAv.append(r[0][0])
+        arAv = np.array(arAv)
+        arAv.flatten()
+        # a = np.mean(arAv)
+        # print (arAv)
+        # print (a)
+        # print(a[0])
+        # outRho.append( np.mean(arAv))
+        outRho.append( r[0][0])
+        # print (r,outRho,krRho[0],lkrRho[0])
+    # for x, krRho in zip(inX_test2,inX_test_krRho):
+    #     if krRho[0] >0.:
+    #         outRho_test.append(krRho[0])
+    #     else:
+    #         r = model_reg_temp.predict(np.array([x],dtype='float'))
+    #         outRho_test.append(r.flatten())
+    for x, krRho, lkrRho in zip(inX_test2,inX_test_krRho,inX_test_lkrRho):
+        arAv = []
+        if krRho[0] >0.:
+            arAv.append(krRho[0])
+        if lkrRho[0] >0.:
+            arAv.append(lkrRho[0])
+        r = model_reg_temp.predict(np.array([x]))
+        arAv.append(r[0][0])
+        arAv = np.array(arAv)
+        arAv.flatten()
+        # outRho_test.append(np.mean(arAv)[0])
+        # outRho_test.append(np.mean(arAv))
+        outRho_test.append(r[0][0])
+    # kr_rho =index 42
+
+    return feature_names, inX_train1, inX_test1,outRho,outRho_test
 
 
 def rebin2D(h, ngx, ngy):
@@ -1384,29 +1738,192 @@ def rebin2D(h, ngx, ngy):
             h2.AddBinContent(ibin,cu)
     return h2
 
-def drawAsGraph(h):
-
+def drawAsGraph(h,option="pe0"):
     g = ROOT.TGraphAsymmErrors()
-    # g.SetDirectory(0)
-    # for(int b = 0; b < h.GetNbinsX(); b++)
     for b in range(h.GetNbinsX()):
-        x = h.GetBinLowEdge(b + 1) + 0.5 * h.GetBinWidth(b + 1)
+        # x = h.GetBinLowEdge(b + 1) + offset * h.GetBinWidth(b + 1)
+        x = h.GetBinLowEdge(b + 1) + 1. * h.GetBinWidth(b + 1)
         y = h.GetBinContent(b + 1)
         uncLowY = h.GetBinError(b + 1)
         uncHighY = h.GetBinError(b + 1)
         g.SetPoint(b, x, y)
         g.SetPointError(b, 0.0, 0.0, uncLowY, uncHighY)
-
     g.SetLineColor(h.GetLineColor())
     g.SetMarkerColor(h.GetMarkerColor())
     g.SetMarkerStyle(h.GetMarkerStyle())
     g.SetLineStyle(h.GetLineStyle())
     g.SetMarkerSize(h.GetMarkerSize())
-    # drawOption = option
-    # if(!flagUnc)
-    # drawOption += "X"
-    # g.Draw("ZP0X")
+    drawOption = option
+    # if(!flagUnc):
+    #     drawOption += "X"
+    g.Draw(drawOption)
+
     return g
+
+def doRMSandMean(histo, name, outDir):
+    style.style1d()
+    s = style.style1d()
+    c=ROOT.TCanvas()
+    # Xnb=20
+    Xnb=18
+    # Xr1=0.
+    Xr1=0.1
+    # Xr2=1.
+    Xr2=0.9
+    dXbin=(Xr2-Xr1)/((Xnb));
+    titleRMSVsGen_ptTop_full ="; #rho_{true};RMS"
+    titleRespVsGen_ptTop_full ="; #rho_{true};RMS"
+    titleMeanVsGen_ptTop_full ="; #rho_{true};Mean"
+    h_RMSVsGen_=ROOT.TH1F()
+    h_RMSVsGen_.SetDirectory(0)
+    h_RMSVsGen_.SetBins(Xnb,Xr1,Xr2)
+    h_RMSVsGen_.SetTitleOffset(2.0)
+    h_RMSVsGen_.GetXaxis().SetTitleOffset(1.20)
+    h_RMSVsGen_.GetYaxis().SetTitleOffset(1.30)
+    h_RMSVsGen_.SetTitle(titleRMSVsGen_ptTop_full);
+    h_RMSVsGen_.SetStats(0)
+    h_RespVsGen_=ROOT.TH1F()
+    h_RespVsGen_.SetDirectory(0)
+    h_RespVsGen_.SetBins(Xnb,Xr1,Xr2)
+    h_RespVsGen_.SetTitleOffset(2.0)
+    h_RespVsGen_.GetXaxis().SetTitleOffset(1.20)
+    h_RespVsGen_.GetYaxis().SetTitleOffset(1.30)
+    h_RespVsGen_.SetTitle(titleRespVsGen_ptTop_full);
+    h_RespVsGen_.SetStats(0)
+    h_meanVsGen_=ROOT.TH1F()
+    h_meanVsGen_.SetDirectory(0)
+    h_meanVsGen_.SetBins(Xnb,Xr1,Xr2)
+    h_meanVsGen_.SetTitleOffset(2.0)
+    h_meanVsGen_.GetXaxis().SetTitleOffset(1.20)
+    h_meanVsGen_.GetYaxis().SetTitleOffset(1.30)
+    h_meanVsGen_.SetTitle(titleMeanVsGen_ptTop_full)
+    h_meanVsGen_.SetStats(0)
+    for i in range(Xnb):
+        rms = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMS()
+        rms_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMSError()
+        mean = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMean()
+        mean_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError()
+        respRMS = rms/(1.+mean)
+        respRMS_err = np.sqrt((1./(1+mean) * rms_err)**2. + (rms/(1+mean)**2. *mean_err)**2.)
+    	# h_RMSVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMS())
+    	# h_RMSVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMSError())
+    	# h_meanVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMean())
+    	# h_meanVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError())
+        h_RMSVsGen_.SetBinContent(i+1, rms)
+        h_RMSVsGen_.SetBinError(i+1, rms_err)
+        h_meanVsGen_.SetBinContent(i+1, mean)
+        h_meanVsGen_.SetBinError(i+1, mean_err)
+
+        h_RespVsGen_.SetBinContent(i+1, respRMS)
+        h_RespVsGen_.SetBinError(i+1, respRMS_err)
+
+    h_RMSVsGen_.SetStats(0)
+    h_RMSVsGen_.Draw()
+    c.SaveAs(outDir+name+"_rms.pdf")
+    h_RespVsGen_.SetStats(0)
+    h_RespVsGen_.Draw()
+    c.SaveAs(outDir+name+"_respRMS.pdf")
+    c.Clear()
+    h_meanVsGen_.SetStats(0)
+    h_meanVsGen_.Draw()
+    c.SaveAs(outDir+name+"_mean.pdf")
+    return h_RMSVsGen_, h_meanVsGen_, h_RespVsGen_
+
+def doPSE(hResp, hGen, name, outDir):
+    style.style1d()
+    s = style.style1d()
+    c = ROOT.TCanvas()
+    n = hResp.GetNbinsX()
+    hp = ROOT.TH1D("Purity", "", n, 0.0, n)
+    hs = ROOT.TH1D("Stabilty", "", n, 0.0, n)
+    he = ROOT.TH1D("Efficiency", "", n, 0.0, n)
+
+    for b in range(1,n+1):
+        GenInBinAndRecInBin = hResp.GetBinContent(b, b)
+        RecInBin = hResp.Integral(b, b, 1, n)
+        GenInBinAndRec = hResp.Integral(1, n, b, b)
+        GenInBinAll = hGen.GetBinContent(b)
+        if RecInBin>0.:
+            hp.SetBinContent(b, GenInBinAndRecInBin / RecInBin)
+        else:
+            hp.SetBinContent(b, 0.)
+        if GenInBinAndRec>0.:
+            hs.SetBinContent(b, GenInBinAndRecInBin / GenInBinAndRec)
+        else:
+            hs.SetBinContent(b, 0.)
+        if GenInBinAll>0.:
+            he.SetBinContent(b, GenInBinAndRec / GenInBinAll)
+        else:
+            he.SetBinContent(b, 0.)
+
+    leg = ROOT.TLegend(0.15, 0.67, 0.40, 0.85)
+    leg.SetTextFont(62)
+    hr = ROOT.TH2D("", "", 1, he.GetBinLowEdge(1), he.GetBinLowEdge(n + 1), 1, 0.0, 1.0)
+    hr.GetXaxis().SetTitle("Bin")
+    hr.SetStats(0)
+    hr.Draw()
+    hp.SetMarkerColor(4)
+    hp.SetMarkerStyle(23)
+    # hp.SetMarkerSize(markerSize)
+    leg.AddEntry(hp, "Purity", "p")
+    drawAsGraph(hp)
+    hs.SetMarkerColor(2)
+    hs.SetMarkerStyle(22)
+    # hs.SetMarkerSize(markerSize)
+    leg.AddEntry(hs, "Stability", "p")
+    drawAsGraph(hs)
+    he.SetMarkerColor(8)
+    he.SetMarkerStyle(20)
+    # he.SetMarkerSize(markerSize)
+    leg.AddEntry(he, "Efficiency", "p")
+    drawAsGraph(he)
+
+    leg.Draw()
+    c.SaveAs(outDir+name+"_pse.pdf")
+    return hp,hs,he
+
+def uncertaintyBinomial(pass_, all_):
+    return (1./all_)*np.sqrt(pass_ - pass_*pass_/all_)
+
+
+def purityStabilityGraph(h2d, type):
+    import ROOT
+    nBins = h2d.GetNbinsX()
+
+    graph = ROOT.TGraphErrors(nBins)
+
+    # Calculating each point of graph for each diagonal bin
+    # for(int iBin = 1; iBin<=nBins; ++iBin) {
+    for iBin in range(1,nBins+1):
+        diag = h2d.GetBinContent(iBin, iBin)
+        reco = h2d.Integral(iBin, iBin, 1, -1)+1e-30
+        gen = h2d.Integral(1, -1, iBin, iBin)+1e-30
+
+        value = diag/reco if (type == 0 ) else diag/gen
+        error = uncertaintyBinomial(diag, reco) if (type == 0) else uncertaintyBinomial(diag, gen)
+
+        bin = h2d.GetXaxis().GetBinCenter(iBin)
+        binW = h2d.GetXaxis().GetBinWidth(iBin)
+
+        graph.SetPoint(iBin-1, bin, value)
+        graph.SetPointError(iBin-1, binW/2., error)
+
+    return graph
+
+
+
+def setGraphStyle(graph, line=-1, lineColor=-1, lineWidth=-1, marker=-1, markerColor=-1, markerSize=-1, fill=-1, fillColor=-1):
+    import ROOT
+    if(line != -1): graph.SetLineStyle(line)
+    if(lineColor != -1): graph.SetLineColor(lineColor)
+    if(lineWidth != -1): graph.SetLineWidth(lineWidth)
+
+    if(fill != -1): graph.SetFillStyle(fill)
+    if(fillColor != -1): graph.SetFillColor(fillColor)
+
+    if(marker != -1): graph.SetMarkerStyle(marker)
+    if(markerColor != -1): graph.SetMarkerColor(markerColor)
+    if(markerSize != -1): graph.SetMarkerSize(markerSize)
 
 
 def freeze_session(session, keep_var_names=None, output_names=None, clear_devices=True):
@@ -1426,13 +1943,18 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
     """
     graph = session.graph
     with graph.as_default():
-        freeze_var_names = list(set(v.op.name for v in tf.global_variables()).difference(keep_var_names or []))
+        # freeze_var_names = list(set(v.op.name for v in tf.global_variables()).difference(keep_var_names or []))
+        freeze_var_names = list(set(v.op.name for v in tf.compat.v1.global_variables()).difference(keep_var_names or []))
         output_names = output_names or []
-        output_names += [v.op.name for v in tf.global_variables()]
-        graphdef_inf = tf.graph_util.remove_training_nodes(graph.as_graph_def())
+        # output_names += [v.op.name for v in tf.global_variables()]
+        output_names += [v.op.name for v in tf.compat.v1.global_variables()]
+        # graphdef_inf = tf.graph_util.remove_training_nodes(graph.as_graph_def())
+        # graphdef_inf = tf.graph_util.remove_training_nodes(graph.as_graph_def())
+        graphdef_inf = tf.compat.v1.graph_util.remove_training_nodes(graph.as_graph_def())
         if clear_devices:
             for node in graphdef_inf.node:
                 node.device = ""
-        frozen_graph = tf.graph_util.convert_variables_to_constants(
+        # frozen_graph = tf.graph_util.convert_variables_to_constants(
+        frozen_graph = tf.compat.v1.graph_util.convert_variables_to_constants(
             session, graphdef_inf, output_names, freeze_var_names)
         return frozen_graph

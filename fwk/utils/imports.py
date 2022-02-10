@@ -26,7 +26,9 @@ K.tensorflow_backend.set_session(tf.Session(config=tf.ConfigProto(gpu_options=tf
 import uproot
 import numpy as np
 from lbn import LBN,LBNLayer
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
+import matplotlib
+os.environ['QT_QPA_PLATFORM']='offscreen'
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
