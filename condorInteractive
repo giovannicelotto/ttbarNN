@@ -1,5 +1,6 @@
 Requirements = OpSysAndVer == "CentOS7"
 Request_GPUs = 1
+getenv = True
 ##########+RequestRuntime = 604800
 +RequestRuntime = 86400
 queue
