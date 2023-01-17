@@ -12,7 +12,6 @@ from bayes_opt.util import load_logs
 from bayes_opt.logger import JSONLogger
 from bayes_opt.event import Events
 from functools import partial
-# import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
 os.environ['QT_QPA_PLATFORM']='offscreen'
@@ -42,11 +41,6 @@ warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 bayesian_base_outFolder= ""
 # global bayesian_current_iteration
 bayesian_current_iteration = 0
-
-
-
-
-
 
 import ROOT
 
@@ -110,14 +104,13 @@ def compute_js_divergence(train_sample, test_sample, n_bins=10):
 
     return js_divergence(p, q)
 
-#
-def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.2, overwrite = False, withBTag = False, withCharge = False, pTEtaPhiMode=False, maxEvents = None):
+
+def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.2, overwrite = False, withBTag = False, pTEtaPhiMode=False, maxEvents = None):
 
     print ("loadData for year "+year+"/"+" from "+inPathFolder+year+"/flat_[..]"+additionalName+".npy")
     print ("\t overwrite = "+str(overwrite))
     print ("\t testFraction = "+str(testFraction))
     print ("\t withBTag = "+str(withBTag))
-    print ("\t withCharge = "+str(withCharge))
 
     loadData = False
     if not os.path.exists(inPathFolder+year+"/flat_inX"+additionalName+".npy"):
@@ -127,7 +120,7 @@ def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_
 
     if loadData:
         print ("\t need to load from root file with settings: nJets = "+str(3)+"; max Events = all")
-        inX, outY, weights, lkrRho, krRho = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", nJets = 3, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, withCharge=withCharge, pTEtaPhiMode=pTEtaPhiMode)
+        inX, outY, weights, lkrRho, krRho = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", nJets = 3, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
         inX=np.array(inX)
         outY=np.array(outY)
         weights=np.array(weights)
@@ -165,7 +158,7 @@ def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_
 
     return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrRho_train, lkrRho_test, krRho_train, krRho_test, scaler
 
-#
+
 def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", outFolder = "rhoOutput/"):
 
     outDir = outFolder+"/"+year+"/"
@@ -317,9 +310,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     histoRecoGen2_newHybrid2 = ROOT.TH2F( "newHybrid2 resp", ";reco bin;true bin", 20, 0, 1, 20, 0, 1 )
     histoRecoGen2_newHybrid2.SetDirectory(0)
 
-    # binning = [0.0, 0.65, 0.75, 1.0]
     binning = [0.0, 0.3, 0.45, 0.75, 1.0]
-    # from array import array
     ar_bins = array("d", binning)
     histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", 4, ar_bins, 4, ar_bins )
     histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";rho true;#rho reco", 4, ar_bins, 4, ar_bins )
@@ -507,7 +498,6 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     ROOT.gStyle.SetPaintTextFormat("2.2f")
     histo2dbinned_newHybrid.SetMarkerSize(0.7)
     histo2dbinned_newHybrid.GetZaxis().SetTitle("Transition Probability [%]")
-    # style.setPalette("bird")
     ROOT.gStyle.SetPalette(ROOT.kThermometer)
     # ROOT.gStyle.SetPaintTextFormat("1.2f");
     histo2dbinned_newHybrid.Draw("colz text")
@@ -590,19 +580,16 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrRho, krRho, year = "", o
     # Styling graphs
     setGraphStyle(g_purity,       1, 1, 2, 21, 1, 1)
     setGraphStyle(g_stability,    1, 2, 2, 20, 2, 1)
-    # setGraphStyle(g_relStatError, 1, 3, 2, 19, 3, 1)
 
     # Drawing graphs
     g_purity.Draw("P0same")
     g_stability.Draw("P0same")
-    # g_relStatError.Draw("P0same")
     ROOT.gPad.Update()
 
     # Adding a legend
     leg = ROOT.TLegend(.66, .85, .94, .9)
     leg.AddEntry(g_purity, "Purity", "p")
     leg.AddEntry(g_stability, "Stability", "p")
-    # leg.AddEntry(g_relStatError, "Rel. stat. Err.", "p")
     leg.Draw()
 
     c.SaveAs(outDir+"reg_pse.pdf")
@@ -665,65 +652,38 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
     nNodes = int(nNodes)
     batchSize = int(batchSize)
     # indexActivation = int(indexActivation)
-
-
     # activations = ["sigmoid", "relu", "softmax", "selu", "softplus"]
-
     # activation = activations[indexActivation]
     activation = "selu"
     regRate = 7.9857e-5
-    # learningRate = 0.00001
-    # learningRate = learningRate
 
-    # model = models.getRhoRegModelFlat(regRate=1e-7,activation='sigmoid',dropout=0.05,nDense=4,nNodes=1500)
-    # model = models.getRhoRegModelFlat(regRate=1e-7, activation='sigmoid', dropout=0.05, nDense=3, nNodes=500)#
-    # model = models.getRhoRegModelFlat(regRate = regRate, activation = 'relu', dropout = dropout, nDense = nDense,
-    # model = models.getRhoRegModelFlat(regRate = regRate, activation = activations[indexActivation], dropout = dropout, nDense = nDense,
     model = models.getRhoRegModelFlat(regRate = regRate, activation = activation, dropout = dropout, nDense = nDense,
-    # model = models.getRhoRegModelFlat(regRate = regRate, activation = 'selu', dropout = dropout, nDense = nDense,
                                       nNodes = nNodes, inputDim = inX_train.shape[1], outputActivation = 'linear', printSummary=False)
-                                      # nNodes = nNodes, inputDim = 24, outputActivation = 'sigmoid')
     optimizer = tf.keras.optimizers.Adam(lr = learningRate)
 
-    # print ("batch size",batchSize,"nDense",nDense,"nNodes",nNodes,"indexActivation",indexActivation,"activation",activation,"dropout",dropout,"regRate",regRate,"learningRate",learningRate)
     print ("batch size",batchSize,"nDense",nDense,"nNodes",nNodes,"dropout",dropout,"regRate",regRate,"learningRate",learningRate)
 
-    # model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(),metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
     model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(),metrics=['mean_absolute_error','mean_squared_error'])
 
     print ("N parameter: ",model.count_params())
-    # if (model.count_params()> 500000):
     if (model.count_params()> 1500000):
         return 0.
 
     callbacks=[]
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=20, restore_best_weights=True)
     earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=40, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=50, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=250, restore_best_weights=True)
-    # modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
-
-    # callbacks.append(reduce_lr)
     callbacks.append(earlyStop)
-    # callbacks.append(modelCheckpoint)
 
     fit = model.fit(
             inX_train,
             outY_train,
             sample_weight = weights_train,
-            # validation_split = 0.3,
             validation_split = 0.25,
             batch_size = batchSize,
-            # epochs = 3,
             epochs = 300,
-            # epochs = 500,
             shuffle = False,
             callbacks = callbacks,
             verbose = 0)
-            # verbose = 1)
 
     score = model.evaluate(
                         inX_test,
@@ -745,7 +705,6 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
     js = compute_js_divergence(y_predicted, outY_test, n_bins=200)
     print ("JS", js)
 
-    # binning = [0.0, 0.65, 0.75, 1.0]
     binning = [0.0, 0.45, 0.75, 1.0]
     ar_bins = array("d", binning)
     histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", 3, ar_bins, 3, ar_bins )
@@ -768,7 +727,6 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
     outFolder = bayesian_base_outFolder+"_"+str(bayesian_current_iteration)+"/"
     modelName = "optimModel_"+str(bayesian_current_iteration)
 
-    # doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrRho_train, krRho_train, year = year, outFolder = outFolder+"/train/")
     doEvaluationPlots(outY_test, y_predicted, weights_test, lkrRho_test, krRho_test, year = "FR2", outFolder = outFolder+"/test/")
 
     saveModel=True
@@ -788,44 +746,30 @@ def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, w
 
     if np.isnan(corr[0]):
         return 0.
-    # else:
-    #     return corr[0]
     if np.isnan(kl):
         return 0.
     if np.isnan(js):
         return 0.
     else:
         return (1.-js)
-        # return (1./np.linalg.cond(ma))
 
-#
+
 def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder = "BaysianOptim/"):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrRho_train, lkrRho_test, krRho_train, krRho_test, scaler = loadData(
-                                    inPathFolder = inPathFolder, year = year,
-                                    # additionalName = additionalName, testFraction = 0.3, overwrite = False, withBTag = True, withCharge = False, pTEtaPhiMode=True,
-                                    additionalName = additionalName, testFraction = 0.4, overwrite = False, withBTag = True, withCharge = False, pTEtaPhiMode=True,
-                                    maxEvents = None)
+                                    inPathFolder = inPathFolder, year = year, additionalName = additionalName, testFraction = 0.4, overwrite = False, withBTag = True, pTEtaPhiMode=True, maxEvents = None)
     global bayesian_base_outFolder
     bayesian_base_outFolder = outFolder
 
     feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
 
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.,1.)
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.1,0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",50,0.1,0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto", 200, 0.1, 0.9)
 
     for rho,weight in zip(outY_train, weights_train):
-        weightHisto.Fill(rho,abs(weight))
-        # weightHisto.Fill(rho)
+        weightHisto.Fill(rho, abs(weight))
 
     weightHisto.Scale(1./weightHisto.Integral())
     maximumBin = weightHisto.GetMaximumBin()
     maximumBinContent = weightHisto.GetBinContent(maximumBin)
-
-    # canvas = ROOT.TCanvas()
-    # weightHisto.Draw("histe")
-    # canvas.SaveAs("weights_rho.pdf")
 
     for binX in range(1,weightHisto.GetNbinsX()+1):
         c = weightHisto.GetBinContent(binX)
@@ -836,22 +780,12 @@ def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder 
     weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
     weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
 
-    # canvas.Clear()
-    # weightHisto.Draw("histe")
-    # canvas.SetLogy(1)
-    # canvas.SaveAs("weights.pdf")
-
     weights_train_original = weights_train
     weights_train_=[]
-    # for w in weights_train:
-    #     weights_train_.append(abs(w))
     for w,rho in zip(weights_train,outY_train):
         weightBin = weightHisto.FindBin(rho)
         addW = weightHisto.GetBinContent(weightBin)
-        # print (rho,weightBin,addW)
-        # weights_train_.append(abs(w))
         weights_train_.append(abs(w)*addW)
-        # weights_train_.append(addW)
     weights_train = np.array(weights_train_)
 
     weights_train = 1./np.mean(weights_train)*weights_train
@@ -886,20 +820,17 @@ def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder 
     logger = JSONLogger(path = outFolder+"/logs.json", reset=False)
 
     optimizer.subscribe(Events.OPTIMIZATION_STEP, logger)
-    # optimizer.maximize(init_points=30, n_iter=0,kappa=8, alpha=1e-3)
-    # optimizer.maximize(init_points=15, n_iter=15, kappa=8, alpha=1e-3, n_restarts_optimizer=5)
     optimizer.maximize(init_points=30, n_iter=30, kappa=8, alpha=1e-3, n_restarts_optimizer=5)
-    # optimizer.maximize(init_points=30, n_iter=0)
     for i, res in enumerate(optimizer.res):
         print("Iteration {}: \n\t{}".format(i, res))
     print(optimizer.max)
 
-#
+
 def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, outFolder="outFolder_DEFAULTNAME/", modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel"):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrRho_train, lkrRho_test, krRho_train, krRho_test, scaler = loadData(
                                     inPathFolder = inPathFolder, year = year,
                                     additionalName = additionalName, testFraction = 0.4,
-                                    overwrite = False, withBTag = True, withCharge = False, pTEtaPhiMode=True,
+                                    overwrite = False, withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = None)
                                     # maxEvents = 10000)
 
@@ -910,16 +841,10 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     print (len(feature_names))
 
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.,1.)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.1,0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto",50,0.1,0.9)
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",25,0.1,0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto", 200, 0.1, 0.9)
-    # weightHisto = ROOT.TH1F("weightHisto","weightHisto", 500, 0.1, 0.9)
 
     for rho,weight in zip(outY_train, weights_train):
         weightHisto.Fill(rho,abs(weight))
-        # weightHisto.Fill(rho)
 
     weightHisto.Scale(1./weightHisto.Integral())
     maximumBin = weightHisto.GetMaximumBin()
@@ -945,163 +870,22 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     weights_train_original = weights_train
     weights_train_=[]
-    # for w in weights_train:
-    #     weights_train_.append(abs(w))
     for w,rho in zip(weights_train,outY_train):
         weightBin = weightHisto.FindBin(rho)
         addW = weightHisto.GetBinContent(weightBin)
-        # print (rho,weightBin,addW)
-        # weights_train_.append(abs(w))
         weights_train_.append(abs(w)*addW)
-        # weights_train_.append(addW)
     weights_train = np.array(weights_train_)
 
     weights_train = 1./np.mean(weights_train)*weights_train
 
-    # print (weights_train_original.shape)
-    # print (weights_train.shape)
-
-
-    # learningRate = 0.001
-    # batchSize = 800
-    # # batchSize = 2000
-    # dropout = 0.2
-    # nDense = 2
-    # nNodes = 100
-    # regRate = 1e-6
-    # # regRate = 0.000179
-    # # activation = 'relu'
-    # activation = 'selu'
-    # # activation = 'sigmoid'
-    # # activation = 'softmax'
-    # # outputActivation = 'sigmoid'
-    # # outputActivation = 'relu'
-    # outputActivation = 'linear'
-    # # learningRate = 0.001
-    # # batchSize = 800
-    # # dropout = 0.2
-    # # nDense = 2
-    # # nNodes = 200
-    # # regRate = 1e-6
-    # # # regRate = 0.000179
-    # # # activation = 'relu'
-    # # # activation = 'selu'
-    # # activation = 'sigmoid'
-    # # # outputActivation = 'sigmoid'
-    # # # outputActivation = 'relu'
-    # # outputActivation = 'linear'
-
-    # learningRate = 0.00001
-    # batchSize = 800
-    # dropout = 0.35
-    # nDense = 2
-    # nNodes = 500
-    # regRate = 7.9857e-5
-    # activation = 'sigmoid'
-    # outputActivation = 'linear'
-
-    # learningRate = 0.00001
-    # batchSize = 765
-    # dropout = 0.3476
-    # nDense = 2
-    # nNodes = 481
-    # regRate = 7.9857e-5
-    # activation = 'sigmoid'
-    # outputActivation = 'linear'
-
-    # USED IN AN
-    # learningRate = 0.00001
-    # batchSize = 765
-    # dropout = 0.345
-    # nDense = 2
-    # nNodes = 481
-    # regRate = 7.9857e-5
-    # activation = 'sigmoid'
-    # outputActivation = 'linear'
-
-    # # learningRate = 0.0001
-    # learningRate = 0.00001 #was good but loooong training
-    # # learningRate = 0.0001
-    # batchSize = 5330
-    # dropout = 0.345
-    # nDense = 2
-    # # nNodes = 312
-    # # nNodes = 512
-    # # nNodes = 712
-    # # nNodes = 1012
-    # # nNodes = 1412
-    # # nNodes = 2412
-    # # nNodes = 3412
-    # nNodes = 4412
-    # regRate = 7.9857e-5
-    # activation = 'sigmoid'
-    # outputActivation = 'linear'
-    # # outputActivation = 'sigmoid'
-
     learningRate = 0.0001
-    # learningRate = 0.0005
-    # learningRate = 0.001
-    # learningRate = 0.00001 #was good but loooong training
-    # batchSize = 4753
-    # batchSize = 9753
-    # batchSize = 15753
-    # batchSize = 25753
     batchSize = 512
-    # batchSize = 256
-    # batchSize = 128
-    # batchSize = 64
-    # batchSize = 45753
-    # batchSize = 753
-    # batchSize = 453
-    # batchSize = 353
-    # batchSize = 253
     dropout = 0.360
-    # dropout = 0.388
-    # dropout = 0.260
-    # dropout = 0.160
     nDense = 2
-    # nDense = 3
-    # nDense = 4
-    # nNodes = 412
-    # nNodes = 312
-    # nNodes = 112
-    # nNodes = 212
-    # nNodes = 186
-    # nNodes = 60
-    # nNodes = 35
-    # nNodes = 25
-    # nNodes = 75
-    # nNodes = 60
-    # nNodes = 50
     nNodes = 512
-    # nNodes = 312
-    # nNodes = 212
-    # nNodes = 678
-    # nNodes = 412
-    # nNodes = 712
-    # nNodes = 812
-    # nNodes = 1012
-    # nNodes = 1412
-    # nNodes = 2412
-    # nNodes = 3412
-    # nNodes = 941 # bayesian optim
-    # nNodes = 1412
-    # regRate = 7.9857e-5
     regRate = 7.9857e-4
-    # activation = 'sigmoid'
     activation = 'selu'
     outputActivation = 'linear'
-    # outputActivation = 'sigmoid'
-
-    # learningRate = 0.00878165588257266
-    # batchSize = 8746
-    # dropout = 0.10187207544473265
-    # nDense = int(5.466013254050201)
-    # nNodes = int(278.068519836481)
-    # regRate = 9.264302578817089655e-05
-    # # activation = 'selu'
-    # activation = 'sigmoid'
-    # outputActivation = 'linear'
 
     print ("getting model")
     model = models.getRhoRegModelFlat(regRate = regRate, activation = activation, dropout = dropout, nDense = nDense,
@@ -1111,29 +895,12 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     print ("compiling model")
     model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(),metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanSquaredLogarithmicError(),metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss=tf.keras.losses.log_cosh(),metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss=tf.keras.losses.Huber(),metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss='mean_squared_error',metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss='mean_absolute_percentage_error',metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss=myloss,metrics=['mean_absolute_error','mean_squared_error'])
-    # model.compile(optimizer=optimizer, loss='mean_absolute_error',metrics=['mean_absolute_error','mean_squared_error'])
 
     callbacks=[]
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=250, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=25, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=50, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=150, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=75, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=250, restore_best_weights=True)
     earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=300, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=75)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=125, restore_best_weights=True)
-    # earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=30, restore_best_weights=True)
     modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
 
-    # callbacks.append(reduce_lr)
     callbacks.append(earlyStop)
     callbacks.append(modelCheckpoint)
 
@@ -1144,18 +911,7 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
             sample_weight = weights_train,
             validation_split = 0.25,
             batch_size = batchSize,
-            # epochs = 500,
-            # epochs = 800,
-            # epochs = 1000,
-            # epochs = 1500,
-            # epochs = 150,
-            # epochs = 250,
-            # epochs = 3000,
-            # epochs = 5000,
             epochs = 50000,
-            # epochs = 50,
-            # epochs = 10,
-            # epochs = 3,
             shuffle = False,
             callbacks = callbacks,
             verbose = 1)
@@ -1200,10 +956,6 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
     matplotlib.pyplot.legend(['train', 'validation'], loc='upper right')
     matplotlib.pyplot.savefig(outFolder+"/"+year+"/loss.pdf")
 
-    # ch = chisquare(y_predicted, f_exp=outY_test)
-    # ch2 = chisquare(outY_test.reshape(outY_test.shape[0]), f_exp=outY_test.reshape(outY_test.shape[0]))
-    # print ("chi square:",ch)
-    # print ("chi square:",ch2)
     corr = pearsonr(outY_test.reshape(outY_test.shape[0]), y_predicted.reshape(y_predicted.shape[0]))
     print("correlation:",corr[0])
 
@@ -1218,7 +970,6 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     class_names=["rho"]
     max_display = inX_test.shape[1]
-    # for explainer, name  in ((shap.DeepExplainer(model,inX_test[:1000]),"DeepExplainer"), (shap.GradientExplainer(model,inX_test[:1000]),"GradientExplainer")):
     for explainer, name  in [(shap.GradientExplainer(model,inX_test[:1000]),"GradientExplainer"),]:
         shap.initjs()
         print("... {0}: explainer.shap_values(X)".format(name))
@@ -1232,8 +983,7 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
         matplotlib.pyplot.savefig(outFolder+"/"+year+"/"+"/shap_summary_{0}.pdf".format(name))
 
 
-    # saveModel=False
-    saveModel=True
+    saveModel = True
     if saveModel:
         model.save(outFolder+modelName+".h5")
         tf.keras.backend.clear_session()
@@ -1250,7 +1000,7 @@ def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrRho_train, lkrRho_test, krRho_train, krRho_test, scaler = loadData(
                                     inPathFolder = inPathFolder, year = "FR2",
                                     additionalName = additionalName, testFraction = 0.99,
-                                    overwrite = False, withBTag = True, withCharge = False, pTEtaPhiMode=True,
+                                    overwrite = False, withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = None)
                                     # maxEvents = 50000)
 
@@ -1265,7 +1015,6 @@ def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "
     if tokeep == None:
         to_keep = [i for i in range(len(feature_names_all))] #all
     else:
-        # to_keep = [41,42,35,60,84,64,30,76,39,88]
         to_keep = tokeep
 
     for i in range(len(feature_names_original)):
@@ -1276,65 +1025,20 @@ def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "
 
     feature_names = feature_names_new
 
-    # inX_train=np.delete(inX_train,  to_remove,1)
     inX_test=np.delete(inX_test,  to_remove,1)
 
     model = tf.keras.models.load_model(modelDir+"/"+modelName+".h5")
-    # print('inputs: ', [input.op.name for input in model.inputs])
-    # print('outputs: ', [output.op.name for output in model.outputs])
     y_predicted = model.predict(inX_test)
 
     doEvaluationPlots(outY_test, y_predicted, weights_test, lkrRho_test, krRho_test, year = year, outFolder = outFolder)
 
 def main():
-    # doBaysianOptim(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL04_11_02_21", year ="FR2",
-    #                 tokeep = [41,42,35,60,84,64,30,76,39,88], outFolder="preUL04_11_02_21/rho_madgraph_optim/")
-    # keep = [41,42,35,60,84,64,30,76,39,88]    #TO BE USED
-    # keep = [41,42,35,60,84,64,30,76,39,88, 102, 103]    #add year and channel
-    keep = [41,42,35,60,84,64,30,76,39,88, 103]    # add channel
-    # keep = [41,42,35,60,84,64,30,76,39,88]
-    # keep = [42,60,64,41,35,69,18,68,30,15,39,84,24,0,72,5,31,73,28,19,26,21,3,77,20]
-    # keep = [42,41,60,64,69,35,68,18,15,24,39,0,73,19,3,31,5,20,26,27,25,56,80,76,84]
-    # keep = [42,41,60,64,69,35,68,18,15,24,39,0,73,19,3,31,5,20,26,27,25,56,80,76,84]
-    # keep = [41,60,42,64,35,15,69,18,27,3,68,39,24,76,56,19,0]
-    # keep = [41,42,60,64,35,15,69,27,24,56]
-    # keep = [41,42,60,64,35,15,69,27,24,56,84,30,76,39,88]
-    # keep = [41,60,64,42,35,15,76,27,69,39,30,88]
-    # keep = [41,64,60,42,35,76,27,15,30,69]
+    keep = [41,42,35,60,84,64,30,76,39,88,103]
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
-    # doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph_preULv05/", additionalName = "_preUL05_12_08_21", year ="FR2", tokeep = keep,
-    #                         modelName = "rhoRegModel_preUL05_12_08_21", outFolder="preUL05_12_08_21/rhoReg_madgraph_full1/")
-    # justEvaluate(inPathFolder="rhoInput/powheg_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = keep,
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_38/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_powheg_38/")
-    # justEvaluate(inPathFolder="rhoInput/powheg_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = keep,
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_full_8/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_powheg_new8/")
-    # justEvaluate(inPathFolder="rhoInput/powheg_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_38/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_powheg_ghost_ANplots/")
-    # justEvaluate(inPathFolder="rhoInput/madgraph_ghost/", additionalName="_preUL04_11_02_21_ghost", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
-    #             modelDir = "preUL04_11_02_21_ghost/rhoReg_madgraph_ghost_reweight_38/", modelName = "rhoRegModel_preUL04_11_02_21_ghost", outFolder="April_withGhostAndReweight/rho_madgraph_ghost_ANplots/")
-    # justEvaluate(inPathFolder="rhoInput/madgraph/", additionalName="_preUL04_moreInputs_Pt30_madgraph_cutSel", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
-    #             modelDir = "rhoOutput_preUL04_moreInputs_Pt30_madgraph_cutSel/", modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel", outFolder="February_final_comparison/rho_madgraph/")
-    # justEvaluate(inPathFolder="rhoInput/powheg/", additionalName="_preUL04_11_02_21", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
-    #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg/")
     # justEvaluate(inPathFolder="rhoInput/powheg/", additionalName="_preUL04_11_02_21", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
     #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg_newHybrid/")
-
-
-    # doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL05_02_02_22", year ="FR2", tokeep = keep,
-    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_2/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_3/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_4/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_5/rhoReg_madgraph/")
-    #                         modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_6/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_2/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_3/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_4/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_5/rhoReg_madgraph/")
-    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_6/rhoReg_madgraph/")
     doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL05_28_02_22", year ="2016", tokeep = keep,
-                            # modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22_6/rhoReg_madgraph/")
                             modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")
 
 if __name__ == "__main__":

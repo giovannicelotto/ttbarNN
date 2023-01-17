@@ -17,7 +17,6 @@ if(len(physical_devices)>0):
 
 import uproot
 import numpy as np
-# import matplotlib.pyplot as plt
 from utils import style
 from sklearn.model_selection import train_test_split
 from numba import jit
@@ -54,33 +53,19 @@ feature_names_all=[
 ]
 
 ######################### CLASSIFICATION ##################################################################
-# class_labels = {
-#     "tt_signal": 0,
-#     "tt_signal_2": 0,
-#     "tt_signal_1": 1,
-#     "tt_signal_0": 2,
-#     # "tt_0jet": 1,
-#     "tt_background": 4,
-#     "DY": 5,
-#     # "singletop": 4,
-#     "other": 4,
-# }
 class_labels = {
     "tt_signal": 0,
     "tt_signal_3": 0,
     "tt_signal_2": 1,
     "tt_signal_1": 2,
     "tt_signal_0": 3,
-    # "tt_0jet": 1,
     "tt_background": 4,
     "DY": 5,
-    # "singletop": 4,
     "other": 4,
 }
 
-#
+
 def getCrossSectionWeight(filename, eventsRead, lumi=30000., year = None):
-    # topxsec = 831.76
     topxsec = 830.91
 
     f = ROOT.TFile.Open(filename,"READ")
@@ -210,8 +195,8 @@ def getClassLabelFromFilename(filename):
     else:
         return class_labels["tt_background"]
 
-# @jit
-def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False):
+
+def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTag = False):
     eventInJet=[]
     eventOut=[]
     weights=[]
@@ -267,13 +252,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
     print (path, filename, year, yearID, channel, channelID)
     print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
     tree.SetBranchStatus("*",1)
-    # tree.SetBranchStatus("var_*",0)
-    # if (classLabel>1):
-    # if (classLabel>2):
-    # if (classLabel>4):
-    #     tree.SetBranchStatus("gen_*",0)
-    # else:
-    #     tree.SetBranchStatus("gen_*",1)
 
     passStep3 = np.array([0], dtype=bool)
     tree.SetBranchAddress("passStep3", passStep3)
@@ -284,7 +262,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
     hasLooseKinRecoSolution = np.array([0], dtype=bool)
     tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
 
-    # njets = np.array([0]*20, dtype='uint')
     njets = np.array([0], dtype='uint')
     tree.SetBranchAddress("n_jets", njets)
     jetPt = np.array([0]*20, dtype='f')
@@ -321,31 +298,23 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
     jetBTagged = np.array([0]*20, dtype='f')
     tree.SetBranchAddress("jets_btag", (jetBTagged))
 
-    # jetCharge = ROOT.std.vector('float')()
-    # tree.SetBranchAddress("jets_charge", ROOT.AddressOf(jetCharge))
-
     if (doDYCut):
         genHT = np.array([0], dtype='f')
         tree.SetBranchAddress("DY_ME_HT", genHT)
 
     genpartonjetPt = np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_partonLevel_additional_jet_pt", genpartonjetPt)
     tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_pt", genpartonjetPt)
 
     genpartonjetEta = np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_partonLevel_additional_jet_eta", genpartonjetEta)
     tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_eta", genpartonjetEta)
 
     genpartonjetPhi = np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_partonLevel_additional_jet_phi", genpartonjetPhi)
     tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_phi", genpartonjetPhi)
 
     genpartonjetM = np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_partonLevel_additional_jet_m", genpartonjetM)
     tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_m", genpartonjetM)
 
     genpartonrho = np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_partonLevel_rho", genpartonrho)
     tree.SetBranchAddress("gen_partonLevelGhostCleaned_rho", genpartonrho)
 
     weight = np.array([0], dtype='d')
@@ -358,23 +327,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
     tree.SetBranchAddress("pileupSF", pileupSF)
     prefiringWeight = np.array([0], dtype='f')
     tree.SetBranchAddress("l1PrefiringWeight", prefiringWeight)
-
-    # gen_top_pt =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_top_pt", gen_top_pt)
-    # gen_top_eta =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_top_eta", gen_top_eta)
-    # gen_top_phi =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_top_phi", gen_top_phi)
-    # gen_top_m =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_top_m", gen_top_m)
-    # gen_antitop_pt =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_antitop_pt", gen_antitop_pt)
-    # gen_antitop_eta =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_antitop_eta", gen_antitop_eta)
-    # gen_antitop_phi =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_antitop_phi", gen_antitop_phi)
-    # gen_antitop_m =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("gen_antitop_m", gen_antitop_m)
 
     lepton1_pt =  np.array([0], dtype='f')
     tree.SetBranchAddress("lepton1_pt", lepton1_pt)
@@ -398,8 +350,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
     tree.SetBranchAddress("met_pt", met_pt)
     met_phi =  np.array([0], dtype='f')
     tree.SetBranchAddress("met_phi", met_phi)
-    # met_significance =  np.array([0], dtype='f')
-    # tree.SetBranchAddress("met_significance", met_significance)
 
     kinReco_top_pt =  np.array([0], dtype='f')
     tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
@@ -440,14 +390,9 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
 
     myLumiWeight =    getCrossSectionWeight(path, maxEntries, lumi=41530., year=year)
 
-    # print (float(maxEntries)/200000.)
-
-    # maxForBar = int(float(maxEntries)/200000.)
     maxForBar = float(maxEntries)/200000.
 
     bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
-
-    # print (maxEvents,maxEntries,maxForBar)
 
     lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
     lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
@@ -488,62 +433,33 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
             if (i%maxEvents==0 and i!=0):
                 break
 
-        # print (passStep3)
-        # print (njets)
-        # print (jetPt)
-        # print (lkr_nonbjetPt)
-        # print (lepton1_pt)
-
         pass3 = bool(passStep3[0])
         haskrs = bool(hasKinRecoSolution[0])
         haslkrs = bool(hasLooseKinRecoSolution[0])
         totWeight = weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-        # totWeight=btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-
-        # print (passStep3,pass3)
-        # print (hasKinRecoSolution,haskrs)
-        # print (hasLooseKinRecoSolution,haslkrs)
-        # print ("looseKinReco_rho",lkr_rho)
-        # print ("kinReco_rho",kr_rho)
-
 
         passDY = True
         if (doDYCut):
             if genHT[0]<70.:
                 passDY = False
 
-
-        # if not((i==7782) or (i==7755)):
-        #     continue
-        # lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
         if (pass3==True):
             lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
-            # lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
             lep2.SetPtEtaPhiM(lepton2_pt[0],lepton2_eta[0],lepton2_phi[0],lepton2_m[0])
         else:
             lep1.SetPtEtaPhiM(0,0,0,0)
             lep2.SetPtEtaPhiM(0,0,0,0)
         dilepton=lep1+lep2
 
-        # pass3 = pass3 and (i==7777)
-
         passMLLCut = False
 
-
-        # if (isEMuChannel or (not isEMuChannel and (dilepton.M()>76. and dilepton.M()<106.))):
-        #     print (isEMuChannel,(not isEMuChannel and (dilepton.M()>76. and dilepton.M()<106.)),(dilepton.M()>76. and dilepton.M()<106.))
-        #     passMLLCut = True
         if isEMuChannel:
              passMLLCut = True
         elif not (dilepton.M()>76. and dilepton.M()<106.):
             passMLLCut = True
         else:
             passMLLCut = False
-        # print (isEMuChannel,dilepton.M(),passMLLCut)
         passMETCut = False
-        # print (met_pt)
-        # if (isEMuChannel or (not isEMuChannel and met_pt[0]>40.)):
-        #     passMETCut = True
 
         if isEMuChannel:
             passMETCut = True
@@ -552,48 +468,13 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
         else:
             passMETCut = False
 
-        # print (passMETCut,passMLLCut)
-
-        # isSignal = False
-        # classLabelTT = class_labels["tt_0jet"]
         classLabelTT = class_labels["tt_background"]
 
-        # print ("\n")
-        # print (i)
-        # print (dilepton.Pt())
-        # print (pass3,njets[0],passMETCut,dilepton.M(),passDY,passMLLCut)
-
         if (pass3==True):
-            # numJets = njets[0]
             numJets = njets[0]
             countB=0.
-            # print (njets,numJets)
             if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passDY and passMLLCut):
-                # print (numJets)
-                # if (genpartonrho>0. and genpartonjetPt>50. and abs(genpartonjetEta)<2.4):
-                # print("genpartonrho",genpartonrho[0])
-                # print("genpartonjetPt",genpartonjetPt[0])
                 if (genpartonrho[0]>0. and genpartonjetPt[0]>30. and abs(genpartonjetEta[0])<2.4):
-                    # isSignal = True
-                    # if (genpartonrho>=0.71):
-                    #     classLabelTT = class_labels["tt_signal_3"]
-                    # elif (genpartonrho>=0.62):
-                    #     classLabelTT = class_labels["tt_signal_2"]
-                    # elif (genpartonrho>=0.52):
-                    #     classLabelTT = class_labels["tt_signal_1"]
-                    # elif (genpartonrho>=0.0):
-                    #     classLabelTT = class_labels["tt_signal_0"]
-                    # else:
-                    #     classLabelTT = class_labels["tt_background"]
-                    # if (genpartonrho[0]>=0.75):
-                    #     classLabelTT = class_labels["tt_signal_2"]
-                    # elif (genpartonrho[0]>=0.65):
-                    #     classLabelTT = class_labels["tt_signal_1"]
-                    # elif (genpartonrho[0]>=0.0):
-                    #     classLabelTT = class_labels["tt_signal_0"]
-                    # else:
-                    #     # print (genpartonrho[0])
-                    #     classLabelTT = class_labels["tt_background"]
                     if (genpartonrho[0]>=0.7):
                         classLabelTT = class_labels["tt_signal_3"]
                     elif (genpartonrho[0]>=0.45):
@@ -603,24 +484,16 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
                     elif (genpartonrho[0]>=0.0):
                         classLabelTT = class_labels["tt_signal_0"]
                     else:
-                        # print (genpartonrho[0])
                         classLabelTT = class_labels["tt_background"]
                 else:
                     classLabelTT = class_labels["tt_background"]
-                #
-                # print("classLabelTT",classLabelTT)
-                # print("genpartonrho",genpartonrho[0])
-                # print("genpartonjetPt",genpartonjetPt[0])
 
                 jets = []
                 bjets = []
                 ht = 0.
                 nbjets = 0
-                # print (numJets,jetPt)
                 for idx in range(maxJets):
                     if (idx<numJets):
-                        # print (idx,numJets,jetPt[idx],maxJets)
-                        # jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
                         jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
                         jets_info.append(jet4.Pt())
                         jets_info.append(jet4.Eta())
@@ -631,8 +504,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
                         bTagged=int(bool(jetBTagged[idx]))
                         if withBTag:
                             jets_info.append(bTagged) #13-15
-                        # if withCharge:
-                        #     jets_info.append(jetCharge[idx])
                         if (bTagged):
                             bjets.append(jet4)
                     else:
@@ -642,21 +513,10 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
                         jets_info.append(0.)
                         if withBTag:
                             jets_info.append(0.)
-                        # if withCharge:
-                        #     jets_info.append(0.)
                 weights.append(totWeight)
-                lumiWeight.append(myLumiWeight) #value for 2017
+                lumiWeight.append(myLumiWeight)
 
-
-                # met=ROOT.TLorentzVector(0.,0.,0.,0.)
                 met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
-                # top=ROOT.TLorentzVector(0.,0.,0.,0.)
-                # top.SetPtEtaPhiM(gen_top_pt,gen_top_eta,gen_top_phi,gen_top_m)
-                # antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
-                # antitop.SetPtEtaPhiM(gen_antitop_pt,gen_antitop_eta,gen_antitop_phi,gen_antitop_m)
-                # ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-                # ttbar = top+antitop
-
 
                 kr_top.SetPtEtaPhiM(kinReco_top_pt[0], kinReco_top_eta[0], kinReco_top_phi[0], kinReco_top_m[0])
                 kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0], kinReco_antitop_eta[0], kinReco_antitop_phi[0], kinReco_antitop_m[0])
@@ -668,36 +528,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
                 if(lkr_nonbjetPt[0]>30. and abs(lkr_nonbjetEta)<2.4):
                     lkr_nonbjet.SetPtEtaPhiM(lkr_nonbjetPt[0],lkr_nonbjetEta[0],lkr_nonbjetPhi[0],lkr_nonbjetM[0])
 
-                # lkr_rho=0.
-                # kr_rho=0.
-                # kr_foundAddjet = False
-                # lkr_foundAddjet = False
-                # for idx in range(lkr_nonbjetPt.size()):
-                # 	if (lkr_foundAddjet) == False:
-                # 		lkr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-                # 		lkr_jettemp.SetPtEtaPhiM(lkr_nonbjetPt[idx],lkr_nonbjetEta[idx],lkr_nonbjetPhi[idx],lkr_nonbjetM[idx])
-                # 		# if (lkr_jettemp.Pt()>50. and abs(lkr_jettemp.Eta())<2.4):
-                # 		if (lkr_jettemp.Pt()>20. and abs(lkr_jettemp.Eta())<2.5):
-                # 			lkr_rho = 340./(lkr_jettemp+lkr_ttbar).M()
-                # 			lkr_foundAddjet=True
-                # for idx in range(kr_nonbjetPt.size()):
-                # 	if (kr_foundAddjet) == False:
-                # 		kr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-                # 		kr_jettemp.SetPtEtaPhiM(kr_nonbjetPt[idx],kr_nonbjetEta[idx],kr_nonbjetPhi[idx],kr_nonbjetM[idx])
-                # 		# if (kr_jettemp.Pt()>50. and abs(kr_jettemp.Eta())<2.4):
-                # 		if (kr_jettemp.Pt()>20. and abs(kr_jettemp.Eta())<2.5):
-                # 			kr_rho = 340./(kr_jettemp+kr_ttbar).M()
-                # 			kr_foundAddjet=True
-
-                # if hasKinRecoSolution:
-                # if kr_nonbjetPt > 20:
-                # 	kr_jettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-                # 	kr_jettemp.SetPtEtaPhiM(kr_nonbjetPt,kr_nonbjetEta,kr_nonbjetPhi,kr_nonbjetM)
-                # 	kr_rho__ = 340./(kr_jettemp+kr_ttbar).M()
-                # 	print (kr_rho, kr_rho__)
-                # if kr_rho > 0:
-                # 	print (kr_rho)
-
                 mlb_min = 9999.
                 comb = 9999
                 comb1 = 9999
@@ -705,7 +535,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
                 nBJets = len(bjets)
                 nbjets = len(bjets)
                 for i_nb in range(nBJets):
-                    # bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
                     bjettemp.SetPtEtaPhiM(bjets[i_nb].Pt(),bjets[i_nb].Eta(),bjets[i_nb].Phi(),bjets[i_nb].M())
                     comb1 = (lep1+bjettemp).M()
                     comb2 = (lep2+bjettemp).M()
@@ -746,14 +575,10 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
                 jets_info.append(dR_jet1_jet3)#31
                 jets_info.append(dR_jet2_jet3)#32
 
-
                 jets_info.append(dilepton.Pt())#33
                 jets_info.append(dilepton.Eta())#34
                 jets_info.append(dilepton.Phi())#35
                 jets_info.append(dilepton.M())#36
-
-
-                # print (dilepton.Pt())
 
                 jets_info.append(lep1.Pt()) #37
                 jets_info.append(lep1.Eta())#38
@@ -769,8 +594,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
                 # jets_info.append(met.Eta())
                 jets_info.append(met.Phi())#46
                 # jets_info.append(met.M())
-
-                # jets_info.append(met_significance[0])#45
 
                 if (haslkrs and lkr_rho[0]>0.):
                     jets_info.append(lkr_rho[0])#47
@@ -890,10 +713,6 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
 
                 jets_info.append(yearID)
                 jets_info.append(channelID)
-                # print ("\n")
-                # print (i)
-                # print (dilepton.Pt())
-                # print (jets_info)
 
                 eventInJet.append(jets_info)
                 if decideOnTheFly:
@@ -905,9 +724,8 @@ def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTa
     return eventInJet, eventOut, weights, lumiWeight
 
 
-def loadClassificationData(path, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False):
+def loadClassificationData(path, treeName, nJets=3, maxEvents=0, withBTag = False):
     pathToSearch = path.replace("FR2","*")
-    # fileNames = glob.glob(path+'*.root')
     fileNames = glob.glob(pathToSearch+'*.root')
     eventInJet, eventOut, weights,lumW = [],[],[],[]
     n=0
@@ -915,9 +733,7 @@ def loadClassificationData(path, treeName, nJets=3, maxEvents=0, withBTag = Fals
         n = n+1
         filename = filename.replace(path,"")
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        # print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        # a,b,c,l = loadTreeToClassArray(path+filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge)
-        a,b,c,l = loadTreeToClassArray(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge)
+        a,b,c,l = loadTreeToClassArray(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag)
         eventInJet+=a
         eventOut+=b
         weights+=c
@@ -927,27 +743,19 @@ def loadClassificationData(path, treeName, nJets=3, maxEvents=0, withBTag = Fals
 ######################### REGRESSION ##################################################################
 
 
-def loadRegressionData(path, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False, pTEtaPhiMode=False):
+def loadRegressionData(path, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
     pathToSearch = path.replace("FR2","*")
-    # fileNames = glob.glob(path+'*.root')
     fileNames = glob.glob(pathToSearch+'*.root')
     print (path)
     print (fileNames)
-    # fileNames = [
-    #     "DY.root","other.root","singletop.root","ttbar.root"
-    #     ]
     eventInJet, eventOut, weights,lumW,kr = [],[],[],[],[]
     n=0
-    # fileNames = fileNames[0:1]+["mumu_ttbarsignalplustau_fromDilepton_PSweights.root"]+["emu_ttbarsignalplustau_fromDilepton_PSweights.root"]+["ee_ttbarsignalplustau_fromDilepton_PSweights.root"]
-    # fileNames = ["emu_ttbarsignalplustau_fromDilepton_PSweights.root"]
     for filename in fileNames:
         n = n+1
         if "FR2" in path:
             filename = filename.replace(path,"")
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        # eventInJet,eventOut,weights, lKinRecoOut, kinRecoOut
-        # a,b,c,l,k = loadRhoDataFlat(path+filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge, pTEtaPhiMode = pTEtaPhiMode)
-        a,b,c,l,k = loadRhoDataFlat(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge, pTEtaPhiMode = pTEtaPhiMode)
+        a,b,c,l,k = loadRhoDataFlat(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, pTEtaPhiMode = pTEtaPhiMode)
         eventInJet+=a
         eventOut+=b
         weights+=c
@@ -956,7 +764,7 @@ def loadRegressionData(path, treeName, nJets=3, maxEvents=0, withBTag = False, w
     return eventInJet, eventOut, weights,lumW,kr
 
 
-def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, withCharge = False, pTEtaPhiMode=False):
+def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
 	eventInJet=[]
 	eventOut=[]
 	kinRecoOut=[]
@@ -964,7 +772,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 	weights=[]
 	maxJets=nJets
 
-	# f = ROOT.TFile.Open(path)
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
 
@@ -1048,23 +855,18 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 	tree.SetBranchAddress("jets_btag", (jetBTagged))
 
 	genpartonjetPt = np.array([0], dtype='f')
-	# tree.SetBranchAddress("gen_partonLevel_additional_jet_pt", genpartonjetPt)
 	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_pt", genpartonjetPt)
 
 	genpartonjetEta = np.array([0], dtype='f')
-	# tree.SetBranchAddress("gen_partonLevel_additional_jet_eta", genpartonjetEta)
 	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_eta", genpartonjetEta)
 
 	genpartonjetPhi = np.array([0], dtype='f')
-	# tree.SetBranchAddress("gen_partonLevel_additional_jet_phi", genpartonjetPhi)
 	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_phi", genpartonjetPhi)
 
 	genpartonjetM = np.array([0], dtype='f')
-	# tree.SetBranchAddress("gen_partonLevel_additional_jet_m", genpartonjetM)
 	tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_m", genpartonjetM)
 
 	genpartonrho = np.array([0], dtype='f')
-	# tree.SetBranchAddress("gen_partonLevel_rho", genpartonrho)
 	tree.SetBranchAddress("gen_partonLevelGhostCleaned_rho", genpartonrho)
 
 	weight = np.array([0], dtype='d')
@@ -1117,8 +919,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 	tree.SetBranchAddress("met_pt", met_pt)
 	met_phi =  np.array([0], dtype='f')
 	tree.SetBranchAddress("met_phi", met_phi)
-	# met_significance =  np.array([0], dtype='f')
-	# tree.SetBranchAddress("met_significance", met_significance)
 
 	kinReco_top_pt =  np.array([0], dtype='f')
 	tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
@@ -1146,7 +946,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 	tree.SetBranchAddress("looseKinReco_ttbar_phi", looseKinReco_ttbar_phi)
 	looseKinReco_ttbar_m =  np.array([0], dtype='f')
 	tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
-	# looseKinReco_ttbar_m =  np.array([0], dtype='f')
 
 	from progress.bar import IncrementalBar
 
@@ -1210,7 +1009,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 		haskrs = bool(hasKinRecoSolution[0])
 		haslkrs = bool(hasLooseKinRecoSolution[0])
 		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-		# totWeight=btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
 
 		if (pass3==True):
 			lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
@@ -1241,10 +1039,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 			numJets = njets[0]
 			countB=0.
 
-			# if(numJets>2):
-            # if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passDY and passMLLCut):
 			if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
-				# if(genpartonrho>0. and genpartonjetPt>50. and abs(genpartonjetEta)<2.4):
 				if(genpartonrho>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):
 					jets = []
 					bjets = []
@@ -1271,8 +1066,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 								jets_info.append(bTagged)
 							if(bTagged):
 								bjets.append(jet4)
-							# if withCharge:
-							#     jets_info.append(jetCharge[idx])
 						else:
 							jets_info.append(0.)
 							jets_info.append(0.)
@@ -1280,8 +1073,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 							jets_info.append(0.)
 							if withBTag:
 							    jets_info.append(0.)
-							# if withCharge:
-							#     jets_info.append(0.)
 					weights.append(totWeight)
 
 					lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
@@ -1310,7 +1101,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					nBJets = len(bjets)
 					nbjets = len(bjets)
 					for i in range(nBJets):
-					    # bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
 					    bjettemp.SetPtEtaPhiM(bjets[i].Pt(),bjets[i].Eta(),bjets[i].Phi(),bjets[i].M())
 					    comb1 = (lep1+bjettemp).M()
 					    comb2 = (lep2+bjettemp).M()
@@ -1373,8 +1163,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					jets_info.append(met.Phi())#46
 					# jets_info.append(met.M())
 
-					# jets_info.append(met_significance[0])#45
-
 					if (haslkrs and lkr_rho>0.):
 					    jets_info.append(lkr_rho[0])#47
 					    lKinRecoOut.append(lkr_rho[0])#47
@@ -1388,7 +1176,6 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					    jets_info.append(0.)
 					    kinRecoOut.append(0.)
 
-					# if (haskrs and kr_foundAddjet and not np.isnan(kr_rho)):
 					if (haskrs and kr_ttbar.M()>0.1):
 					    # jets_info.append(kr_rho) #51
 					    jets_info.append(kr_ttbar.Pt())#49
@@ -1518,7 +1305,6 @@ def getReducedFeatureNames(tokeep=None):
         to_keep = [i for i in range(len(feature_names))] #all
     else:
         to_keep = tokeep
-    # to_keep = [10,53,30,41,39,42,34,38,93,31] #madgraph new dy correct 2 classifier
 
     for i in range(len(feature_names)):
         if i in to_keep:
@@ -1543,7 +1329,6 @@ def getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=None):
         to_keep = [i for i in range(len(feature_names))] #all
     else:
         to_keep = tokeep
-    # to_keep = [10,53,30,41,39,42,34,38,93,31] #madgraph new dy correct 2 classifier
 
     for i in range(len(feature_names)):
         if i in to_keep:
@@ -1558,7 +1343,7 @@ def getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=None):
 
     return feature_names, inX_train, inX_test
 
-#
+
 def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=None, tokeep2=None, regDNNPath = "", removeRho = False):
 
     model_reg_temp = tf.keras.models.load_model(regDNNPath)
@@ -1583,7 +1368,6 @@ def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=Non
         to_keep = [i for i in range(len(feature_names))] #all
     else:
         to_keep = tokeep
-    # to_keep = [10,53,30,41,39,42,34,38,93,31] #madgraph new dy correct 2 classifier
 
     for i in range(len(feature_names)):
         if i in to_keep:
@@ -1640,8 +1424,6 @@ def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=Non
     feature_names_krRho = feature_names_new_krRho
     feature_names_lkrRho = feature_names_new_lkrRho
 
-    # print (to_remove, to_remove2)
-
     inX_train2=np.delete(inX_train,  to_remove2,1)
     inX_test2=np.delete(inX_test,  to_remove2,1)
     inX_train_krRho=np.delete(inX_train,  to_remove_krRho, 1)
@@ -1653,36 +1435,18 @@ def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=Non
     outRho_test=[]
 
     for x, krRho, lkrRho in zip(inX_train2,inX_train_krRho,inX_train_lkrRho):
-        # print(x, krRho, lkrRho)
         arAv = []
         if krRho[0] >0.:
             arAv.append(np.array(krRho[0]))
-            # outRho.append(krRho[0])
         if lkrRho[0] >0.:
             arAv.append(np.array(lkrRho[0]))
-            # outRho.append(krRho[0])
-        # else:
-        #     r = model_reg_temp.predict(np.array([x],dtype='float'))
-        #     outRho.append(r.flatten())
-        # r = model_reg_temp.predict(np.array([x],dtype='float'))
+
         r = model_reg_temp.predict(np.array([x]))
-        # arAv.append(r.flatten())
         arAv.append(r[0][0])
         arAv = np.array(arAv)
         arAv.flatten()
-        # a = np.mean(arAv)
-        # print (arAv)
-        # print (a)
-        # print(a[0])
-        # outRho.append( np.mean(arAv))
         outRho.append( r[0][0])
-        # print (r,outRho,krRho[0],lkrRho[0])
-    # for x, krRho in zip(inX_test2,inX_test_krRho):
-    #     if krRho[0] >0.:
-    #         outRho_test.append(krRho[0])
-    #     else:
-    #         r = model_reg_temp.predict(np.array([x],dtype='float'))
-    #         outRho_test.append(r.flatten())
+
     for x, krRho, lkrRho in zip(inX_test2,inX_test_krRho,inX_test_lkrRho):
         arAv = []
         if krRho[0] >0.:
@@ -1693,10 +1457,7 @@ def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=Non
         arAv.append(r[0][0])
         arAv = np.array(arAv)
         arAv.flatten()
-        # outRho_test.append(np.mean(arAv)[0])
-        # outRho_test.append(np.mean(arAv))
         outRho_test.append(r[0][0])
-    # kr_rho =index 42
 
     return feature_names, inX_train1, inX_test1,outRho,outRho_test
 
@@ -1715,8 +1476,7 @@ def rebin2D(h, ngx, ngy):
     ymax  = hold.GetYaxis().GetXmax()
     nx = int(nbinsx/ngx)
     ny = int(nbinsy/ngy)
-    # print (nx,xmin,xmax,ny,ymin,ymax)
-    # h.SetBins(nx,xmin,xmax,ny,ymin,ymax)
+
     h2.SetBins(nx,xmin,xmax,ny,ymin,ymax)
 
     for biny in range(1,nbinsy+1):
@@ -1724,25 +1484,21 @@ def rebin2D(h, ngx, ngy):
             ibin = h2.GetBin(binx,biny)
             h2.SetBinContent(ibin,0)
 
-    # for (biny=1;biny<=nbinsy;biny++):
     for biny in range(1,nbinsy+1):
         by  = hold.GetYaxis().GetBinCenter(biny)
         iy  = h2.GetYaxis().FindBin(by)
         for binx in range(1,nbinsx+1):
-        # for (binx=1;binx<=nbinsx;binx++):
             bx = hold.GetXaxis().GetBinCenter(binx)
             ix  = h2.GetXaxis().FindBin(bx)
             bin = hold.GetBin(binx,biny)
             ibin= h2.GetBin(ix,iy)
             cu  = hold.GetBinContent(bin)
-            # h.AddBinContent(ibin,cu)
             h2.AddBinContent(ibin,cu)
     return h2
 
 def drawAsGraph(h,option="pe0"):
     g = ROOT.TGraphAsymmErrors()
     for b in range(h.GetNbinsX()):
-        # x = h.GetBinLowEdge(b + 1) + offset * h.GetBinWidth(b + 1)
         x = h.GetBinLowEdge(b + 1) + 1. * h.GetBinWidth(b + 1)
         y = h.GetBinContent(b + 1)
         uncLowY = h.GetBinError(b + 1)
@@ -1755,8 +1511,6 @@ def drawAsGraph(h,option="pe0"):
     g.SetLineStyle(h.GetLineStyle())
     g.SetMarkerSize(h.GetMarkerSize())
     drawOption = option
-    # if(!flagUnc):
-    #     drawOption += "X"
     g.Draw(drawOption)
 
     return g
@@ -1765,11 +1519,8 @@ def doRMSandMean(histo, name, outDir):
     style.style1d()
     s = style.style1d()
     c=ROOT.TCanvas()
-    # Xnb=20
     Xnb=18
-    # Xr1=0.
     Xr1=0.1
-    # Xr2=1.
     Xr2=0.9
     dXbin=(Xr2-Xr1)/((Xnb));
     titleRMSVsGen_ptTop_full ="; #rho_{true};RMS"
@@ -1806,10 +1557,6 @@ def doRMSandMean(histo, name, outDir):
         mean_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError()
         respRMS = rms/(1.+mean)
         respRMS_err = np.sqrt((1./(1+mean) * rms_err)**2. + (rms/(1+mean)**2. *mean_err)**2.)
-    	# h_RMSVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMS())
-    	# h_RMSVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMSError())
-    	# h_meanVsGen_.SetBinContent(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMean())
-    	# h_meanVsGen_.SetBinError(i+1,(histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError())
         h_RMSVsGen_.SetBinContent(i+1, rms)
         h_RMSVsGen_.SetBinError(i+1, rms_err)
         h_meanVsGen_.SetBinContent(i+1, mean)
@@ -1865,17 +1612,14 @@ def doPSE(hResp, hGen, name, outDir):
     hr.Draw()
     hp.SetMarkerColor(4)
     hp.SetMarkerStyle(23)
-    # hp.SetMarkerSize(markerSize)
     leg.AddEntry(hp, "Purity", "p")
     drawAsGraph(hp)
     hs.SetMarkerColor(2)
     hs.SetMarkerStyle(22)
-    # hs.SetMarkerSize(markerSize)
     leg.AddEntry(hs, "Stability", "p")
     drawAsGraph(hs)
     he.SetMarkerColor(8)
     he.SetMarkerStyle(20)
-    # he.SetMarkerSize(markerSize)
     leg.AddEntry(he, "Efficiency", "p")
     drawAsGraph(he)
 
@@ -1894,7 +1638,6 @@ def purityStabilityGraph(h2d, type):
     graph = ROOT.TGraphErrors(nBins)
 
     # Calculating each point of graph for each diagonal bin
-    # for(int iBin = 1; iBin<=nBins; ++iBin) {
     for iBin in range(1,nBins+1):
         diag = h2d.GetBinContent(iBin, iBin)
         reco = h2d.Integral(iBin, iBin, 1, -1)+1e-30
@@ -1944,18 +1687,13 @@ def freeze_session(session, keep_var_names=None, output_names=None, clear_device
     """
     graph = session.graph
     with graph.as_default():
-        # freeze_var_names = list(set(v.op.name for v in tf.global_variables()).difference(keep_var_names or []))
         freeze_var_names = list(set(v.op.name for v in tf.compat.v1.global_variables()).difference(keep_var_names or []))
         output_names = output_names or []
-        # output_names += [v.op.name for v in tf.global_variables()]
         output_names += [v.op.name for v in tf.compat.v1.global_variables()]
-        # graphdef_inf = tf.graph_util.remove_training_nodes(graph.as_graph_def())
-        # graphdef_inf = tf.graph_util.remove_training_nodes(graph.as_graph_def())
         graphdef_inf = tf.compat.v1.graph_util.remove_training_nodes(graph.as_graph_def())
         if clear_devices:
             for node in graphdef_inf.node:
                 node.device = ""
-        # frozen_graph = tf.graph_util.convert_variables_to_constants(
         frozen_graph = tf.compat.v1.graph_util.convert_variables_to_constants(
             session, graphdef_inf, output_names, freeze_var_names)
         return frozen_graph
