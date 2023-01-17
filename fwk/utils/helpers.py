@@ -942,7 +942,8 @@ def loadRegressionData(path, treeName, nJets=3, maxEvents=0, withBTag = False, w
     # fileNames = ["emu_ttbarsignalplustau_fromDilepton_PSweights.root"]
     for filename in fileNames:
         n = n+1
-        filename = filename.replace(path,"")
+        if "FR2" in path:
+            filename = filename.replace(path,"")
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
         # eventInJet,eventOut,weights, lKinRecoOut, kinRecoOut
         # a,b,c,l,k = loadRhoDataFlat(path+filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, withCharge = withCharge, pTEtaPhiMode = pTEtaPhiMode)

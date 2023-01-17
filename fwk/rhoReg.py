@@ -1045,8 +1045,8 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
     # batchSize = 4753
     # batchSize = 9753
     # batchSize = 15753
-    batchSize = 25753
-    # batchSize = 512
+    # batchSize = 25753
+    batchSize = 512
     # batchSize = 256
     # batchSize = 128
     # batchSize = 64
@@ -1290,7 +1290,8 @@ def main():
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL04_11_02_21", year ="FR2",
     #                 tokeep = [41,42,35,60,84,64,30,76,39,88], outFolder="preUL04_11_02_21/rho_madgraph_optim/")
     # keep = [41,42,35,60,84,64,30,76,39,88]    #TO BE USED
-    keep = [41,42,35,60,84,64,30,76,39,88, 102, 103]    #add year and channel
+    # keep = [41,42,35,60,84,64,30,76,39,88, 102, 103]    #add year and channel
+    keep = [41,42,35,60,84,64,30,76,39,88, 103]    # add channel
     # keep = [41,42,35,60,84,64,30,76,39,88]
     # keep = [42,60,64,41,35,69,18,68,30,15,39,84,24,0,72,5,31,73,28,19,26,21,3,77,20]
     # keep = [42,41,60,64,69,35,68,18,15,24,39,0,73,19,3,31,5,20,26,27,25,56,80,76,84]
@@ -1320,18 +1321,21 @@ def main():
     #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg_newHybrid/")
 
 
-    doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL05_02_02_22", year ="FR2", tokeep = keep,
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_2/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_3/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_4/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_5/rhoReg_madgraph/")
-                            modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_6/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_2/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_3/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_4/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_5/rhoReg_madgraph/")
-                            # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_6/rhoReg_madgraph/")
+    # doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL05_02_02_22", year ="FR2", tokeep = keep,
+    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_2/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_3/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_4/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_5/rhoReg_madgraph/")
+    #                         modelName = "preUL05_rhoRegModel_02_02_22", outFolder="preUL05_02_02_22_6/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_2/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_3/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_4/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_5/rhoReg_madgraph/")
+    #                         # modelName = "preUL05_rhoRegModel_19_01_22", outFolder="preUL05_19_01_22_6/rhoReg_madgraph/")
+    doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL05_28_02_22", year ="2016", tokeep = keep,
+                            # modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22_6/rhoReg_madgraph/")
+                            modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")
 
 if __name__ == "__main__":
     main()
