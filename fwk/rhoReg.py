@@ -838,7 +838,7 @@ def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder 
 
     feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
 
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,0.1,0.9)
+    weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,340,1500)
 
     for rho,weight in zip(outY_train, weights_train):
         weightHisto.Fill(rho, abs(weight))
@@ -916,7 +916,7 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     print (len(feature_names), " Reduced features labels")
  
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",25,0.1,1.5)
+    weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,340,1500)
     m_tt_arr = np.array([])
     print("Filling histo with 1./m_tt")
     for m,weight in zip(outY_train, weights_train):

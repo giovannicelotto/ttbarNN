@@ -647,7 +647,7 @@ def getReducedFeatureNames(tokeep=None):
 
     return feature_names
 
-'''
+
 def getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=None):
     feature_names = [i for i in feature_names_all]
     for i in range(len(feature_names)):
@@ -674,7 +674,7 @@ def getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=None):
 
     return feature_names, inX_train, inX_test
 
-
+'''
 def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=None, tokeep2=None, regDNNPath = "", removeRho = False):
 
     model_reg_temp = tf.keras.models.load_model(regDNNPath)
