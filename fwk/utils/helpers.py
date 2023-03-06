@@ -59,12 +59,15 @@ feature_names_all=[
 
 
 def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+    '''
+    Pass the list of input output features, weights, and output of the invariant mass from LKR and FKR everything in list of list
+    '''
     print("loadRegressionData called \n\n")
     pathToSearch = path.replace("FR2","*")
     fileNames = glob.glob(pathToSearch+'*.root')		# List of files.root in the directory
     print (path)
     print (fileNames)
-    eventInJet, eventOut, weights,lkrM,krM = [],[],[],[],[]	# Lists returned will be saved in npy format
+    eventInJet, eventOut, weights,lkrM,krM = [],[],[],[],[]	# Empty lists for input, output, weights, outputs of analytical results
     n=0
     for filename in fileNames:					# Looping over the file names
         n = n+1
@@ -77,11 +80,16 @@ def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, p
         weights+=c
         lkrM+=l
         krM+=k
-    return eventInJet, eventOut, weights,lumW,kr
+    return eventInJet, eventOut, weights,lkrM,krM
 
 
 def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
-
+	'''
+	Open trees
+	Set Branches to variables
+	Define Lorentz Vector and compute observables of interest from measured ones
+	Returns a list of lists
+	'''
 # List that will be converted to numpy array to be used in the NN
 	eventInJet=[]	# Input
 	eventOut=[]	# Target
@@ -291,7 +299,7 @@ def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fals
 	dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
 
 	bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
-	print("Looping in the trees")  # GC
+	print("\nLooping in the trees")  # GC
 	for i in range(tree.GetEntries()):
 
 		lep1.SetPtEtaPhiM(0.,0.,0.,0.)
@@ -364,7 +372,7 @@ def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fals
 			antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
 			ttbar = top+antitop
 # number of jets requirements
-			if ((numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
+			if ((numJets==2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
 				if(ttbar.M()>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):
 					jets = []
 					bjets = []
@@ -846,9 +854,9 @@ def doRMSandMean(histo, name, outDir):
     Xr1=0.1
     Xr2=0.9
     dXbin=(Xr2-Xr1)/((Xnb));
-    titleRMSVsGen_ptTop_full ="; #rho_{true};RMS"
-    titleRespVsGen_ptTop_full ="; #rho_{true};RMS"
-    titleMeanVsGen_ptTop_full ="; #rho_{true};Mean"
+    titleRMSVsGen_ptTop_full ="; M_{true};RMS"
+    titleRespVsGen_ptTop_full ="; m(t#overline{t}) true;RMS"
+    titleMeanVsGen_ptTop_full ="; m(t#overline{t}) true;Mean"
     h_RMSVsGen_=ROOT.TH1F()
     h_RMSVsGen_.SetDirectory(0)
     h_RMSVsGen_.SetBins(Xnb,Xr1,Xr2)

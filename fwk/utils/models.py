@@ -9,7 +9,7 @@ from tensorflow.keras.layers import Layer
 import keras.backend as K
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import keras
-from tensorflow_smearing import network as smearLayer
+#from tensorflow_smearing import network as smearLayer
 
 def residual_module_dense(layer_in, n_filters, activation, dense_kwargs):
     merge_input = layer_in
@@ -30,7 +30,7 @@ def residual_module_dense(layer_in, n_filters, activation, dense_kwargs):
     layer_out = tf.keras.layers.Activation(activation)(layer_out)
     return layer_out
 
-def getRhoRegModel(regRate=1e-3,activation='selu',dropout=0.1,nDense=5,nNodes=200):
+def getMRegModel(regRate=1e-3,activation='selu',dropout=0.1,nDense=5,nNodes=200):
     l2_reg = tf.keras.regularizers.l2(regRate)
     dense_kwargs = dict(
         activation=activation,
@@ -66,7 +66,7 @@ def getRhoRegModel(regRate=1e-3,activation='selu',dropout=0.1,nDense=5,nNodes=20
 from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import array_ops
 
-def getRhoRegModelFlat(regRate=1e-3, activation='selu', dropout=0.1, nDense=5, nNodes=200, inputDim = 21, outputActivation = 'sigmoid', printSummary=True):
+def getMRegModelFlat(regRate=1e-3, activation='selu', dropout=0.1, nDense=5, nNodes=200, inputDim = 21, outputActivation = 'sigmoid', printSummary=True):
     l2_reg = tf.keras.regularizers.l2(regRate)
     dense_kwargs = dict(
         kernel_initializer = tf.keras.initializers.glorot_normal(),
