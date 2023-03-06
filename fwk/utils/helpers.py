@@ -24,10 +24,12 @@ from numba import jit
 feature_names_all=[
     "jet1Pt","jet1Eta","jet1Phi","jet1M","jet1BTag",
     "jet2Pt","jet2Eta","jet2Phi","jet3M","jet2BTag",
-    "jet3Pt","jet3Eta","jet3Phi","jet3M","jet3BTag",
+    #"jet3Pt","jet3Eta","jet3Phi","jet3M","jet3BTag",
     "ht","nBJets","mlbmin",
-    "l1j1DR","l2j1DR","l1j2DR","l2j2DR","l1j3DR","l2j3DR",
-    "j1j2DR","j1j3DR","l2j3DR",
+    "l1j1DR","l2j1DR","l1j2DR","l2j2DR",
+#"l1j3DR","l2j3DR",
+    "j1j2DR",
+#"j1j3DR","l2j3DR",
     "dilepPt","dilepEta","dilepPhi","dilepM",
     "lep1Pt","lep1Eta","lep1Phi","lep1M",
     "lep2Pt","lep2Eta","lep2Phi","lep2M",
@@ -39,13 +41,13 @@ feature_names_all=[
     "kr_jetPt","kr_jetEta","kr_jetPhi","kr_jetM",
     "llj1Pt","llj1Eta","llj1Phi","llj1M",
     "llj2Pt","llj2Eta","llj2Phi","llj2M",
-    "llj3Pt","llj3Eta","llj3Phi","llj3M",
+    #"llj3Pt","llj3Eta","llj3Phi","llj3M",
     "l1j1Pt","l1j1Eta","l1j1Phi","l1j1M",
     "l1j2Pt","l1j2Eta","l1j2Phi","l1j2M",
-    "l1j3Pt","l1j3Eta","l1j3Phi","l1j3M",
+    #"l1j3Pt","l1j3Eta","l1j3Phi","l1j3M",
     "l2j1Pt","l2j1Eta","l2j1Phi","l2j1M",
     "l2j2Pt","l2j2Eta","l2j2Phi","l2j2M",
-    "l2j3Pt","l2j3Eta","l2j3Phi","l2j3M",
+    #"l2j3Pt","l2j3Eta","l2j3Phi","l2j3M",
     "njets",
     "lkr_ttbarPt","lkr_ttbarEta","lkr_ttbarPhi","lkr_ttbarM",
     "lkr_jetPt","lkr_jetEta","lkr_jetPhi","lkr_jetM",
@@ -62,23 +64,23 @@ def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, p
     fileNames = glob.glob(pathToSearch+'*.root')		# List of files.root in the directory
     print (path)
     print (fileNames)
-    eventInJet, eventOut, weights,lumW,kr = [],[],[],[],[]
+    eventInJet, eventOut, weights,lkrM,krM = [],[],[],[],[]	# Lists returned will be saved in npy format
     n=0
     for filename in fileNames:					# Looping over the file names
         n = n+1
         if "FR2" in path:
             filename = filename.replace(path,"")
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        a,b,c,l,k = loadRhoDataFlat(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, pTEtaPhiMode = pTEtaPhiMode)
+        a,b,c,l,k = loadMDataFlat(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, pTEtaPhiMode = pTEtaPhiMode)
         eventInJet+=a
         eventOut+=b
         weights+=c
-        lumW+=l
-        kr+=k
+        lkrM+=l
+        krM+=k
     return eventInJet, eventOut, weights,lumW,kr
 
 
-def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
 
 # List that will be converted to numpy array to be used in the NN
 	eventInJet=[]	# Input
@@ -324,7 +326,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 		pass3= bool(passStep3[0])
 		haskrs = bool(hasKinRecoSolution[0])
 		haslkrs = bool(hasLooseKinRecoSolution[0])
-		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]	# definition of weights
 # Pass3: correct reconstruction of leptons
 		if (pass3==True):
 			lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
@@ -439,7 +441,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					#dR_lepton2_jet3 = lep2.DeltaR(jets[2])
 
 					dR_jet1_jet2 = jets[0].DeltaR(jets[1])
-					dR_jet1_jet3 = jets[0].DeltaR(jets[2])
+					#dR_jet1_jet3 = jets[0].DeltaR(jets[2])
 					#dR_jet2_jet3 = jets[1].DeltaR(jets[2])
 
 					jets_info.append(ht)  # 16
@@ -459,7 +461,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					jets_info.append(dR_lepton2_jet2)#28
 					#jets_info.append(dR_lepton2_jet3)#29
 					jets_info.append(dR_jet1_jet2)#30
-					jets_info.append(dR_jet1_jet3)#31
+					#jets_info.append(dR_jet1_jet3)#31
 					#jets_info.append(dR_jet2_jet3)#32
 
 
@@ -497,7 +499,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					    jets_info.append(0.)
 					    kinRecoOut.append(0.)
 
-					if (haskrs and kr_ttbar.M()>0.1):
+					if (haskrs and kr_ttbar.M()>0.):
 					    # jets_info.append(kr_rho) #51
 					    jets_info.append(kr_ttbar.Pt())#49
 					    jets_info.append(kr_ttbar.Eta())#50
@@ -511,7 +513,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					    jets_info.append(kr_antitop.Eta())#57
 					    jets_info.append(kr_antitop.Phi())#58
 					    # jets_info.append(kr_antitop.M())
-					    if(kr_nonbjet.M()>0.1):
+					    if(kr_nonbjet.M()>0.):
 					        jets_info.append(kr_nonbjet.Pt())#59
 					        jets_info.append(kr_nonbjet.Eta())#60
 					        jets_info.append(kr_nonbjet.Phi())#61
@@ -545,10 +547,10 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					jets_info.append((dilepton+jets[1]).Eta()) #68
 					jets_info.append((dilepton+jets[1]).Phi()) #69
 					jets_info.append((dilepton+jets[1]).M()) #70
-					jets_info.append((dilepton+jets[2]).Pt()) #71
-					jets_info.append((dilepton+jets[2]).Eta()) #72
-					jets_info.append((dilepton+jets[2]).Phi()) #73
-					jets_info.append((dilepton+jets[2]).M()) #74
+					#jets_info.append((dilepton+jets[2]).Pt()) #71
+					#jets_info.append((dilepton+jets[2]).Eta()) #72
+					#jets_info.append((dilepton+jets[2]).Phi()) #73
+					#jets_info.append((dilepton+jets[2]).M()) #74
 
 					jets_info.append((lep1+jets[0]).Pt()) #75
 					jets_info.append((lep1+jets[0]).Eta()) #76
@@ -578,12 +580,12 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 
 					jets_info.append(numJets) #99
 
-					if (haslkrs and lkr_ttbar.M()>0.1):
+					if (haslkrs and lkr_ttbar.M()>0.):
 					    jets_info.append(lkr_ttbar.Pt()) #100
 					    jets_info.append(lkr_ttbar.Eta())#101
 					    jets_info.append(lkr_ttbar.Phi())#102
 					    jets_info.append(lkr_ttbar.M())#103
-					    if(lkr_nonbjet.M()>0.1):
+					    if(lkr_nonbjet.M()>0.):
 					        jets_info.append(lkr_nonbjet.Pt())#104
 					        jets_info.append(lkr_nonbjet.Eta())#105
 					        jets_info.append(lkr_nonbjet.Phi())#106
@@ -606,8 +608,8 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					jets_info.append(yearID)
 					jets_info.append(channelID)
 
-					eventInJet.append(jets_info)
-					eventOut.append([genpartonrho[0]])
+					eventInJet.append(jets_info)	# Input features are all the possible combinations of momenta
+					eventOut.append([ttbar.M()])	# target of NN is generated M
 	tree.SetBranchStatus("*",1)
 	return eventInJet,eventOut,weights, lKinRecoOut, kinRecoOut
 
