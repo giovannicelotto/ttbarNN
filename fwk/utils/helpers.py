@@ -52,705 +52,19 @@ feature_names_all=[
     "yearID", "channelID"
 ]
 
-######################### CLASSIFICATION ##################################################################
-class_labels = {
-    "tt_signal": 0,
-    "tt_signal_3": 0,
-    "tt_signal_2": 1,
-    "tt_signal_1": 2,
-    "tt_signal_0": 3,
-    "tt_background": 4,
-    "DY": 5,
-    "other": 4,
-}
-
-
-def getCrossSectionWeight(filename, eventsRead, lumi=30000., year = None):
-    topxsec = 830.91
-
-    f = ROOT.TFile.Open(filename,"READ")
-    h = f.Get("weightedEvents")
-    h.SetDirectory(0)
-    nEventsTotal = h.GetBinContent(1)
-    nEventsTree = f.Get("miniTree").GetEntries()
-
-    eventFraction = eventsRead/nEventsTree if nEventsTree > 0. else 0.
-    if eventFraction>1.:
-        eventFraction=1.
-
-    xSec = 1.
-    if ("run" in filename):
-        xSec = 1.
-    elif ("fromDilepton" in filename):
-        xSec = topxsec * 0.10706
-    elif ("fromLjets" in filename):
-        xSec = topxsec * 0.44113
-    elif ("fromHadronic" in filename):
-        xSec = topxsec * 0.45441
-    elif ("ttbar" in filename and not "ttbarW" in filename and not "ttbarZ" in filename):
-        xSec = topxsec
-    elif ("single" in filename and "tw" in filename and "NoFullyHadronicDecays" in filename):
-        xSec = (35.85*(1 - 0.45441))
-    elif ("single" in filename and "tw" in filename):
-        xSec = (35.85)
-    elif ("singletop" in filename and "_t" in filename):
-        xSec = (136.02)
-    elif ("singleantitop" in filename and "_t" in filename):
-        xSec = (80.95)
-    elif ("single" in filename and "_s" in filename):
-        xSec = (10.32)
-    elif ("ww" in filename):
-        xSec = 118.7
-    elif ("wz" in filename):
-        xSec = 47.13
-    elif ("zz" in filename):
-        xSec = 16.523
-    elif ("1050" in filename):
-        xSec = 18610.
-    elif ("0j_amcatnlofxfx" in filename):
-        xSec = 4620.52
-    elif ("1j_amcatnlofxfx" in filename):
-        xSec = 859.59
-    elif ("2j_amcatnlofxfx" in filename):
-        xSec = 338.26
-    elif ("50inf_ht0040to0070" in filename):
-        xSec = 310.7*1.23
-    elif ("50inf_ht0070to0100" in filename):
-        xSec = 169.9*1.23
-        if year=="2016": xSec = xSec*0.889
-        elif year=="2017": xSec = xSec*0.799
-        elif year=="2018": xSec = xSec*0.801
-    elif ("50inf_ht0100to0200" in filename):
-        xSec = 147.40*1.23
-        if year=="2016": xSec = xSec*1.012
-        elif year=="2017": xSec = xSec*1.012
-        elif year=="2018": xSec = xSec*1.002
-    elif ("50inf_ht0200to0400" in filename):
-        xSec = 40.99*1.23
-        if year=="2016": xSec = xSec*1.004
-        elif year=="2017": xSec = xSec*1.096
-        elif year=="2018": xSec = xSec*1.09
-    elif ("50inf_ht0400to0600" in filename):
-        xSec = 5.678*1.23
-        if year=="2016": xSec = xSec*0.995
-        elif year=="2017": xSec = xSec*1.12
-        elif year=="2018": xSec = xSec*1.13
-    elif ("50inf_ht0600to0800" in filename):
-        xSec = 1.367*1.23
-        if year=="2016": xSec = xSec*0.99
-        elif year=="2017": xSec = xSec*1.16
-        elif year=="2018": xSec = xSec*1.16
-    elif ("50inf_ht0800to1200" in filename):
-        xSec = 0.6304*1.23
-        if year=="2016": xSec = xSec*0.97
-        elif year=="2017": xSec = xSec*1.06
-        elif year=="2018": xSec = xSec*1.095
-    elif ("50inf_ht1200to2500" in filename):
-        xSec = 0.1514*1.23
-        if year=="2016": xSec = xSec*1.0
-        elif year=="2017": xSec = xSec*1.27
-        elif year=="2018": xSec = xSec*1.27
-    elif ("50inf_ht2500toINFT" in filename):
-        xSec = 0.003565*1.23
-        if year=="2016": xSec = xSec*0.72
-        elif year=="2017": xSec = xSec*0.65
-        elif year=="2018": xSec = xSec*0.67
-    elif ("50inf" in filename):
-        xSec = 6077.22
-    elif ("wtolnu" in filename):
-        xSec = 61526.7
-    elif ("ttgjets" in filename):
-        xSec = 3.697
-    elif ("ttbarWjetstolnu" in filename):
-        xSec = 0.2043
-    elif ("ttbarWjetstoqq" in filename):
-        xSec = 0.4062
-    elif ("ttbarZtollnunu" in filename):
-        xSec = 0.2529
-    elif ("ttbarZtoqq" in filename):
-        xSec = 0.5297
-    else:
-        print ("SHOULD NOT BE HERE")
-        xSec=1.
-
-    print ("Getting xsec weight for",filename,":")
-    print ("lumi:",lumi," xSec:",xSec,"nEventsTotal",nEventsTotal,"nEventsTree",nEventsTree,"eventsRead",eventsRead,"eventFraction",eventFraction)
-    print("->",lumi * xSec / nEventsTotal / eventFraction if nEventsTotal>0. and eventFraction>0 else 0.)
-    f.Close()
-    return lumi * xSec / nEventsTotal / eventFraction if nEventsTotal >0. and eventFraction>0 else 0.
-
-def getClassOneHot(label):
-    if label==0:
-        return [1,0,0]
-    elif label==1:
-        return [0,1,0]
-    else:
-        return [0,0,1]
-
-def getClassLabelFromFilename(filename):
-    if "dy" in filename:
-        return class_labels["DY"]
-    elif "amcatnlofxfx" in filename or "fromDilepton" in filename:
-        return -1
-    else:
-        return class_labels["tt_background"]
-
-
-def loadTreeToClassArray(path, filename, treeName, nJets=3, maxEvents=0, withBTag = False):
-    eventInJet=[]
-    eventOut=[]
-    weights=[]
-    lumiWeight=[]
-    maxJets=nJets
-
-    decideOnTheFly = False
-    classLabel = getClassLabelFromFilename(filename)
-    if classLabel < 0: #is ttbar file, decide on the fly
-        decideOnTheFly = True
-
-    print ("classLabel",classLabel)
-    print ("decideOnTheFly",decideOnTheFly)
-    isEMuChannel = False
-    if ("emu_") in filename:
-        isEMuChannel = True
-    print ("IsEMUChannel",isEMuChannel)
-
-    doDYCut = False
-    if "50inf.root" in filename:
-        doDYCut = True
-    print ("doDYCut",doDYCut)
-
-    f = ROOT.TFile.Open(path)
-    tree = f.Get(treeName)
-
-    channel = None
-    channelID = None
-    year = None
-    yearID = None
-
-    if ("emu_") in filename:
-        isEMuChannel = True
-        channel = "emu"
-        channelID = 0
-    elif ("mumu_") in filename:
-        channel = "mumu"
-        channelID = -1
-    elif ("ee_") in filename:
-        channel = "ee"
-        channelID = 1
-
-    if ("/2016/") in path:
-        year = "2016"
-        yearID = -1
-    elif ("/2017/") in path:
-        year = "2017"
-        yearID = 0
-    elif ("/2018/") in path:
-        year = "2018"
-        yearID = 1
-
-    print (path, filename, year, yearID, channel, channelID)
-    print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
-    tree.SetBranchStatus("*",1)
-
-    passStep3 = np.array([0], dtype=bool)
-    tree.SetBranchAddress("passStep3", passStep3)
-
-    hasKinRecoSolution = np.array([0], dtype=bool)
-    tree.SetBranchAddress("hasKinRecoSolution", hasKinRecoSolution)
-
-    hasLooseKinRecoSolution = np.array([0], dtype=bool)
-    tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
-
-    njets = np.array([0], dtype='uint')
-    tree.SetBranchAddress("n_jets", njets)
-    jetPt = np.array([0]*20, dtype='f')
-    tree.SetBranchAddress("jets_pt", jetPt)
-    jetEta = np.array([0]*20, dtype='f')
-    tree.SetBranchAddress("jets_eta", jetEta)
-    jetPhi = np.array([0]*20, dtype='f')
-    tree.SetBranchAddress("jets_phi", jetPhi)
-    jetM = np.array([0]*20, dtype='f')
-    tree.SetBranchAddress("jets_m", jetM)
-
-    lkr_nonbjetPt = np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_nonbjet_pt", lkr_nonbjetPt)
-    lkr_nonbjetEta = np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_nonbjet_eta", lkr_nonbjetEta)
-    lkr_nonbjetPhi = np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_nonbjet_phi", lkr_nonbjetPhi)
-    lkr_nonbjetM = np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_nonbjet_m", lkr_nonbjetM)
-    lkr_rho = np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_rho", lkr_rho)
-
-    kr_nonbjetPt = np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_nonbjet_pt", kr_nonbjetPt)
-    kr_nonbjetEta = np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_nonbjet_eta", kr_nonbjetEta)
-    kr_nonbjetPhi = np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_nonbjet_phi", kr_nonbjetPhi)
-    kr_nonbjetM = np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_nonbjet_m", kr_nonbjetM)
-    kr_rho = np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_rho", kr_rho)
-
-    jetBTagged = np.array([0]*20, dtype='f')
-    tree.SetBranchAddress("jets_btag", (jetBTagged))
-
-    if (doDYCut):
-        genHT = np.array([0], dtype='f')
-        tree.SetBranchAddress("DY_ME_HT", genHT)
-
-    genpartonjetPt = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_pt", genpartonjetPt)
-
-    genpartonjetEta = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_eta", genpartonjetEta)
-
-    genpartonjetPhi = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_phi", genpartonjetPhi)
-
-    genpartonjetM = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_partonLevelGhostCleaned_additional_jet_m", genpartonjetM)
-
-    genpartonrho = np.array([0], dtype='f')
-    tree.SetBranchAddress("gen_partonLevelGhostCleaned_rho", genpartonrho)
-
-    weight = np.array([0], dtype='d')
-    tree.SetBranchAddress("weight", weight)
-    leptonSF = np.array([0], dtype='f')
-    tree.SetBranchAddress("leptonSF", leptonSF)
-    btagSF = np.array([0], dtype='f')
-    tree.SetBranchAddress("btagSF", btagSF)
-    pileupSF = np.array([0], dtype='f')
-    tree.SetBranchAddress("pileupSF", pileupSF)
-    prefiringWeight = np.array([0], dtype='f')
-    tree.SetBranchAddress("l1PrefiringWeight", prefiringWeight)
-
-    lepton1_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_pt", lepton1_pt)
-    lepton1_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_eta", lepton1_eta)
-    lepton1_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_phi", lepton1_phi)
-    lepton1_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton1_m", lepton1_m)
-
-    lepton2_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_pt", lepton2_pt)
-    lepton2_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_eta", lepton2_eta)
-    lepton2_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_phi", lepton2_phi)
-    lepton2_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("lepton2_m", lepton2_m)
-
-    met_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_pt", met_pt)
-    met_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("met_phi", met_phi)
-
-    kinReco_top_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
-    kinReco_top_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_eta", kinReco_top_eta)
-    kinReco_top_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_phi", kinReco_top_phi)
-    kinReco_top_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_top_m", kinReco_top_m)
-
-    kinReco_antitop_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_pt", kinReco_antitop_pt)
-    kinReco_antitop_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_eta", kinReco_antitop_eta)
-    kinReco_antitop_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_phi", kinReco_antitop_phi)
-    kinReco_antitop_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("kinReco_antitop_m", kinReco_antitop_m)
-
-    looseKinReco_ttbar_pt =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_pt", looseKinReco_ttbar_pt)
-    looseKinReco_ttbar_eta =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_eta", looseKinReco_ttbar_eta)
-    looseKinReco_ttbar_phi =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_phi", looseKinReco_ttbar_phi)
-    looseKinReco_ttbar_m =  np.array([0], dtype='f')
-    tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
-    # looseKinReco_ttbar_m =  np.array([0], dtype='f')
-
-    from progress.bar import IncrementalBar
-
-    maxEntries = tree.GetEntries()
-
-    if maxEvents!=0:
-        maxEntries = maxEvents
-    else:
-        maxEntries = tree.GetEntries()
-
-    myLumiWeight =    getCrossSectionWeight(path, maxEntries, lumi=41530., year=year)
-
-    maxForBar = float(maxEntries)/200000.
-
-    bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
-
-    lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
-    lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-    jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-    met=ROOT.TLorentzVector(0.,0.,0.,0.)
-    kr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-    kr_top=ROOT.TLorentzVector(0.,0.,0.,0.)
-    kr_antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
-    lkr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-    kr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
-    lkr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
-    bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-    dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
-
-    for i in range(tree.GetEntries()):
-
-        lep1.SetPtEtaPhiM(0.,0.,0.,0.)
-        lep2.SetPtEtaPhiM(0.,0.,0.,0.)
-        jet4.SetPtEtaPhiM(0.,0.,0.,0.)
-        met.SetPtEtaPhiM(0.,0.,0.,0.)
-        kr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
-        kr_top.SetPtEtaPhiM(0.,0.,0.,0.)
-        kr_antitop.SetPtEtaPhiM(0.,0.,0.,0.)
-        lkr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
-        kr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
-        lkr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
-        bjettemp.SetPtEtaPhiM(0.,0.,0.,0.)
-        dilepton.SetPtEtaPhiM(0.,0.,0.,0.)
-
-        jets_info=[]
-        tree.GetEntry(i)
-        totWeight=1.
-
-        if (i%200000==0):
-            bar.next()
-
-        if (maxEvents!=0):
-            if (i%maxEvents==0 and i!=0):
-                break
-
-        pass3 = bool(passStep3[0])
-        haskrs = bool(hasKinRecoSolution[0])
-        haslkrs = bool(hasLooseKinRecoSolution[0])
-        totWeight = weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-
-        passDY = True
-        if (doDYCut):
-            if genHT[0]<70.:
-                passDY = False
-
-        if (pass3==True):
-            lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
-            lep2.SetPtEtaPhiM(lepton2_pt[0],lepton2_eta[0],lepton2_phi[0],lepton2_m[0])
-        else:
-            lep1.SetPtEtaPhiM(0,0,0,0)
-            lep2.SetPtEtaPhiM(0,0,0,0)
-        dilepton=lep1+lep2
-
-        passMLLCut = False
-
-        if isEMuChannel:
-             passMLLCut = True
-        elif not (dilepton.M()>76. and dilepton.M()<106.):
-            passMLLCut = True
-        else:
-            passMLLCut = False
-        passMETCut = False
-
-        if isEMuChannel:
-            passMETCut = True
-        elif (met_pt[0]>40.):
-            passMETCut = True
-        else:
-            passMETCut = False
-
-        classLabelTT = class_labels["tt_background"]
-
-        if (pass3==True):
-            numJets = njets[0]
-            countB=0.
-            if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passDY and passMLLCut):
-                if (genpartonrho[0]>0. and genpartonjetPt[0]>30. and abs(genpartonjetEta[0])<2.4):
-                    if (genpartonrho[0]>=0.7):
-                        classLabelTT = class_labels["tt_signal_3"]
-                    elif (genpartonrho[0]>=0.45):
-                        classLabelTT = class_labels["tt_signal_2"]
-                    elif (genpartonrho[0]>=0.3):
-                        classLabelTT = class_labels["tt_signal_1"]
-                    elif (genpartonrho[0]>=0.0):
-                        classLabelTT = class_labels["tt_signal_0"]
-                    else:
-                        classLabelTT = class_labels["tt_background"]
-                else:
-                    classLabelTT = class_labels["tt_background"]
-
-                jets = []
-                bjets = []
-                ht = 0.
-                nbjets = 0
-                for idx in range(maxJets):
-                    if (idx<numJets):
-                        jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-                        jets_info.append(jet4.Pt())
-                        jets_info.append(jet4.Eta())
-                        jets_info.append(jet4.Phi())
-                        jets_info.append(jet4.M())
-                        jets.append(jet4) #1-12
-                        ht = ht+jet4.Pt()
-                        bTagged=int(bool(jetBTagged[idx]))
-                        if withBTag:
-                            jets_info.append(bTagged) #13-15
-                        if (bTagged):
-                            bjets.append(jet4)
-                    else:
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                        if withBTag:
-                            jets_info.append(0.)
-                weights.append(totWeight)
-                lumiWeight.append(myLumiWeight)
-
-                met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
-
-                kr_top.SetPtEtaPhiM(kinReco_top_pt[0], kinReco_top_eta[0], kinReco_top_phi[0], kinReco_top_m[0])
-                kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0], kinReco_antitop_eta[0], kinReco_antitop_phi[0], kinReco_antitop_m[0])
-                kr_ttbar= kr_antitop + kr_top
-                lkr_ttbar.SetPtEtaPhiM(looseKinReco_ttbar_pt[0], looseKinReco_ttbar_eta[0], looseKinReco_ttbar_phi[0], looseKinReco_ttbar_m[0])
-
-                if(kr_nonbjetPt[0]>30. and abs(kr_nonbjetEta)<2.4):
-                    kr_nonbjet.SetPtEtaPhiM(kr_nonbjetPt[0],kr_nonbjetEta[0],kr_nonbjetPhi[0],kr_nonbjetM[0])
-                if(lkr_nonbjetPt[0]>30. and abs(lkr_nonbjetEta)<2.4):
-                    lkr_nonbjet.SetPtEtaPhiM(lkr_nonbjetPt[0],lkr_nonbjetEta[0],lkr_nonbjetPhi[0],lkr_nonbjetM[0])
-
-                mlb_min = 9999.
-                comb = 9999
-                comb1 = 9999
-                comb2 = 9999
-                nBJets = len(bjets)
-                nbjets = len(bjets)
-                for i_nb in range(nBJets):
-                    bjettemp.SetPtEtaPhiM(bjets[i_nb].Pt(),bjets[i_nb].Eta(),bjets[i_nb].Phi(),bjets[i_nb].M())
-                    comb1 = (lep1+bjettemp).M()
-                    comb2 = (lep2+bjettemp).M()
-                    comb = comb1 if comb1<comb2 else comb2
-                    if (comb<mlb_min):
-                        mlb_min=comb
-                if mlb_min > 9990:
-                    mlb_min = 0.
-
-                dR_lepton1_jet1 = lep1.DeltaR(jets[0])
-                dR_lepton1_jet2 = lep1.DeltaR(jets[1])
-                dR_lepton1_jet3 = lep1.DeltaR(jets[2])
-                dR_lepton2_jet1 = lep2.DeltaR(jets[0])
-                dR_lepton2_jet2 = lep2.DeltaR(jets[1])
-                dR_lepton2_jet3 = lep2.DeltaR(jets[2])
-
-                dR_jet1_jet2 = jets[0].DeltaR(jets[1])
-                dR_jet1_jet3 = jets[0].DeltaR(jets[2])
-                dR_jet2_jet3 = jets[1].DeltaR(jets[2])
-
-                jets_info.append(ht)  # 16
-                jets_info.append(nbjets) #17
-
-                jets_info.append(mlb_min) #13
-                # jets_info.append((lep1+jets[0]).M()) #18
-                # jets_info.append((lep2+jets[0]).M()) #19
-                # jets_info.append((lep1+jets[1]).M()) #20
-                # jets_info.append((lep2+jets[1]).M()) #21
-                # jets_info.append((lep1+jets[2]).M()) #22
-                # jets_info.append((lep2+jets[2]).M()) #23
-                jets_info.append(dR_lepton1_jet1) #24
-                jets_info.append(dR_lepton1_jet2) #25
-                jets_info.append(dR_lepton1_jet3)#26
-                jets_info.append(dR_lepton2_jet1)#27
-                jets_info.append(dR_lepton2_jet2)#28
-                jets_info.append(dR_lepton2_jet3)#29
-                jets_info.append(dR_jet1_jet2)#30
-                jets_info.append(dR_jet1_jet3)#31
-                jets_info.append(dR_jet2_jet3)#32
-
-                jets_info.append(dilepton.Pt())#33
-                jets_info.append(dilepton.Eta())#34
-                jets_info.append(dilepton.Phi())#35
-                jets_info.append(dilepton.M())#36
-
-                jets_info.append(lep1.Pt()) #37
-                jets_info.append(lep1.Eta())#38
-                jets_info.append(lep1.Phi())#39
-                jets_info.append(lep1.M())#40
-
-                jets_info.append(lep2.Pt())#41
-                jets_info.append(lep2.Eta())#42
-                jets_info.append(lep2.Phi())#43
-                jets_info.append(lep2.M())#44
-
-                jets_info.append(met.Pt())#45
-                # jets_info.append(met.Eta())
-                jets_info.append(met.Phi())#46
-                # jets_info.append(met.M())
-
-                if (haslkrs and lkr_rho[0]>0.):
-                    jets_info.append(lkr_rho[0])#47
-                else:
-                    jets_info.append(0.)
-                if (haskrs and kr_rho[0]>0.):
-                    jets_info.append(kr_rho[0])#48
-                else:
-                    jets_info.append(0.)
-
-                # if (haskrs and kr_foundAddjet and not np.isnan(kr_rho)):
-                if (haskrs and kr_ttbar.M()>0.1):
-                    # jets_info.append(kr_rho) #51
-                    jets_info.append(kr_ttbar.Pt())#49
-                    jets_info.append(kr_ttbar.Eta())#50
-                    jets_info.append(kr_ttbar.Phi())#51
-                    jets_info.append(kr_ttbar.M())#52
-                    jets_info.append(kr_top.Pt())#53
-                    jets_info.append(kr_top.Eta())#54
-                    jets_info.append(kr_top.Phi())#55
-                    # jets_info.append(kr_top.M())
-                    jets_info.append(kr_antitop.Pt())#56
-                    jets_info.append(kr_antitop.Eta())#57
-                    jets_info.append(kr_antitop.Phi())#58
-                    # jets_info.append(kr_antitop.M())
-                    if (kr_nonbjet.M()>0.1):
-                        jets_info.append(kr_nonbjet.Pt())#59
-                        jets_info.append(kr_nonbjet.Eta())#60
-                        jets_info.append(kr_nonbjet.Phi())#61
-                        jets_info.append(kr_nonbjet.M())#62
-                    else:
-                        jets_info.append(0.)#
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                else:
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-
-                jets_info.append((dilepton+jets[0]).Pt()) #63
-                jets_info.append((dilepton+jets[0]).Eta()) #64
-                jets_info.append((dilepton+jets[0]).Phi()) #65
-                jets_info.append((dilepton+jets[0]).M()) #66
-                jets_info.append((dilepton+jets[1]).Pt()) #67
-                jets_info.append((dilepton+jets[1]).Eta()) #68
-                jets_info.append((dilepton+jets[1]).Phi()) #69
-                jets_info.append((dilepton+jets[1]).M()) #70
-                jets_info.append((dilepton+jets[2]).Pt()) #71
-                jets_info.append((dilepton+jets[2]).Eta()) #72
-                jets_info.append((dilepton+jets[2]).Phi()) #73
-                jets_info.append((dilepton+jets[2]).M()) #74
-
-                jets_info.append((lep1+jets[0]).Pt()) #75
-                jets_info.append((lep1+jets[0]).Eta()) #76
-                jets_info.append((lep1+jets[0]).Phi()) #77
-                jets_info.append((lep1+jets[0]).M()) #78
-                jets_info.append((lep1+jets[1]).Pt()) #79
-                jets_info.append((lep1+jets[1]).Eta()) #80
-                jets_info.append((lep1+jets[1]).Phi()) #81
-                jets_info.append((lep1+jets[1]).M()) #82
-                jets_info.append((lep1+jets[2]).Pt()) #83
-                jets_info.append((lep1+jets[2]).Eta()) #84
-                jets_info.append((lep1+jets[2]).Phi()) #85
-                jets_info.append((lep1+jets[2]).M()) #86
-
-                jets_info.append((lep2+jets[0]).Pt()) #87
-                jets_info.append((lep2+jets[0]).Eta()) #88
-                jets_info.append((lep2+jets[0]).Phi()) #89
-                jets_info.append((lep2+jets[0]).M()) #90
-                jets_info.append((lep2+jets[1]).Pt()) #91
-                jets_info.append((lep2+jets[1]).Eta()) #92
-                jets_info.append((lep2+jets[1]).Phi()) #93
-                jets_info.append((lep2+jets[1]).M()) #94
-                jets_info.append((lep2+jets[2]).Pt()) #95
-                jets_info.append((lep2+jets[2]).Eta()) #96
-                jets_info.append((lep2+jets[2]).Phi()) #97
-                jets_info.append((lep2+jets[2]).M()) #98
-
-                jets_info.append(numJets) #99
-
-                if (haslkrs and lkr_ttbar.M()>0.1):
-                    jets_info.append(lkr_ttbar.Pt()) #100
-                    jets_info.append(lkr_ttbar.Eta())#101
-                    jets_info.append(lkr_ttbar.Phi())#102
-                    jets_info.append(lkr_ttbar.M())#103
-                    if (lkr_nonbjet.M()>0.1):
-                        jets_info.append(lkr_nonbjet.Pt())#104
-                        jets_info.append(lkr_nonbjet.Eta())#105
-                        jets_info.append(lkr_nonbjet.Phi())#106
-                        jets_info.append(lkr_nonbjet.M())#107
-                    else:
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                        jets_info.append(0.)
-                else:
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-                    jets_info.append(0.)
-
-                jets_info.append(yearID)
-                jets_info.append(channelID)
-
-                eventInJet.append(jets_info)
-                if decideOnTheFly:
-                    classLabel = classLabelTT
-                eventOut.append([classLabel])
-
-    tree.SetBranchStatus("*",1)
-    f.Close()
-    return eventInJet, eventOut, weights, lumiWeight
-
-
-def loadClassificationData(path, treeName, nJets=3, maxEvents=0, withBTag = False):
-    pathToSearch = path.replace("FR2","*")
-    fileNames = glob.glob(pathToSearch+'*.root')
-    eventInJet, eventOut, weights,lumW = [],[],[],[]
-    n=0
-    for filename in fileNames:
-        n = n+1
-        filename = filename.replace(path,"")
-        print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        a,b,c,l = loadTreeToClassArray(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag)
-        eventInJet+=a
-        eventOut+=b
-        weights+=c
-        lumW+=l
-    return eventInJet, eventOut, weights,lumW
 
 ######################### REGRESSION ##################################################################
 
 
-def loadRegressionData(path, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+    print("loadRegressionData called \n\n")
     pathToSearch = path.replace("FR2","*")
-    fileNames = glob.glob(pathToSearch+'*.root')
+    fileNames = glob.glob(pathToSearch+'*.root')		# List of files.root in the directory
     print (path)
     print (fileNames)
     eventInJet, eventOut, weights,lumW,kr = [],[],[],[],[]
     n=0
-    for filename in fileNames:
+    for filename in fileNames:					# Looping over the file names
         n = n+1
         if "FR2" in path:
             filename = filename.replace(path,"")
@@ -765,12 +79,14 @@ def loadRegressionData(path, treeName, nJets=3, maxEvents=0, withBTag = False, p
 
 
 def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
-	eventInJet=[]
-	eventOut=[]
-	kinRecoOut=[]
-	lKinRecoOut=[]
-	weights=[]
-	maxJets=nJets
+
+# List that will be converted to numpy array to be used in the NN
+	eventInJet=[]	# Input
+	eventOut=[]	# Target
+	kinRecoOut=[]	# kinRecorho (to be compared with NN output)
+	lKinRecoOut=[]	# loosekinRecorho (to be compared with NN output)
+	weights=[]	# weights to be used in the NN
+	maxJets=nJets	# max number of jets(?)
 
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
@@ -805,7 +121,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 	print (path, filename, year, yearID, channel, channelID)
 
 	print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
-
+# Setting branches in the tree
 	tree.SetBranchStatus("var_*",0)
 
 	passStep3 = np.array([0], dtype=bool)
@@ -948,7 +264,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 	tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
 
 	from progress.bar import IncrementalBar
-
+# If maxevents is defined only a fraction of events
 	if maxEvents!=0:
 	    maxEntries = maxEvents
 	else:
@@ -973,7 +289,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 	dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
 
 	bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
-
+	print("Looping in the trees")  # GC
 	for i in range(tree.GetEntries()):
 
 		lep1.SetPtEtaPhiM(0.,0.,0.,0.)
@@ -1009,7 +325,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 		haskrs = bool(hasKinRecoSolution[0])
 		haslkrs = bool(hasLooseKinRecoSolution[0])
 		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
-
+# Pass3: correct reconstruction of leptons
 		if (pass3==True):
 			lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
 			lep2.SetPtEtaPhiM(lepton2_pt[0],lepton2_eta[0],lepton2_phi[0],lepton2_m[0])
@@ -1017,16 +333,18 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 			lep1.SetPtEtaPhiM(0,0,0,0)
 			lep2.SetPtEtaPhiM(0,0,0,0)
 		dilepton=lep1+lep2
-
+# Mll cut in the Z window
 		passMLLCut = False
-
+# If emu always passed
 		if isEMuChannel:
 			passMLLCut = True
 		elif not (dilepton.M()>76. and dilepton.M()<106.):
 			passMLLCut = True
 		else:
 			passMLLCut = False
+# Cut in the MET (to suppress Zjets)
 		passMETCut = False
+# if emu always passed
 
 		if isEMuChannel:
 			passMETCut = True
@@ -1039,8 +357,13 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 			numJets = njets[0]
 			countB=0.
 
-			if ((numJets>2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
-				if(genpartonrho>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):
+			# Top properties definition
+			top.SetPtEtaPhiM(gen_top_pt[0],gen_top_eta[0],gen_top_phi[0],gen_top_m[0])
+			antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
+			ttbar = top+antitop
+# number of jets requirements
+			if ((numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
+				if(ttbar.M()>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):
 					jets = []
 					bjets = []
 					nbjets = 0
@@ -1078,9 +401,7 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
 					lep2.SetPtEtaPhiM(lepton2_pt[0],lepton2_eta[0],lepton2_phi[0],lepton2_m[0])
 					met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
-					top.SetPtEtaPhiM(gen_top_pt[0],gen_top_eta[0],gen_top_phi[0],gen_top_m[0])
-					antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
-					ttbar = top+antitop
+					
 
 					dilepton=lep1+lep2
 
@@ -1112,14 +433,14 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 
 					dR_lepton1_jet1 = lep1.DeltaR(jets[0])
 					dR_lepton1_jet2 = lep1.DeltaR(jets[1])
-					dR_lepton1_jet3 = lep1.DeltaR(jets[2])
+					#dR_lepton1_jet3 = lep1.DeltaR(jets[2])
 					dR_lepton2_jet1 = lep2.DeltaR(jets[0])
 					dR_lepton2_jet2 = lep2.DeltaR(jets[1])
-					dR_lepton2_jet3 = lep2.DeltaR(jets[2])
+					#dR_lepton2_jet3 = lep2.DeltaR(jets[2])
 
 					dR_jet1_jet2 = jets[0].DeltaR(jets[1])
 					dR_jet1_jet3 = jets[0].DeltaR(jets[2])
-					dR_jet2_jet3 = jets[1].DeltaR(jets[2])
+					#dR_jet2_jet3 = jets[1].DeltaR(jets[2])
 
 					jets_info.append(ht)  # 16
 					jets_info.append(nbjets) #17
@@ -1133,13 +454,13 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					# jets_info.append((lep2+jets[2]).M()) #23
 					jets_info.append(dR_lepton1_jet1) #24
 					jets_info.append(dR_lepton1_jet2) #25
-					jets_info.append(dR_lepton1_jet3)#26
+					#jets_info.append(dR_lepton1_jet3)#26
 					jets_info.append(dR_lepton2_jet1)#27
 					jets_info.append(dR_lepton2_jet2)#28
-					jets_info.append(dR_lepton2_jet3)#29
+					#jets_info.append(dR_lepton2_jet3)#29
 					jets_info.append(dR_jet1_jet2)#30
 					jets_info.append(dR_jet1_jet3)#31
-					jets_info.append(dR_jet2_jet3)#32
+					#jets_info.append(dR_jet2_jet3)#32
 
 
 					jets_info.append(dilepton.Pt())#33
@@ -1163,15 +484,15 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					jets_info.append(met.Phi())#46
 					# jets_info.append(met.M())
 
-					if (haslkrs and lkr_rho>0.):
-					    jets_info.append(lkr_rho[0])#47
-					    lKinRecoOut.append(lkr_rho[0])#47
+					if (haslkrs and lkr_ttbar.M()>0.):
+					    jets_info.append(lkr_ttbar.M())#47
+					    lKinRecoOut.append(lkr_ttbar.M())#47	Output of the LooseKinReco
 					else:
 					    jets_info.append(0.)
 					    lKinRecoOut.append(0.)
-					if (haskrs and kr_rho>0.):
-					    jets_info.append(kr_rho[0])#48
-					    kinRecoOut.append(kr_rho[0])#48
+					if (haskrs and kr_ttbar.M()>0.):
+					    jets_info.append(kr_ttbar.M())#48
+					    kinRecoOut.append(kr_ttbar.M())#48		Output of the kinRecoOut
 					else:
 					    jets_info.append(0.)
 					    kinRecoOut.append(0.)
@@ -1237,10 +558,10 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					jets_info.append((lep1+jets[1]).Eta()) #80
 					jets_info.append((lep1+jets[1]).Phi()) #81
 					jets_info.append((lep1+jets[1]).M()) #82
-					jets_info.append((lep1+jets[2]).Pt()) #83
-					jets_info.append((lep1+jets[2]).Eta()) #84
-					jets_info.append((lep1+jets[2]).Phi()) #85
-					jets_info.append((lep1+jets[2]).M()) #86
+					#jets_info.append((lep1+jets[2]).Pt()) #83
+					#jets_info.append((lep1+jets[2]).Eta()) #84
+					#jets_info.append((lep1+jets[2]).Phi()) #85
+					#jets_info.append((lep1+jets[2]).M()) #86
 
 					jets_info.append((lep2+jets[0]).Pt()) #87
 					jets_info.append((lep2+jets[0]).Eta()) #88
@@ -1250,10 +571,10 @@ def loadRhoDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fa
 					jets_info.append((lep2+jets[1]).Eta()) #92
 					jets_info.append((lep2+jets[1]).Phi()) #93
 					jets_info.append((lep2+jets[1]).M()) #94
-					jets_info.append((lep2+jets[2]).Pt()) #95
-					jets_info.append((lep2+jets[2]).Eta()) #96
-					jets_info.append((lep2+jets[2]).Phi()) #97
-					jets_info.append((lep2+jets[2]).M()) #98
+					#jets_info.append((lep2+jets[2]).Pt()) #95
+					#jets_info.append((lep2+jets[2]).Eta()) #96
+					#jets_info.append((lep2+jets[2]).Phi()) #97
+					#jets_info.append((lep2+jets[2]).M()) #98
 
 					jets_info.append(numJets) #99
 
@@ -1316,7 +637,7 @@ def getReducedFeatureNames(tokeep=None):
 
     return feature_names
 
-#
+'''
 def getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=None):
     feature_names = [i for i in feature_names_all]
     for i in range(len(feature_names)):
@@ -1461,7 +782,7 @@ def getReducedFeatureNamesAndInputsWithSecondSet(inX_train, inX_test, tokeep=Non
 
     return feature_names, inX_train1, inX_test1,outRho,outRho_test
 
-
+'''
 def rebin2D(h, ngx, ngy):
     hold = h.Clone()
     hold.SetDirectory(0)

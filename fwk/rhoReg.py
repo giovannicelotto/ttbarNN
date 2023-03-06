@@ -105,22 +105,27 @@ def compute_js_divergence(train_sample, test_sample, n_bins=10):
     return js_divergence(p, q)
 
 
-def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.2, overwrite = False, withBTag = False, pTEtaPhiMode=False, maxEvents = None):
+def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.4, overwrite = False, withBTag = True, pTEtaPhiMode=True, maxEvents = None):
 
     print ("loadData for year "+year+"/"+" from "+inPathFolder+year+"/flat_[..]"+additionalName+".npy")
     print ("\t overwrite = "+str(overwrite))
     print ("\t testFraction = "+str(testFraction))
     print ("\t withBTag = "+str(withBTag))
+    print ("\t pTEtaPhiMode = "+str(pTEtaPhiMode))
+    print ("\t maxEvents = "+str(maxEvents))
 
     loadData = False
     if not os.path.exists(inPathFolder+year+"/flat_inX"+additionalName+".npy"):
         loadData = True
+        print("*** Not found the data in the right directory ***")
     else:
+        print("\nData found in the directory :"+inPathFolder+year)
         loadData = overwrite
 
     if loadData:
-        print ("\t need to load from root file with settings: nJets = "+str(3)+"; max Events = all")
-        inX, outY, weights, lkrRho, krRho = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", nJets = 3, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
+        nJets=2
+        print ("\t need to load from root file with settings: nJets >= "+str(nJets)+"; max Events = "+str(maxEvents))
+        inX, outY, weights, lkrRho, krRho = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", nJets = 2, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
         inX=np.array(inX)
         outY=np.array(outY)
         weights=np.array(weights)
@@ -132,11 +137,13 @@ def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_
         np.save(inPathFolder+year+"/flat_lkrRho"+additionalName+".npy", lkrRho)
         np.save(inPathFolder+year+"/flat_krRho"+additionalName+".npy", krRho)
 
+    print("*** inX, outY, weights, lkrM, krM loading")
     inX = np.load(inPathFolder+year+"/flat_inX"+additionalName+".npy")
     outY = np.load(inPathFolder+year+"/flat_outY"+additionalName+".npy")
     weights = np.load(inPathFolder+year+"/flat_weights"+additionalName+".npy")
     lkrRho = np.load(inPathFolder+year+"/flat_lkrRho"+additionalName+".npy")
     krRho = np.load(inPathFolder+year+"/flat_krRho"+additionalName+".npy")
+    print("*** inX, outY, weights, lkrM, krM loaded")
 
     if maxEvents is not None:
         inX = inX[:maxEvents]
@@ -145,16 +152,19 @@ def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_
         lkrRho = lkrRho[:maxEvents]
         krRho = krRho[:maxEvents]
 
-    outY = outY.reshape((outY.shape[0], 1))
-
+    #outY = outY.reshape((outY.shape[0], 1))
+    print(inX.shape, outY.shape, weights.shape, lkrM.shape, krM.shape)
     # transform y to uniform
+    print("*** Defining scaler")
     scaler = preprocessing.StandardScaler().fit(outY)
 
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrRho_train, lkrRho_test, krRho_train, krRho_test = train_test_split(inX, outY, weights, lkrRho, krRho, test_size = testFraction)
 
     print ("\t data splitted succesfully")
     print ("loadData end")
-    print("N training events: ",inX_train.shape[0])
+    print("Number training events :", inX_train.shape[0], len(inX_train))
+    print("Number of features     :", inX_train.shape[1])
+    print("loadData ended returning inX_train and so on...")
 
     return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrRho_train, lkrRho_test, krRho_train, krRho_test, scaler
 
@@ -827,22 +837,22 @@ def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder 
 
 
 def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, outFolder="outFolder_DEFAULTNAME/", modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel"):
+    
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrRho_train, lkrRho_test, krRho_train, krRho_test, scaler = loadData(
                                     inPathFolder = inPathFolder, year = year,
                                     additionalName = additionalName, testFraction = 0.4,
                                     overwrite = False, withBTag = True, pTEtaPhiMode=True,
-                                    maxEvents = None)
+                                    maxEvents = 10000)
                                     # maxEvents = 10000)
 
-    print (len(inX_train[10]))
-
-
+    print ("Each events has \t",inX_train.shape[1], "features")
     feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
 
-    print (len(feature_names))
-
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",25,0.1,0.9)
-
+    print (len(feature_names), " Reduced features labels")
+ 
+    weightHisto = ROOT.TH1F("weightHisto","weightHisto",25,0.1,1.5)
+    m_tt_arr = np.array([])
+    print("Filling histo with 1./m_tt")
     for rho,weight in zip(outY_train, weights_train):
         weightHisto.Fill(rho,abs(weight))
 
@@ -1033,13 +1043,24 @@ def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "
     doEvaluationPlots(outY_test, y_predicted, weights_test, lkrRho_test, krRho_test, year = year, outFolder = outFolder)
 
 def main():
-    keep = [41,42,35,60,84,64,30,76,39,88,103]
+    keep = None #[41,42,35,60,84,64,30,76,39,88,103]
+    print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
     # justEvaluate(inPathFolder="rhoInput/powheg/", additionalName="_preUL04_11_02_21", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
     #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg_newHybrid/")
-    doTrainingAndEvaluation(inPathFolder = "rhoInput/madgraph/", additionalName = "_preUL05_28_02_22", year ="2016", tokeep = keep,
-                            modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")
+    doEvaluate = False
+    if (doEvaluate):
+    # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
+    #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
+    
+        print("Calling justEvaluate ...")
+        justEvaluate(inPathFolder="/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/", additionalName="_preUL05_28_02_22_ttbar", year="2016", tokeep = keep,
+        	         modelDir = "preUL05_28_02_22/rhoReg_madgraph/", modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")
+    else:
+        print("Calling doTrainingAndEvaluation ...")
+        doTrainingAndEvaluation(inPathFolder = "/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/", additionalName = "_preUL05_28_02_22_ttbar", year ="2016", tokeep = keep,
+				modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")
 
 if __name__ == "__main__":
     main()
