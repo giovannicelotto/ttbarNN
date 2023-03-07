@@ -13,7 +13,7 @@ from bayes_opt.logger import JSONLogger
 from bayes_opt.event import Events
 from functools import partial
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use('Agg') # Save the plot to a file instead of displaying it on the screen.
 os.environ['QT_QPA_PLATFORM']='offscreen'
 import shap
 import smogn
@@ -103,8 +103,11 @@ def compute_js_divergence(train_sample, test_sample, n_bins=10):
     p, q = get_probs(list_of_tuples)
 
     return js_divergence(p, q)
-#bins = np.arange(340, 1500, 50)
 
+ar_bins = array('d',[340, 400, 500, 650, 1500])
+nbin = len(ar_bins)-1
+logbins = array('d', np.concatenate((np.concatenate((np.linspace(340, 650, 310, endpoint=False), np.linspace(650, 750, 50, endpoint=False))), np.linspace(750, 1500, 51)) ))  #used for 2d histograms
+nlogbin = len(logbins)-1
 
 def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.4, overwrite = False, withBTag = True, pTEtaPhiMode=True, maxEvents = None):
     '''
@@ -152,19 +155,20 @@ def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_
         inX = inX[:maxEvents]
         outY = outY[:maxEvents]
         weights = weights[:maxEvents]
-        lkrM = lkrM[:maxEvents]
         krM = krM[:maxEvents]
 
     #outY = outY.reshape((outY.shape[0], 1))
-    print(inX.shape, outY.shape, weights.shape, lkrM.shape, krM.shape)
+    print('Shapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput  \t', outY.shape,'Weights \t', weights.shape,'Loose m(tt)\t', lkrM.shape,'Full m(tt)\t', krM.shape)
     # transform y to uniform
-    print("*** Defining scaler")
+# Q? What's the scaler
+    print("Computing the scaler of the output")
     scaler = preprocessing.StandardScaler().fit(outY)
 
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction)
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state=1999)
+# Add random_state to replicate the output. Shuffle is true by default. random_state is a seed
+# Weights, Input and Output are splitted keeping the correspondences. The same applies for training and testing
 
-    print ("\t data splitted succesfully")
-    print ("loadData end")
+    print ("\tData splitted succesfully")
     print("Number training events :", inX_train.shape[0], len(inX_train))
     print("Number of features     :", inX_train.shape[1])
     print("loadData ended returning inX_train and so on...")
@@ -178,39 +182,42 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     if not os.path.exists(outDir):
         os.makedirs(outDir)
 
+    print("Invariant Mass plot: Predicted vs True")
     f = matplotlib.pyplot.figure()
-    values, bins, patches = matplotlib.pyplot.hist(yTest, bins=100, range=(340,3000), label="true", alpha=0.5)
-    values2, bins2, patches2 = matplotlib.pyplot.hist(yPredicted, bins=100, range=(340,3000), label="reco", alpha=0.5)
+    values, bins, patches = matplotlib.pyplot.hist(yTest, bins=100, range=(340,1500), label="True", alpha=0.5)
+    values2, bins2, patches2 = matplotlib.pyplot.hist(yPredicted, bins=100, range=(340,1500), label="Reco", alpha=0.5)
     matplotlib.pyplot.legend(loc = "best")
     matplotlib.pyplot.ylabel('Events')
-    matplotlib.pyplot.xlabel('m(tt)')
-    f.savefig(outDir+"eval_m(t).pdf")
+    matplotlib.pyplot.xlabel('m(tt) (GeV/c)')
+    f.savefig(outDir+"m_tt.pdf")
 
     ROOT.gStyle.SetPalette(ROOT.kThermometer)
 
+# from utils style: style.style1d(): divisions, labels offsets, margins ...
     style.style1d()
     s = style.style1d()
-    histoShape = ROOT.TH1F( "reco shape", ";m(t#overline{t})", 50, 340, 1500)
-    histoShape2 = ROOT.TH1F( "true shape2", ";m(t#overline{t})", 50, 340, 1500)
-    histoShape3 = ROOT.TH1F( "lkr shape2", ";m(t#overline{t})", 50, 340, 1500)
-    histoShape4 = ROOT.TH1F( "kr shape2", ";m(t#overline{t})", 50, 340, 1500)
+# 10 histograms defined for shapes.pdf output
+
+   
+    histoDNN  = ROOT.TH1F( "reco shape", ";m(t#overline{t})", 50, 340, 1500)
+    histoTrue = ROOT.TH1F( "true", ";m(t#overline{t})", 50, 340, 1500)
+    histoLoose = ROOT.TH1F( "lkr", ";m(t#overline{t})", 50, 340, 1500)
+    histoKinReco = ROOT.TH1F( "kr", ";m(t#overline{t})", 50, 340, 1500)
     histoShape5 = ROOT.TH1F( "true shape no kinReco", ";m(t#overline{t})", 50, 340, 1500)
     histoShape6 = ROOT.TH1F( "reg shape no kinReco", ";m(t#overline{t})", 50, 340, 1500)
     histoShape8 = ROOT.TH1F( "new hybrid shape", ";m(t#overline{t})", 50, 340, 1500)
     histoShape9 = ROOT.TH1F( "new hybrid2 shape", ";m(t#overline{t})", 50, 340, 1500)
 
-    print(yTest, "\n\n\n***\n\n\n",yPredicted, "\n\n\n***\n\n\n", weightTest, "\n\n\n***\n\n\n",lkrM, "\n\n\n***\n\n\n", krM)
-    print(len(yTest), "   ***   ",len(yPredicted), "   ***    ", len(weightTest), "   ***    ",len(lkrM), "   ***   ", len(krM))
     for Mtrue, Mpred, weight, lkrMass, krMass in zip(yTest, yPredicted, weightTest, lkrM, krM):
         #print("prova")
         if lkrMass>0.:
-            histoShape3.Fill(lkrMass, weight)
+            histoLoose.Fill(lkrMass, weight)
         if krMass >0.:
-            histoShape4.Fill(krMass, weight)
+            histoKinReco.Fill(krMass, weight)
         else:
             histoShape6.Fill(Mpred, weight)
             histoShape5.Fill(Mtrue, weight)
-        histoShape.Fill(Mpred, weight)
+        histoDNN.Fill(Mpred, weight)
         mAverage = []
         mAverage.append(Mpred)
         if lkrMass>0.:
@@ -222,26 +229,27 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
         mAv2 = gmean(mAverage)
         histoShape8.Fill(mAv, weight)
         histoShape9.Fill(mAv2, weight)
-        histoShape2.Fill(Mtrue, weight)
-    print('Triallllllllllllll\n\n\n\nTriallllll')
-    histoShape7 = histoShape6.Clone()
-    histoShape7.Add(histoShape4)
+        histoTrue.Fill(Mtrue, weight)
 
-    max_ = 1.4*max(histoShape.GetMaximum(),histoShape2.GetMaximum(),histoShape3.GetMaximum(),histoShape4.GetMaximum(),histoShape5.GetMaximum(),histoShape6.GetMaximum(),histoShape7.GetMaximum())
-    histoShape.SetMaximum(max_)
-    histoShape2.SetMaximum(max_)
-    histoShape3.SetMaximum(max_)
-    histoShape4.SetMaximum(max_)
+
+    histoShape7 = histoShape6.Clone()
+    histoShape7.Add(histoKinReco)
+
+    max_ = 1.4*max(histoDNN.GetMaximum(),histoTrue.GetMaximum(),histoLoose.GetMaximum(),histoKinReco.GetMaximum(),histoShape5.GetMaximum(),histoShape6.GetMaximum(),histoShape7.GetMaximum())
+    histoDNN.SetMaximum(max_)
+    histoTrue.SetMaximum(max_)
+    histoLoose.SetMaximum(max_)
+    histoKinReco.SetMaximum(max_)
     histoShape5.SetMaximum(max_)
     histoShape6.SetMaximum(max_)
     histoShape7.SetMaximum(max_)
     histoShape8.SetMaximum(max_)
     histoShape9.SetMaximum(max_)
 
-    histoShape.SetLineWidth(2)
-    histoShape2.SetLineWidth(2)
-    histoShape3.SetLineWidth(2)
-    histoShape4.SetLineWidth(2)
+    histoDNN.SetLineWidth(2)
+    histoTrue.SetLineWidth(2)
+    histoLoose.SetLineWidth(2)
+    histoKinReco.SetLineWidth(2)
     histoShape5.SetLineWidth(2)
     histoShape6.SetLineWidth(2)
     histoShape7.SetLineWidth(2)
@@ -249,13 +257,13 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoShape9.SetLineWidth(2)
 
     c0=ROOT.TCanvas("c0","c0",800,800)
-    histoShape.SetLineColor(ROOT.kRed)
-    histoShape.Draw("h0")
-    histoShape2.Draw("h0same")
-    histoShape3.SetLineColor(ROOT.kOrange+1)
-    histoShape3.Draw("h0same")
-    histoShape4.SetLineColor(ROOT.kGreen+1)
-    histoShape4.Draw("h0same")
+    histoDNN.SetLineColor(ROOT.kRed)
+    histoDNN.Draw("h0")
+    histoTrue.Draw("h0same")
+    histoLoose.SetLineColor(ROOT.kOrange+1)
+    histoLoose.Draw("h0same")
+    histoKinReco.SetLineColor(ROOT.kGreen+1)
+    histoKinReco.Draw("h0same")
     histoShape5.SetLineColor(ROOT.kRed)
     histoShape5.SetLineStyle(ROOT.kDashed)
     # histoShape5.Draw("h0same")
@@ -271,11 +279,11 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoShape9.SetLineColor(ROOT.kCyan)
     histoShape9.SetLineStyle(ROOT.kDashed)
     histoShape9.Draw("h0same")
-    l = ROOT.TLegend(0.2,0.7,0.4,0.9)
-    l.AddEntry(histoShape, "DNN")
-    l.AddEntry(histoShape2, "truth")
-    l.AddEntry(histoShape3, "LKR")
-    l.AddEntry(histoShape4, "KR")
+    l = ROOT.TLegend(0.7,0.7,0.9,0.9)
+    l.AddEntry(histoDNN, "DNN")
+    l.AddEntry(histoTrue, "truth")
+    l.AddEntry(histoLoose, "LKR")
+    l.AddEntry(histoKinReco, "KR")
     # l.AddEntry(histoShape5, "DNN(noKR)")
     l.AddEntry(histoShape6, "truth(noKR)")
     l.AddEntry(histoShape7, "KR + reg (noKR)")
@@ -283,35 +291,36 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     l.AddEntry(histoShape9, "newHybrid2")
     l.Draw()
     c0.SaveAs(outDir+"shapes.pdf")
-
+# End of shapes. Commented till here
     style.style2d()
     s = style.style2d()
-    histo = ROOT.TH2F( "reg rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",100, 340, 1500, 200, -1500, 1500 )
+
+    histo = ROOT.TH2F( "reg rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
     histo.SetDirectory(0)
-    histo_kr = ROOT.TH2F( "kr rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",100, 340, 1500, 200, -1500, 1500 )
+    histo_kr = ROOT.TH2F( "kr rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
     histo_kr.SetDirectory(0)
-    histo_krReg = ROOT.TH2F( "kr+Reg rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",100, 340, 1500, 200, -1500, 1500 )
+    histo_krReg = ROOT.TH2F( "kr+Reg rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
     histo_krReg.SetDirectory(0)
-    histo_lkr = ROOT.TH2F( "lkr rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",100, 340, 1500, 200, -1500, 1500 )
+    histo_lkr = ROOT.TH2F( "lkr rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
     histo_lkr.SetDirectory(0)
-    histo_newHybrid = ROOT.TH2F( "newHybrid rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",100, 340, 1500, 200, -1500, 1500 )
+    histo_newHybrid = ROOT.TH2F( "newHybrid rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
     histo_newHybrid.SetDirectory(0)
-    histo_newHybrid2 = ROOT.TH2F( "newHybrid2 rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",100, 340, 1500, 200, -1500, 1500 )
+    histo_newHybrid2 = ROOT.TH2F( "newHybrid2 rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
     histo_newHybrid2.SetDirectory(0)
     histTrue = ROOT.TH1F( "true contents", ";rho", 20, 0, 1)
     histTrue.SetDirectory(0)
 
-    histoRecoGen = ROOT.TH2F( "reg rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",100, 340, 1500, 100, 340, 1500 )
+    histoRecoGen = ROOT.TH2F( "reg rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen.SetDirectory(0)
-    histoRecoGen_kr = ROOT.TH2F( "kr rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",100, 340, 1500, 100, 340, 1500 )
+    histoRecoGen_kr = ROOT.TH2F( "kr rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen_kr.SetDirectory(0)
-    histoRecoGen_krReg = ROOT.TH2F( "kr+reg rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",100, 340, 1500, 100, 340, 1500 )
+    histoRecoGen_krReg = ROOT.TH2F( "kr+reg rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen_krReg.SetDirectory(0)
-    histoRecoGen_lkr = ROOT.TH2F( "lkr rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",100, 340, 1500, 100, 340, 1500 )
+    histoRecoGen_lkr = ROOT.TH2F( "lkr rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen_lkr.SetDirectory(0)
-    histoRecoGen_newHybrid = ROOT.TH2F( "newHybrid rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",100, 340, 1500, 100, 340, 1500 )
+    histoRecoGen_newHybrid = ROOT.TH2F( "newHybrid rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen_newHybrid.SetDirectory(0)
-    histoRecoGen_newHybrid2 = ROOT.TH2F( "newHybrid2 rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",100, 340, 1500, 100, 340, 1500 )
+    histoRecoGen_newHybrid2 = ROOT.TH2F( "newHybrid2 rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen_newHybrid2.SetDirectory(0)
     histoRecoGen2 = ROOT.TH2F( "reg resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
     histoRecoGen2.SetDirectory(0)
@@ -326,16 +335,15 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoRecoGen2_newHybrid2 = ROOT.TH2F( "newHybrid2 resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
     histoRecoGen2_newHybrid2.SetDirectory(0)
 
-    binning = range(0, 1400, 50)
-    ar_bins = array("d", binning)
-    nbin = len(binning)-1
+
 
     histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", nbin, ar_bins, nbin, ar_bins )
     histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";rho true;#rho reco", nbin, ar_bins, nbin, ar_bins )
     histTrueBinned = ROOT.TH1F( "true contents binned", ";rho", nbin, ar_bins)
     histTrueBinned.SetDirectory(0)
-    print("Before entering in the loopo \n\n\n\n*****************************************\n\n\n\n ")
-    print(yTest.mean(), yTest.max(), yTest.min(), yPredicted.mean(), yPredicted.min(), yPredicted.max())
+
+    #print("Before entering in the loop \n\n\n\n*****************************************\n\n\n\n ")
+    #print(yTest.mean(), yTest.max(), yTest.min(), yPredicted.mean(), yPredicted.min(), yPredicted.max())
     for Mtrue, Mpred, weight, lkrMass, krMass in zip(yTest, yPredicted, weightTest, lkrM, krM):
 
         diff = Mtrue-Mpred
@@ -380,7 +388,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
         histo_newHybrid2.Fill(Mtrue, diff_av2, weight)
         histoRecoGen_newHybrid2.Fill(mAv2, Mtrue, weight)
         histoRecoGen2_newHybrid2.Fill(mAv2, Mtrue, weight)
-    print("******************\n\n\n**********************\n\n\nEntries: \t",histoRecoGen2.GetEntries(),"\n\n\n***********************\n\n\n")
+    #print("******************\n\n\n**********************\n\n\nEntries: \t",histoRecoGen2.GetEntries(),"\n\n\n***********************\n\n\n")
     hResp = histoRecoGen2.Clone()
     hResp_kr = histoRecoGen2_kr.Clone()
     hResp_lkr = histoRecoGen2_lkr.Clone()
@@ -394,6 +402,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histo.GetYaxis().SetRangeUser(-1200,1200)
     histo.SetStats(0)
     histo.Draw("colz")
+    histo = helpers.NormalizeBinContent(histo) 
     c.SaveAs(outDir+"reg_GenRecoDiff2d.pdf")
     c.Clear()
     histo_kr.GetXaxis().SetRangeUser(350,1500)
@@ -428,6 +437,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     c.Clear()
 
     histoRecoGen.Draw("colz")
+    histoRecoGen = NormalizeBinContent(histoRecoGen)
     corrLatex = ROOT.TLatex()
     corrLatex.SetTextSize(0.65 * corrLatex.GetTextSize())
     corrLatex.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen.GetCorrelationFactor(),3)))
@@ -616,10 +626,10 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
 
     outRootFile = ROOT.TFile(outDir+"/AllPlots.root","RECREATE")
     outRootFile.cd()
-    histoShape.Write("shape_reg")
-    histoShape2.Write("shape_true")
-    histoShape3.Write("shape_lkr")
-    histoShape4.Write("shape_kr")
+    histoDNN.Write("shape_reg")
+    histoTrue.Write("shape_true")
+    histoLoose.Write("shape_lkr")
+    histoKinReco.Write("shape_kr")
     histoShape5.Write("shape_trueNoKR")
     histoShape6.Write("shape_regNoKR")
     histoShape7.Write("shape_KRPlusRegNoKR")
@@ -666,186 +676,9 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     eff_kr.Write("efficiency_kr")
     outRootFile.Close()
 
-
-def doFitForBaysian(inX_train, outY_train, weights_train, inX_test, outY_test, weights_test, lkrM_test, krM_test, learningRate = 0.001, batchSize = 4096, dropout = 0.05, nDense = 3, nNodes = 500, indexActivation = 1, regRate = 1e-7):
-    nDense = int(nDense)
-    nNodes = int(nNodes)
-    batchSize = int(batchSize)
-    # indexActivation = int(indexActivation)
-    # activations = ["sigmoid", "relu", "softmax", "selu", "softplus"]
-    # activation = activations[indexActivation]
-    activation = "selu"
-    regRate = 7.9857e-5
-
-    model = models.getRhoRegModelFlat(regRate = regRate, activation = activation, dropout = dropout, nDense = nDense,
-                                      nNodes = nNodes, inputDim = inX_train.shape[1], outputActivation = 'linear', printSummary=False)
-    optimizer = tf.keras.optimizers.Adam(lr = learningRate)
-
-    print ("batch size",batchSize,"nDense",nDense,"nNodes",nNodes,"dropout",dropout,"regRate",regRate,"learningRate",learningRate)
-
-    model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(),metrics=['mean_absolute_error','mean_squared_error'])
-
-    print ("N parameter: ",model.count_params())
-    if (model.count_params()> 1500000):
-        return 0.
-
-    callbacks=[]
-    reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=40, restore_best_weights=True)
-    callbacks.append(earlyStop)
-
-    fit = model.fit(
-            inX_train,
-            outY_train,
-            sample_weight = weights_train,
-            validation_split = 0.25,
-            batch_size = batchSize,
-            epochs = 300,
-            shuffle = False,
-            callbacks = callbacks,
-            verbose = 0)
-
-    score = model.evaluate(
-                        inX_test,
-                        outY_test,
-                        sample_weight = weights_test,
-                        batch_size = batchSize,
-                        verbose = 0)
-    y_predicted = model.predict(inX_test)
-    y_predicted = y_predicted.reshape(y_predicted.shape[0])
-    outY_test = outY_test.reshape(outY_test.shape[0])
-    print('Test loss:', score[0])
-    print('Test MSE:', score[1])
-
-    corr = pearsonr(outY_test, y_predicted)
-    print("corr",corr[0])
-
-    kl = compute_kl_divergence(y_predicted, outY_test, n_bins=200)
-    print ("KL", kl)
-    js = compute_js_divergence(y_predicted, outY_test, n_bins=200)
-    print ("JS", js)
-
-    binning = [0.0, 0.45, 0.75, 1.0]
-    ar_bins = array("d", binning)
-    histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", 3, ar_bins, 3, ar_bins )
-    for Mtrue, Mpred, weight in zip(outY_test, y_predicted, weights_test):
-        histo2dbinned.Fill(Mtrue, Mpred, weight)
-    histo2dbinned.Scale(1./(histo2dbinned.Integral()))
-    print ("binned correlation", histo2dbinned.GetCorrelationFactor())
-    nbinsx = histo2dbinned.GetNbinsX()
-    nbinsy = histo2dbinned.GetNbinsY()
-    ma = np.empty((nbinsx,nbinsy))
-    ma2 = np.empty((nbinsx,nbinsy))
-    for iBinX in range(1,nbinsx+1):
-        for iBinY in range(1,nbinsy+1):
-            ma[iBinX-1,iBinY-1]=histo2dbinned.GetBinContent(iBinX,iBinY)
-            ma2[iBinY-1,iBinX-1]=histo2dbinned.GetBinContent(iBinX,iBinY)
-    print ("Condition number = ",np.linalg.cond(ma))
-
-    global bayesian_base_outFolder
-    global bayesian_current_iteration
-    outFolder = bayesian_base_outFolder+"_"+str(bayesian_current_iteration)+"/"
-    modelName = "optimModel_"+str(bayesian_current_iteration)
-
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, year = "FR2", outFolder = outFolder+"/test/")
-
-    saveModel=True
-    if saveModel:
-        model.save(outFolder+modelName+".h5")
-        tf.keras.backend.clear_session()
-        tf.keras.backend.set_learning_phase(0)
-        model = tf.keras.models.load_model(outFolder+modelName+".h5")
-        print('inputs: ', [input.op.name for input in model.inputs])
-        print('outputs: ', [output.op.name for output in model.outputs])
-        frozen_graph = helpers.freeze_session(tf.compat.v1.keras.backend.get_session(), output_names=[out.op.name for out in model.outputs])
-        tf.compat.v1.train.write_graph(frozen_graph, outFolder+'/', modelName+'.pbtxt', as_text=True)
-        tf.compat.v1.train.write_graph(frozen_graph, outFolder+'/', modelName+'.pb', as_text=False)
-        print ("Saved model to",outFolder+"/"+"FR2"+'/'+modelName+'.pbtxt/.pb/.h5')
-
-    bayesian_current_iteration = bayesian_current_iteration + 1
-
-    if np.isnan(corr[0]):
-        return 0.
-    if np.isnan(kl):
-        return 0.
-    if np.isnan(js):
-        return 0.
-    else:
-        return (1.-js)
-
-
-def doBaysianOptim(inPathFolder, additionalName, year, tokeep = None, outFolder = "BaysianOptim/"):
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler = loadData(
-                                    inPathFolder = inPathFolder, year = year, additionalName = additionalName, testFraction = 0.4, overwrite = False, withBTag = True, pTEtaPhiMode=True, maxEvents = None)
-    global bayesian_base_outFolder
-    bayesian_base_outFolder = outFolder
-
-    feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
-
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,340,1500)
-
-    for rho,weight in zip(outY_train, weights_train):
-        weightHisto.Fill(rho, abs(weight))
-
-    weightHisto.Scale(1./weightHisto.Integral())
-    maximumBin = weightHisto.GetMaximumBin()
-    maximumBinContent = weightHisto.GetBinContent(maximumBin)
-
-    for binX in range(1,weightHisto.GetNbinsX()+1):
-        c = weightHisto.GetBinContent(binX)
-        if c>0:
-            weightHisto.SetBinContent(binX, maximumBinContent/c)
-        else:
-            weightHisto.SetBinContent(binX, 1.)
-    weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
-    weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
-
-    weights_train_original = weights_train
-    weights_train_=[]
-    for w,rho in zip(weights_train,outY_train):
-        weightBin = weightHisto.FindBin(rho)
-        addW = weightHisto.GetBinContent(weightBin)
-        weights_train_.append(abs(w)*addW)
-    weights_train = np.array(weights_train_)
-
-    weights_train = 1./np.mean(weights_train)*weights_train
-
-    fit_with_partial = partial(doFitForBaysian, inX_train, outY_train, weights_train, inX_test, outY_test, weights_test, lkrM_test, krM_test)
-
-    # Bounded region of parameter space
-    pbounds = {'batchSize': (1000, 30000),
-                # 'regRate': (1e-7, 1e-4),
-                'learningRate': (1e-4, 1e-2),
-                'dropout': (1e-4, 5e-1),
-                'nDense': (2, 10),
-                # 'indexActivation': (0, 4),
-                'nNodes': (50, 3000)
-              }
-    bounds_transformer = SequentialDomainReductionTransformer()
-    print ("doBaysianOptim")
-    optimizer = BayesianOptimization(
-        f=fit_with_partial,
-        pbounds=pbounds,
-        verbose=2,  # verbose = 1 prints only when a maximum is observed, verbose = 0 is silent
-        random_state=1,
-        bounds_transformer=bounds_transformer,
-    )
-    if not os.path.exists(outFolder):
-        os.makedirs(outFolder)
-    if os.path.exists(outFolder+"/logs.json"):
-        print("Loading logs from",outFolder+"/logs.json")
-        load_logs(optimizer, logs=[outFolder+"/logs.json"])
-    else:
-        print("Create new logs in",outFolder+"/logs.json")
-    logger = JSONLogger(path = outFolder+"/logs.json", reset=False)
-
-    optimizer.subscribe(Events.OPTIMIZATION_STEP, logger)
-    optimizer.maximize(init_points=30, n_iter=30, kappa=8, alpha=1e-3, n_restarts_optimizer=5)
-    for i, res in enumerate(optimizer.res):
-        print("Iteration {}: \n\t{}".format(i, res))
-    print(optimizer.max)
-
-
+''' called in main
+doTrainingAndEvaluation(inPathFolder = "/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/", additionalName = "_preUL05_28_02_22_ttbar", year ="2016", tokeep = keep,
+				modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")'''
 def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, outFolder="outFolder_DEFAULTNAME/", modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel"):
     
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler = loadData(
@@ -854,15 +687,17 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
                                     overwrite = False, withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = None)
                                     # maxEvents = 10000)
-
-    print ("Each events has \t",inX_train.shape[1], "features")
+#Now data are loaded and splitted in training and testing with corresponding weights. Also the output of the classical approaches are saved
+# Q? what are weights test
+# Q? What's the scaler
+    print ("Input events with \t",inX_train.shape[1], "features")
+# Reduce to most useful features (to be kept)
     feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
-
     print (len(feature_names), " Reduced features labels")
  
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",100,340,1500)
+    weightHisto = ROOT.TH1F("weightHisto","weightHisto",nbin, ar_bins)
     m_tt_arr = np.array([])
-    print("Filling histo with 1./m_tt")
+    print("Filling histo with m_tt")
     for m,weight in zip(outY_train, weights_train):
         weightHisto.Fill(m,abs(weight))
 
@@ -872,7 +707,9 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     canvas = ROOT.TCanvas()
     weightHisto.Draw("histe")
-    canvas.SaveAs("weights_m.pdf")
+    weightHisto.SetTitle("Normalized and weighted m(tt) distibutions. Training")
+    weightHisto.SetYTitle('Normalized Counts')
+    canvas.SaveAs("mNormalizedWeighted.pdf")
 
     for binX in range(1,weightHisto.GetNbinsX()+1):
         c = weightHisto.GetBinContent(binX)
@@ -885,19 +722,24 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     canvas.Clear()
     weightHisto.Draw("histe")
+    weightHisto.SetTitle("Weights distributions")
     canvas.SetLogy(1)
     canvas.SaveAs("weights.pdf")
+
+# Weightsd in the zip were determined by teh mlb distributions(?). This ones are used for the training in order to give more importance to regions with few events
+# now weighhisto has the weights to be used for the training
 
     weights_train_original = weights_train
     weights_train_=[]
     for w,m in zip(weights_train,outY_train):
         weightBin = weightHisto.FindBin(m)
-        addW = weightHisto.GetBinContent(weightBin)
-        weights_train_.append(abs(w)*addW)
-    weights_train = np.array(weights_train_)
+        addW = weightHisto.GetBinContent(weightBin)	# weights for importance
+        weights_train_.append(abs(w)*addW)           	# weights of the training are the product of the original weights and the weights used to give more importance to regions with few events
+    weights_train = np.array(weights_train_)		# final weights_train is np array
 
-    weights_train = 1./np.mean(weights_train)*weights_train
+    weights_train = 1./np.mean(weights_train)*weights_train	# normalized by the mean
 
+# hyperparameters
     learningRate = 0.0001
     batchSize = 512
     dropout = 0.360
@@ -910,17 +752,25 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
     print ("getting model")
     model = models.getMRegModelFlat(regRate = regRate, activation = activation, dropout = dropout, nDense = nDense,
                                       nNodes = nNodes, inputDim = inX_train.shape[1], outputActivation = outputActivation)
+# Q? Question in models: why no batch normalization in second layer?
 
     optimizer = tf.keras.optimizers.Adam(lr = learningRate)
 
     print ("compiling model")
-    model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(),metrics=['mean_absolute_error','mean_squared_error'])
+    model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(), metrics=['mean_absolute_error','mean_squared_error'])
+# Q? MeanAbsolutePercentageError was chosen as loss function because gave best results in terms of ?
+
 
     callbacks=[]
+# three Keras callbacks that are used to monitor and control the training of a neural network model:
+# Learning rate scheduler. It reduces the learning rate by a factor of 0.1 if the validation loss does not improve for 3 epochs. This helps the model to converge faster and avoid overshooting the optimal solution.
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=3)
+# This callback monitors the validation loss and stops training if the validation loss does not improve for 300 epochs
     earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=300, restore_best_weights=True)
+# This callback saves the weights of the best performing model during training, based on the validation loss. The saved model is stored in the specified output folder with the name "model_best.h5"
     modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
 
+# Not using the reduce_lr Q? why?
     callbacks.append(earlyStop)
     callbacks.append(modelCheckpoint)
 
@@ -931,11 +781,11 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
             sample_weight = weights_train,
             validation_split = 0.25,
             batch_size = batchSize,
-            epochs = 3500,
+            epochs = 2,
             shuffle = False,
             callbacks = callbacks,
             verbose = 1)
-
+# Real prediction based on training
     y_predicted = model.predict(inX_test)
     y_predicted_train = model.predict(inX_train)
 
@@ -978,18 +828,22 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     corr = pearsonr(outY_test.reshape(outY_test.shape[0]), y_predicted.reshape(y_predicted.shape[0]))
     print("correlation:",corr[0])
-
+# statistica distance: measures how one probab distr P is different from a second Q. In our case predicted output and expected one
     kl = compute_kl_divergence(y_predicted, outY_test, n_bins=100)
     print ("KL", kl)
+# another way to say how similar are two distributions
     js = compute_js_divergence(y_predicted, outY_test, n_bins=100)
     print ("JS", js)
-
+    print('Do Evaluation Plots')
     doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train, krM_train, year = year, outFolder = outFolder+"/train/")
     doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, year = year, outFolder = outFolder+"/test/")
+# weights test are just the ones from mlb distributions (or the original ones)
 
-
+    print('Before defining class \'rho\'')
     class_names=["rho"]
+    print('After defining class \'rho\'')
     max_display = inX_test.shape[1]
+# Commented till here
     for explainer, name  in [(shap.GradientExplainer(model,inX_test[:1000]),"GradientExplainer"),]:
         shap.initjs()
         print("... {0}: explainer.shap_values(X)".format(name))
@@ -1016,9 +870,18 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
         tf.compat.v1.train.write_graph(frozen_graph, outFolder+'/', modelName+'.pb', as_text=False)
         print ("Saved model to",outFolder+"/"+year+'/'+modelName+'.pbtxt/.pb/.h5')
 
+
+
+
+
+''' inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler = loadData(
+                                    inPathFolder = inPathFolder, year = year,
+                                    additionalName = additionalName, testFraction = 0.4,
+                                    overwrite = False, withBTag = True, pTEtaPhiMode=True,
+                                    maxEvents = None)'''
 def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "rhoOutput/", modelName = "rhoRegModel_DEFAULTNAME", outFolder="outFolder_DEFAULTNAME/"):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler = loadData(
-                                    inPathFolder = inPathFolder, year = "FR2",
+                                    inPathFolder = inPathFolder, year = year,
                                     additionalName = additionalName, testFraction = 0.99,
                                     overwrite = False, withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = None)
@@ -1053,13 +916,14 @@ def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "
     doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, year = year, outFolder = outFolder)
 
 def main():
-    keep = None #[41,42,35,60,84,64,30,76,39,88,103]
+    keep = None 
+	#[41,42,35,60,84,64,30,76,39,88,103]
     print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
     # justEvaluate(inPathFolder="rhoInput/powheg/", additionalName="_preUL04_11_02_21", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
     #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg_newHybrid/")
-    doEvaluate = False
+    doEvaluate = True
     if (doEvaluate):
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")

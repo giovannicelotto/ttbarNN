@@ -67,33 +67,41 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.ops import array_ops
 
 def getMRegModelFlat(regRate=1e-3, activation='selu', dropout=0.1, nDense=5, nNodes=200, inputDim = 21, outputActivation = 'sigmoid', printSummary=True):
-    l2_reg = tf.keras.regularizers.l2(regRate)
+    l2_reg = tf.keras.regularizers.l2(regRate)		#cost = oroginal cost function + REGRATE * sum of squared weights (we want weights to be as small as possible)
+# large weights are penalized with L2 with respect to L1
+
     dense_kwargs = dict(
         kernel_initializer = tf.keras.initializers.glorot_normal(),
         kernel_regularizer = l2_reg,
         kernel_constraint = tf.keras.constraints.max_norm(5)
     )
+# Input Layer
     inputs = tf.keras.layers.Input(shape = (inputDim))
+# Batch normalization layer: Layer that normalizes its inputs.
     x = tf.keras.layers.BatchNormalization()(inputs)
+# First Dense Layer with activation function, batch normalization and drop out
     x = tf.keras.layers.Dense(nNodes, **dense_kwargs)(x)
-    x =tf.keras.layers.Activation(activation)(x)
+    x = tf.keras.layers.Activation(activation)(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.Dropout(dropout)(x)
-    for i in range(nDense-2):
+    for i in range(nDense-2):				#never takes place if nDense = 2
         x = tf.keras.layers.Dense(nNodes, **dense_kwargs)(x)
         x = tf.keras.layers.Activation(activation)(x)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.Dropout(dropout)(x)
+# Dropout is a technique where randomly selected neurons are ignored during training.
+# Second Dense layer: Q? Why don't we put a batch normalization? Isn't it needed in the ouput? Why not a dropout?
     x = tf.keras.layers.Dense(nNodes, **dense_kwargs)(x)
     x = tf.keras.layers.Activation(activation)(x)
+# Output layer
     outputLayer = tf.keras.layers.Dense(1, activation = outputActivation, kernel_constraint=tf.keras.constraints.non_neg())(x)
 
-    model = tf.keras.Model(inputs = inputs, outputs = outputLayer, name = "RhoRegModelFlat")
+    model = tf.keras.Model(inputs = inputs, outputs = outputLayer, name = "MRegModelFlat")
     if printSummary:
         model.summary()
 
     return model
-
+'''
 def getRhoClassModelFlat(regRate=1e-3, activation='selu', dropout=0.1, nDense=5, nNodes=200, inputDim = 21, outputActivation = 'sigmoid'):
     l2_reg = tf.keras.regularizers.l2(regRate)
     dense_kwargs = dict(
@@ -278,7 +286,7 @@ def getTaggerModel(regRate=1e-3,activation='selu',dropout=0.1,nDense=5,nNodes=20
 
     return model
 
-
+'''
 def reverse_gradient(X, hp_lambda):
     '''Flips the sign of the incoming gradient during training.'''
     try:

@@ -82,7 +82,12 @@ def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, p
         krM+=k
     return eventInJet, eventOut, weights,lkrM,krM
 
-
+def NormalizeBinContent(histo):
+	for i in range(histo.GetNbinsX()):
+		for j in range(histo.GetNbinsY()):
+			if histo.GetBinContent(i, j)!=0:
+				histo.SetBinContent(i,j,  histo.GetBinContent(i, j)*1./(histo.GetXaxis().GetBinWidth(i)*histo.GetYaxis().GetBinWidth(j)))
+	return histo
 def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
 	'''
 	Open trees
@@ -372,7 +377,7 @@ def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fals
 			antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
 			ttbar = top+antitop
 # number of jets requirements
-			if ((numJets==2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
+			if ((numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
 				if(ttbar.M()>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):
 					jets = []
 					bjets = []
