@@ -103,6 +103,7 @@ def compute_js_divergence(train_sample, test_sample, n_bins=10):
     p, q = get_probs(list_of_tuples)
 
     return js_divergence(p, q)
+#bins = np.arange(340, 1500, 50)
 
 
 def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.4, overwrite = False, withBTag = True, pTEtaPhiMode=True, maxEvents = None):
@@ -161,69 +162,6 @@ def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_
     scaler = preprocessing.StandardScaler().fit(outY)
 
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction)
-def loadData(inPathFolder = "rhoInput/years", year = "2017", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.2, overwrite = False, withBTag = False, pTEtaPhiMode=False, maxEvents = None):
-
-    print ("loadData for year "+year+"/"+" from "+inPathFolder+year+"/flat_[..]"+additionalName+".npy")
-    print ("\t overwrite = "+str(overwrite))
-    print ("\t testFraction = "+str(testFraction))
-    print ("\t withBTag = "+str(withBTag))
-    print ("\t pTEtaPhiMode = "+str(pTEtaPhiMode))
-    print ("\t maxEvents = "+str(maxEvents))
-
-    loadData = False
-    if not os.path.exists(inPathFolder+year+"/flat_inX"+additionalName+".npy"):				# check only for inX
-        loadData = True
-        print("*** Not found the data in the right directory ***")
-    else:
-        print("\nData found in the directory :"+inPathFolder+year)
-        loadData = overwrite #false if called by doTrainingAndEvaluation
-
-    if loadData:
-        nJets=2
-        print ("\t need to load from root file with settings: nJets = "+str(nJets)+"; max Events = "+str(maxEvents))
-        inX, outY, weights, lkrM, krM = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", nJets = nJets, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
-        inX=np.array(inX)
-        outY=np.array(outY)
-        weights=np.array(weights)
-        lkrM=np.array(lkrM)
-        krM=np.array(krM)
-        np.save(inPathFolder+year+"/flat_inX"+additionalName+".npy", inX)
-        np.save(inPathFolder+year+"/flat_outY"+additionalName+".npy", outY)
-        np.save(inPathFolder+year+"/flat_weights"+additionalName+".npy", weights)
-        np.save(inPathFolder+year+"/flat_lkrM"+additionalName+".npy", lkrM)
-        np.save(inPathFolder+year+"/flat_krM"+additionalName+".npy", krM)
-
-    print("*** inX, outY, weights, lkrM, krM loading")
-    inX = np.load(inPathFolder+year+"/flat_inX"+additionalName+".npy")
-    outY = np.load(inPathFolder+year+"/flat_outY"+additionalName+".npy")
-    weights = np.load(inPathFolder+year+"/flat_weights"+additionalName+".npy")
-    lkrM = np.load(inPathFolder+year+"/flat_lkrM"+additionalName+".npy")
-    krM = np.load(inPathFolder+year+"/flat_krM"+additionalName+".npy")
-    print("*** inX, outY, weights, lkrM, krM loaded")
-    if maxEvents is not None:
-        print("*** Limiting to MaxEvents:\t", maxEvents)
-        inX = inX[:maxEvents]
-        outY = outY[:maxEvents]
-        weights = weights[:maxEvents]
-        lkrM = lkrM[:maxEvents]
-        krM = krM[:maxEvents]
-    #outY = outY.reshape((outY.shape[0], 1))  GC
-    print(inX.shape, outY.shape, weights.shape, lkrM.shape, krM.shape)
-    # transform y to uniform
-    print("*** Defining scaler")
-    scaler = preprocessing.StandardScaler().fit(outY)
-    print("*** Defining inX_train, inX_test, ...")
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction) 
-# you can add  random_state or shuffle GC
-
-    print ("\t data splitted succesfully")
-    print ("loadData end")
-    print("Number training events :", inX_train.shape[0], len(inX_train))
-    print("Number of features     :", inX_train.shape[1])
-    print("loadData ended returning inX_train and so on...")
-    return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler
-
-
 
     print ("\t data splitted succesfully")
     print ("loadData end")
@@ -261,28 +199,31 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoShape8 = ROOT.TH1F( "new hybrid shape", ";m(t#overline{t})", 50, 340, 1500)
     histoShape9 = ROOT.TH1F( "new hybrid2 shape", ";m(t#overline{t})", 50, 340, 1500)
 
-    for Mtrue, Mpred, weight, lkrM, krM in zip(yTest, yPredicted, weightTest,lkrM, krM):
-        if lkrM>0.:
-            histoShape3.Fill(lkrM, weight)
-        if krM >0.:
-            histoShape4.Fill(krM, weight)
+    print(yTest, "\n\n\n***\n\n\n",yPredicted, "\n\n\n***\n\n\n", weightTest, "\n\n\n***\n\n\n",lkrM, "\n\n\n***\n\n\n", krM)
+    print(len(yTest), "   ***   ",len(yPredicted), "   ***    ", len(weightTest), "   ***    ",len(lkrM), "   ***   ", len(krM))
+    for Mtrue, Mpred, weight, lkrMass, krMass in zip(yTest, yPredicted, weightTest, lkrM, krM):
+        #print("prova")
+        if lkrMass>0.:
+            histoShape3.Fill(lkrMass, weight)
+        if krMass >0.:
+            histoShape4.Fill(krMass, weight)
         else:
             histoShape6.Fill(Mpred, weight)
             histoShape5.Fill(Mtrue, weight)
         histoShape.Fill(Mpred, weight)
         mAverage = []
         mAverage.append(Mpred)
-        if lkrM>0.:
-            mAverage.append(lkrM)
-        if krM>0.:
-            mAverage.append(krM)
-        rhoAv = np.mean(mAverage)
+        if lkrMass>0.:
+            mAverage.append(lkrMass)
+        if krMass>0.:
+            mAverage.append(krMass)
+        mAv = np.mean(mAverage)
         mAverage = np.array(mAverage, dtype=float)
-        rhoAv2 = gmean(mAverage)
-        histoShape8.Fill(rhoAv, weight)
-        histoShape9.Fill(rhoAv2, weight)
+        mAv2 = gmean(mAverage)
+        histoShape8.Fill(mAv, weight)
+        histoShape9.Fill(mAv2, weight)
         histoShape2.Fill(Mtrue, weight)
-
+    print('Triallllllllllllll\n\n\n\nTriallllll')
     histoShape7 = histoShape6.Clone()
     histoShape7.Add(histoShape4)
 
@@ -388,12 +329,15 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     binning = range(0, 1400, 50)
     ar_bins = array("d", binning)
     nbin = len(binning)-1
-    histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", 4, ar_bins, 4, ar_bins )
-    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";rho true;#rho reco", 4, ar_bins, 4, ar_bins )
-    histTrueBinned = ROOT.TH1F( "true contents binned", ";rho", 4, ar_bins)
-    histTrueBinned.SetDirectory(0)
 
-    for Mtrue, Mpred, weight, lkrM, krM in zip(yTest, yPredicted, weightTest,lkrM, krM):
+    histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", nbin, ar_bins, nbin, ar_bins )
+    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";rho true;#rho reco", nbin, ar_bins, nbin, ar_bins )
+    histTrueBinned = ROOT.TH1F( "true contents binned", ";rho", nbin, ar_bins)
+    histTrueBinned.SetDirectory(0)
+    print("Before entering in the loopo \n\n\n\n*****************************************\n\n\n\n ")
+    print(yTest.mean(), yTest.max(), yTest.min(), yPredicted.mean(), yPredicted.min(), yPredicted.max())
+    for Mtrue, Mpred, weight, lkrMass, krMass in zip(yTest, yPredicted, weightTest, lkrM, krM):
+
         diff = Mtrue-Mpred
         histo.Fill(Mtrue, diff, weight)
         histoRecoGen.Fill(Mpred, Mtrue, weight)
@@ -401,41 +345,41 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
         # histo2dbinned.Fill(Mpred, Mtrue, weight)
         histo2dbinned.Fill(Mtrue, Mpred, weight)
         histTrue.Fill(Mtrue, weight)
-        if krM>0.:
-            diff_kr = Mtrue-krM
+        if krMass>0.:
+            diff_kr = Mtrue -krMass
             histo_kr.Fill(Mtrue, diff_kr, weight)
-            histoRecoGen_kr.Fill(krM, Mtrue, weight)
-            histoRecoGen2_kr.Fill(krM, Mtrue, weight)
+            histoRecoGen_kr.Fill(krMass, Mtrue, weight)
+            histoRecoGen2_kr.Fill(krMass, Mtrue, weight)
             histo_krReg.Fill(Mtrue, diff_kr, weight)
-            histoRecoGen_krReg.Fill(krM, Mtrue, weight)
-            histoRecoGen2_krReg.Fill(krM, Mtrue, weight)
+            histoRecoGen_krReg.Fill(krMass, Mtrue, weight)
+            histoRecoGen2_krReg.Fill(krMass, Mtrue, weight)
         else:
             histo_krReg.Fill(Mtrue, diff, weight)
             histoRecoGen_krReg.Fill(Mpred, Mtrue, weight)
             histoRecoGen2_krReg.Fill(Mpred, Mtrue, weight)
-        if lkrM>0.:
-            diff_lkr = Mtrue-lkrM
+        if lkrMass>0.:
+            diff_lkr = Mtrue-lkrMass
             histo_lkr.Fill(Mtrue, diff_lkr, weight)
-            histoRecoGen_lkr.Fill(lkrM, Mtrue, weight)
-            histoRecoGen2_lkr.Fill(lkrM, Mtrue, weight)
+            histoRecoGen_lkr.Fill(lkrMass, Mtrue, weight)
+            histoRecoGen2_lkr.Fill(lkrMass, Mtrue, weight)
         mAverage = []
         mAverage.append(Mpred)
-        if lkrM>0.:
-            mAverage.append(lkrM)
-        if krM>0.:
-            mAverage.append(krM)
-        rhoAv = np.mean(mAverage)
+        if lkrMass>0.:
+            mAverage.append(lkrMass)
+        if krMass>0.:
+            mAverage.append(krMass)
+        mAv = np.mean(mAverage)
         mAverage = np.array(mAverage, dtype=float)
-        histo2dbinned_newHybrid.Fill(Mtrue, rhoAv, weight)
-        rhoAv2 = gmean(mAverage)
-        diff_av = Mtrue-rhoAv
-        diff_av2 = Mtrue-rhoAv2
+        histo2dbinned_newHybrid.Fill(Mtrue, mAv, weight)
+        mAv2 = gmean(mAverage)
+        diff_av = Mtrue-mAv
+        diff_av2 = Mtrue-mAv2
         histo_newHybrid.Fill(Mtrue, diff_av, weight)
-        histoRecoGen_newHybrid.Fill(rhoAv, Mtrue, weight)
-        histoRecoGen2_newHybrid.Fill(rhoAv, Mtrue, weight)
+        histoRecoGen_newHybrid.Fill(mAv, Mtrue, weight)
+        histoRecoGen2_newHybrid.Fill(mAv, Mtrue, weight)
         histo_newHybrid2.Fill(Mtrue, diff_av2, weight)
-        histoRecoGen_newHybrid2.Fill(rhoAv2, Mtrue, weight)
-        histoRecoGen2_newHybrid2.Fill(rhoAv2, Mtrue, weight)
+        histoRecoGen_newHybrid2.Fill(mAv2, Mtrue, weight)
+        histoRecoGen2_newHybrid2.Fill(mAv2, Mtrue, weight)
     print("******************\n\n\n**********************\n\n\nEntries: \t",histoRecoGen2.GetEntries(),"\n\n\n***********************\n\n\n")
     hResp = histoRecoGen2.Clone()
     hResp_kr = histoRecoGen2_kr.Clone()
@@ -987,7 +931,7 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
             sample_weight = weights_train,
             validation_split = 0.25,
             batch_size = batchSize,
-            epochs = 50000,
+            epochs = 3500,
             shuffle = False,
             callbacks = callbacks,
             verbose = 1)
