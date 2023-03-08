@@ -106,8 +106,13 @@ def compute_js_divergence(train_sample, test_sample, n_bins=10):
 
 ar_bins = array('d',[340, 400, 500, 650, 1500])
 nbin = len(ar_bins)-1
-logbins = array('d', np.concatenate((np.concatenate((np.linspace(340, 650, 310, endpoint=False), np.linspace(650, 750, 50, endpoint=False))), np.linspace(750, 1500, 51)) ))  #used for 2d histograms
+logbins = array('d', np.concatenate( ( np.linspace(340, 500, 32, endpoint=False), [500, 510, 520, 530, 540, 550, 560, 570, 580, 590, 600, 625, 650, 675, 750, 800, 900, 1000, 1500])))  #used for 2d histograms
 nlogbin = len(logbins)-1
+neg_bins = array('d', np.concatenate((np.concatenate((np.linspace(-1500, -750, 50, endpoint=False), np.linspace(-750, -650, 50, endpoint=False))), np.linspace(-650, -340, 311)) ))  #used for 2d histograms
+#logbins_diff = np.concatenate(([-200, -100, -50],np.concatenate((np.linspace(-20, 20, 40), [50, 100, 200]))))
+logbins_diff = np.linspace(-100, 100, 200)
+nlogbin_diff =len(logbins_diff)-1
+
 
 def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_3JetKinPlusRecoSolRight", testFraction = 0.4, overwrite = False, withBTag = True, pTEtaPhiMode=True, maxEvents = None):
     '''
@@ -158,7 +163,7 @@ def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_
         krM = krM[:maxEvents]
 
     #outY = outY.reshape((outY.shape[0], 1))
-    print('Shapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput  \t', outY.shape,'Weights \t', weights.shape,'Loose m(tt)\t', lkrM.shape,'Full m(tt)\t', krM.shape)
+    print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape)
     # transform y to uniform
 # Q? What's the scaler
     print("Computing the scaler of the output")
@@ -188,25 +193,25 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     values2, bins2, patches2 = matplotlib.pyplot.hist(yPredicted, bins=100, range=(340,1500), label="Reco", alpha=0.5)
     matplotlib.pyplot.legend(loc = "best")
     matplotlib.pyplot.ylabel('Events')
-    matplotlib.pyplot.xlabel('m(tt) (GeV/c)')
+    matplotlib.pyplot.xlabel('m_{tt} (GeV/c)')
     f.savefig(outDir+"m_tt.pdf")
 
-    ROOT.gStyle.SetPalette(ROOT.kThermometer)
+    #ROOT.gStyle.SetPalette(ROOT.kThermometer)
 
 # from utils style: style.style1d(): divisions, labels offsets, margins ...
     style.style1d()
     s = style.style1d()
 # 10 histograms defined for shapes.pdf output
-
+    '''
    
-    histoDNN  = ROOT.TH1F( "reco shape", ";m(t#overline{t})", 50, 340, 1500)
-    histoTrue = ROOT.TH1F( "true", ";m(t#overline{t})", 50, 340, 1500)
-    histoLoose = ROOT.TH1F( "lkr", ";m(t#overline{t})", 50, 340, 1500)
-    histoKinReco = ROOT.TH1F( "kr", ";m(t#overline{t})", 50, 340, 1500)
-    histoShape5 = ROOT.TH1F( "true shape no kinReco", ";m(t#overline{t})", 50, 340, 1500)
-    histoShape6 = ROOT.TH1F( "reg shape no kinReco", ";m(t#overline{t})", 50, 340, 1500)
-    histoShape8 = ROOT.TH1F( "new hybrid shape", ";m(t#overline{t})", 50, 340, 1500)
-    histoShape9 = ROOT.TH1F( "new hybrid2 shape", ";m(t#overline{t})", 50, 340, 1500)
+    histoDNN  = ROOT.TH1F( "reco shape", ";m_{tt}", 50, 340, 1500)
+    histoTrue = ROOT.TH1F( "true", ";m_{tt}", 50, 340, 1500)
+    histoLoose = ROOT.TH1F( "lkr", ";m_{tt}", 50, 340, 1500)
+    histoKinReco = ROOT.TH1F( "kr", ";m_{tt}", 50, 340, 1500)
+    histoShape5 = ROOT.TH1F( "true shape no kinReco", ";m_{tt}", 50, 340, 1500)
+    histoShape6 = ROOT.TH1F( "reg shape no kinReco", ";m_{tt}", 50, 340, 1500)
+    histoShape8 = ROOT.TH1F( "new hybrid shape", ";m_{tt}", 50, 340, 1500)
+    histoShape9 = ROOT.TH1F( "new hybrid2 shape", ";m(tt)", 50, 340, 1500)
 
     for Mtrue, Mpred, weight, lkrMass, krMass in zip(yTest, yPredicted, weightTest, lkrM, krM):
         #print("prova")
@@ -291,74 +296,99 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     l.AddEntry(histoShape9, "newHybrid2")
     l.Draw()
     c0.SaveAs(outDir+"shapes.pdf")
-# End of shapes. Commented till here
+    
+    histoDNN.Write("shape_reg")
+    histoTrue.Write("shape_true")
+    histoLoose.Write("shape_lkr")
+    histoKinReco.Write("shape_kr")
+    histoShape5.Write("shape_trueNoKR")
+    histoShape6.Write("shape_regNoKR")
+    histoShape7.Write("shape_KRPlusRegNoKR")
+    histoShape8.Write("shape_newHybrid")
+    histoShape9.Write("shape_newHybrid2")
+    '''
     style.style2d()
     s = style.style2d()
+    
+    histo = ROOT.TH2F( "histo", 		"DNNMinusTrue_vs_True;		m_{tt}^{true};		m_{tt}^{DNN} - m_{tt}^{true}"	  	,nlogbin, logbins, nlogbin_diff, logbins_diff )	
+    histo_kr = ROOT.TH2F( "histo_kr", 		"krMinusTrue_vs_True;		m_{tt}^{true};		m_{tt}^{kinReco} - m_{tt}^{true}"	,nlogbin, logbins, nlogbin_diff,logbins_diff )		
+    histo_krReg = ROOT.TH2F( "histo_krReg", 	"krRegMinusTrue_vs_True;	m_{tt}^{true};		m_{tt}^{kinReco} - m_{tt}^{true}"	,nlogbin, logbins, nlogbin_diff, logbins_diff )
+    histo_lkr = ROOT.TH2F( "histo_lkr", 	"lrMinusTrue_vs_True;		m_{tt}^{true};		m_{tt}^{LooseReco} - m_{tt}^{true}"	,nlogbin, logbins, nlogbin_diff, logbins_diff )
+    histTrue = ROOT.TH1F( "histTrue", 		"m_{tt}^{true} distribution;	m_{tt}^{true}", nlogbin, logbins)
+# two histos I remove
+#    histo_newHybrid = ROOT.TH2F( "histo_newHyb","newHybrid m_{tt} diff;	m_{tt}^{kinReco};	m_{tt}^{true} - m_{tt}^{kinReco}"	,nlogbin, logbins, nlogbin_diff, logbins_diff )
+#    histo_newHybrid2 = ROOT.TH2F( "newHybrid2", "Title;				m_{tt}^{kinReco};	m_{tt}^{true} - m_{tt}^{kinReco}"	,nlogbin, logbins, nlogbin_diff, logbins_diff )
+# Q? histo?krReg is the same of histo_kr when kr works optherwise replaced by NN solution, what's the point?
+# Why not the same for LooseKinReco
 
-    histo = ROOT.TH2F( "reg rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
-    histo.SetDirectory(0)
-    histo_kr = ROOT.TH2F( "kr rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
-    histo_kr.SetDirectory(0)
-    histo_krReg = ROOT.TH2F( "kr+Reg rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
-    histo_krReg.SetDirectory(0)
-    histo_lkr = ROOT.TH2F( "lkr rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
-    histo_lkr.SetDirectory(0)
-    histo_newHybrid = ROOT.TH2F( "newHybrid rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
-    histo_newHybrid.SetDirectory(0)
-    histo_newHybrid2 = ROOT.TH2F( "newHybrid2 rho diff", ";rho reco;m(t#overline{t}) true - m(t#overline{t}) reco",nlogbin, logbins, 200, -1500, 1500 )
-    histo_newHybrid2.SetDirectory(0)
-    histTrue = ROOT.TH1F( "true contents", ";rho", 20, 0, 1)
-    histTrue.SetDirectory(0)
 
-    histoRecoGen = ROOT.TH2F( "reg rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
-    histoRecoGen.SetDirectory(0)
-    histoRecoGen_kr = ROOT.TH2F( "kr rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
-    histoRecoGen_kr.SetDirectory(0)
-    histoRecoGen_krReg = ROOT.TH2F( "kr+reg rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
-    histoRecoGen_krReg.SetDirectory(0)
-    histoRecoGen_lkr = ROOT.TH2F( "lkr rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
+	# Set same directory for all the histos
+    histos = [histo, histo_kr, histTrue, histo_krReg, histo_lkr]# histo_newHybrid2, histo_newHybrid]
+    for i in histos:
+        i.SetDirectory(0)
+    
+
+    histoRecoGen = ROOT.TH2F( "histoRecoGen", "			;m_{tt} reco;		m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
+    histoRecoGen_kr = ROOT.TH2F( "histoRecoGen_kr", "		;m_{tt}^{kinReco};	m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
+    histoRecoGen_krReg = ROOT.TH2F( "histoRecoGen_krReg", "	;m_{tt}^{kinReco};	m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
+    histoRecoGen_lkr = ROOT.TH2F( "histoRecoGen_lkr", "		;m_{tt}^{kinReco};	m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
+#    histoRecoGen_newHybrid = ROOT.TH2F( "newHybrid m(tt)2d", ";m(tt) reco;m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
+#    histoRecoGen_newHybrid2 = ROOT.TH2F( "newHybrid2 m(tt)2d", ";m(tt) reco;m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
+    histoRecoGen2 = ROOT.TH2F( "reg resp", ";reco bin		;True Bin", 20 ,340, 1500, 20 ,340, 1500)
+    histoRecoGen2_kr = ROOT.TH2F( "kr resp", ";reco bin		;True Bin", 20 ,340, 1500, 20 ,340, 1500)
+    histoRecoGen2_krReg = ROOT.TH2F( "kr+reg resp", ";reco bin	;True Bin", 20 ,340, 1500, 20 ,340, 1500)
+    histoRecoGen2_lkr = ROOT.TH2F( "lkr resp", ";reco bin	;True Bin", 20 ,340, 1500, 20 ,340, 1500)
+#    histoRecoGen2_newHybrid = ROOT.TH2F( "newHybrid resp", ";reco bin;True Bin", 20 ,340, 1500, 20 ,340, 1500)
+#    histoRecoGen2_newHybrid2 = ROOT.TH2F( "newHybrid2 resp", ";reco bin;True Bin", 20 ,340, 1500, 20 ,340, 1500)
+    
+    histoRecoGenList = [histoRecoGen, histoRecoGen_kr, histoRecoGen_krReg, histoRecoGen_lkr, histoRecoGen2, histoRecoGen2_kr, histoRecoGen2_krReg, histoRecoGen2_lkr] 
+    for i in histoRecoGenList:
+        i.SetDirectory(0)
+
+
+    '''    histoRecoGen.SetDirectory(0)
+    histoRecoGen_kr.SetDirectory(0)  
+    histoRecoGen_krReg.SetDirectory(0) 
     histoRecoGen_lkr.SetDirectory(0)
-    histoRecoGen_newHybrid = ROOT.TH2F( "newHybrid rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen_newHybrid.SetDirectory(0)
-    histoRecoGen_newHybrid2 = ROOT.TH2F( "newHybrid2 rho2d", ";m(t#overline{t}) reco;m(t#overline{t}) true",nlogbin, logbins, nlogbin, logbins )
     histoRecoGen_newHybrid2.SetDirectory(0)
-    histoRecoGen2 = ROOT.TH2F( "reg resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
     histoRecoGen2.SetDirectory(0)
-    histoRecoGen2_kr = ROOT.TH2F( "kr resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
     histoRecoGen2_kr.SetDirectory(0)
-    histoRecoGen2_krReg = ROOT.TH2F( "kr+reg resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
     histoRecoGen2_krReg.SetDirectory(0)
-    histoRecoGen2_lkr = ROOT.TH2F( "lkr resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
     histoRecoGen2_lkr.SetDirectory(0)
-    histoRecoGen2_newHybrid = ROOT.TH2F( "newHybrid resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
     histoRecoGen2_newHybrid.SetDirectory(0)
-    histoRecoGen2_newHybrid2 = ROOT.TH2F( "newHybrid2 resp", ";reco bin;true bin", 20 ,340, 1500, 20 ,340, 1500)
-    histoRecoGen2_newHybrid2.SetDirectory(0)
-
-
-
-    histo2dbinned = ROOT.TH2F( "resp class", ";rho true;#rho reco", nbin, ar_bins, nbin, ar_bins )
-    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";rho true;#rho reco", nbin, ar_bins, nbin, ar_bins )
-    histTrueBinned = ROOT.TH1F( "true contents binned", ";rho", nbin, ar_bins)
+    histoRecoGen2_newHybrid2.SetDirectory(0)'''
+    
+    histoResp = ROOT.TH2F( "resp class", ";m_{tt}^{true};m_{tt} reco", nbin, ar_bins, nbin, ar_bins )
+    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";m_{tt}^{true};m_{tt} reco", nbin, ar_bins, nbin, ar_bins )
+    histTrueBinned = ROOT.TH1F( "true contents binned", ";m_{tt}", nbin, ar_bins)
     histTrueBinned.SetDirectory(0)
 
-    #print("Before entering in the loop \n\n\n\n*****************************************\n\n\n\n ")
-    #print(yTest.mean(), yTest.max(), yTest.min(), yPredicted.mean(), yPredicted.min(), yPredicted.max())
-    for Mtrue, Mpred, weight, lkrMass, krMass in zip(yTest, yPredicted, weightTest, lkrM, krM):
 
-        diff = Mtrue-Mpred
+    
+
+# ***************************************
+# *					*
+# *    Filling all the histograms     	*	
+# *					*
+# ***************************************
+    print("-------------------------------------\n|    Filling all the histograms     |\n-------------------------------------")
+
+    for Mtrue, Mpred, weight, lkrMass, krMass in zip(yTest, yPredicted, weightTest, lkrM, krM):
+        diff = Mpred-Mtrue
         histo.Fill(Mtrue, diff, weight)
-        histoRecoGen.Fill(Mpred, Mtrue, weight)
+        histoRecoGen.Fill( Mpred, Mtrue, weight)
         histoRecoGen2.Fill(Mpred, Mtrue, weight)
-        # histo2dbinned.Fill(Mpred, Mtrue, weight)
-        histo2dbinned.Fill(Mtrue, Mpred, weight)
+                # histo2dbinned.Fill(Mpred, Mtrue, weight)
+        histoResp.Fill(Mtrue, Mpred, weight)
         histTrue.Fill(Mtrue, weight)
+# Fill histograms of kinReco
         if krMass>0.:
-            diff_kr = Mtrue -krMass
+            diff_kr = krMass - Mtrue
             histo_kr.Fill(Mtrue, diff_kr, weight)
+            histo_krReg.Fill(Mtrue, diff_kr, weight)
             histoRecoGen_kr.Fill(krMass, Mtrue, weight)
             histoRecoGen2_kr.Fill(krMass, Mtrue, weight)
-            histo_krReg.Fill(Mtrue, diff_kr, weight)
             histoRecoGen_krReg.Fill(krMass, Mtrue, weight)
             histoRecoGen2_krReg.Fill(krMass, Mtrue, weight)
         else:
@@ -366,75 +396,72 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
             histoRecoGen_krReg.Fill(Mpred, Mtrue, weight)
             histoRecoGen2_krReg.Fill(Mpred, Mtrue, weight)
         if lkrMass>0.:
-            diff_lkr = Mtrue-lkrMass
+            diff_lkr = lkrMass-Mtrue
             histo_lkr.Fill(Mtrue, diff_lkr, weight)
             histoRecoGen_lkr.Fill(lkrMass, Mtrue, weight)
             histoRecoGen2_lkr.Fill(lkrMass, Mtrue, weight)
-        mAverage = []
-        mAverage.append(Mpred)
-        if lkrMass>0.:
-            mAverage.append(lkrMass)
-        if krMass>0.:
-            mAverage.append(krMass)
-        mAv = np.mean(mAverage)
-        mAverage = np.array(mAverage, dtype=float)
-        histo2dbinned_newHybrid.Fill(Mtrue, mAv, weight)
-        mAv2 = gmean(mAverage)
-        diff_av = Mtrue-mAv
-        diff_av2 = Mtrue-mAv2
-        histo_newHybrid.Fill(Mtrue, diff_av, weight)
-        histoRecoGen_newHybrid.Fill(mAv, Mtrue, weight)
-        histoRecoGen2_newHybrid.Fill(mAv, Mtrue, weight)
-        histo_newHybrid2.Fill(Mtrue, diff_av2, weight)
-        histoRecoGen_newHybrid2.Fill(mAv2, Mtrue, weight)
-        histoRecoGen2_newHybrid2.Fill(mAv2, Mtrue, weight)
+#        mAverage = []
+#        mAverage.append(Mpred)
+#        if lkrMass>0.:
+#            mAverage.append(lkrMass)
+#        if krMass>0.:
+#            mAverage.append(krMass)
+#        mAv = np.mean(mAverage)			# average of krMass (when available), lkrmass (when available), mpred
+# Q? is this legit? To have an average of things that are correlated since they start from the same variables
+#        mAverage = np.array(mAverage, dtype=float)
+#        histo2dbinned_newHybrid.Fill(Mtrue, mAv, weight)
+#        mAv2 = gmean(mAverage)			# geometric mean
+#        diff_av = Mtrue-mAv
+#        diff_av2 = Mtrue-mAv2
+#        histo_newHybrid.Fill(Mtrue, diff_av, weight)
+#        histoRecoGen_newHybrid.Fill(mAv, Mtrue, weight)
+#        histoRecoGen2_newHybrid.Fill(mAv, Mtrue, weight)
+#        histo_newHybrid2.Fill(Mtrue, diff_av2, weight)
+#        histoRecoGen_newHybrid2.Fill(mAv2, Mtrue, weight)
+#        histoRecoGen2_newHybrid2.Fill(mAv2, Mtrue, weight)
     #print("******************\n\n\n**********************\n\n\nEntries: \t",histoRecoGen2.GetEntries(),"\n\n\n***********************\n\n\n")
     hResp = histoRecoGen2.Clone()
     hResp_kr = histoRecoGen2_kr.Clone()
     hResp_lkr = histoRecoGen2_lkr.Clone()
     hResp_krReg = histoRecoGen2_krReg.Clone()
-    hResp_newHybrid = histoRecoGen2_newHybrid.Clone()
-    hResp_newHybrid2 = histoRecoGen2_newHybrid2.Clone()
+#    hResp_newHybrid = histoRecoGen2_newHybrid.Clone()
+#    hResp_newHybrid2 = histoRecoGen2_newHybrid2.Clone()
 
+    for i in histos:
+        i = NormalizeBinContent(i)
+    for i in histoRecoGenList:
+        i = NormalizeBinContent(i)
+
+
+# ---------------------------------------
+# |    Draw and Save the histograms    	|	
+# ---------------------------------------
     c=ROOT.TCanvas("c1","c1",800,800)
-
-    histo.GetXaxis().SetRangeUser(350,1500)
-    histo.GetYaxis().SetRangeUser(-1200,1200)
     histo.SetStats(0)
     histo.Draw("colz")
-    histo = helpers.NormalizeBinContent(histo) 
+    c.SetLogx()
     c.SaveAs(outDir+"reg_GenRecoDiff2d.pdf")
     c.Clear()
-    histo_kr.GetXaxis().SetRangeUser(350,1500)
-    histo_kr.GetYaxis().SetRangeUser(-1200,1200)
     histo_kr.SetStats(0)
     histo_kr.Draw("colz")
     c.SaveAs(outDir+"kr_GenRecoDiff2d.pdf")
     c.Clear()
-    histo_krReg.GetXaxis().SetRangeUser(350,1500)
-    histo_krReg.GetYaxis().SetRangeUser(-1200,1200)
     histo_krReg.SetStats(0)
     histo_krReg.Draw("colz")
     c.SaveAs(outDir+"krReg_GenRecoDiff2d.pdf")
     c.Clear()
-    histo_lkr.GetXaxis().SetRangeUser(350,1500)
-    histo_lkr.GetYaxis().SetRangeUser(-1200,1200)
     histo_lkr.SetStats(0)
     histo_lkr.Draw("colz")
     c.SaveAs(outDir+"lkr_GenRecoDiff2d.pdf")
     c.Clear()
-    histo_newHybrid.GetXaxis().SetRangeUser(350,1500)
-    histo_newHybrid.GetYaxis().SetRangeUser(-1200,1200)
-    histo_newHybrid.SetStats(0)
-    histo_newHybrid.Draw("colz")
-    c.SaveAs(outDir+"newHybrid_GenRecoDiff2d.pdf")
-    c.Clear()
-    histo_newHybrid2.GetXaxis().SetRangeUser(350,1500)
-    histo_newHybrid2.GetYaxis().SetRangeUser(-1200,1200)
-    histo_newHybrid2.SetStats(0)
-    histo_newHybrid2.Draw("colz")
-    c.SaveAs(outDir+"newHybrid2_GenRecoDiff2d.pdf")
-    c.Clear()
+#    histo_newHybrid.SetStats(0)
+#    histo_newHybrid.Draw("colz")
+#    c.SaveAs(outDir+"newHybrid_GenRecoDiff2d.pdf")
+#    c.Clear()
+#    histo_newHybrid2.SetStats(0)
+#    histo_newHybrid2.Draw("colz")
+#    c.SaveAs(outDir+"newHybrid2_GenRecoDiff2d.pdf")
+#    c.Clear()
 
     histoRecoGen.Draw("colz")
     histoRecoGen = NormalizeBinContent(histoRecoGen)
@@ -444,11 +471,13 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     c.SaveAs(outDir+"reg_GenReco2d.pdf")
     c.Clear()
     histoRecoGen_kr.Draw("colz")
+    c.SetLogy()
     corrLatex_kr = ROOT.TLatex()
     corrLatex_kr.SetTextSize(0.65 * corrLatex_kr.GetTextSize())
     corrLatex_kr.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_kr.GetCorrelationFactor(),3)))
     c.SaveAs(outDir+"kr_GenReco2d.pdf")
     c.Clear()
+    c.SetLogy(False)
     histoRecoGen_krReg.Draw("colz")
     corrLatex_krReg = ROOT.TLatex()
     corrLatex_krReg.SetTextSize(0.65 * corrLatex_kr.GetTextSize())
@@ -461,51 +490,52 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     corrLatex_lkr.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_lkr.GetCorrelationFactor(),3)))
     c.SaveAs(outDir+"lkr_GenReco2d.pdf")
     c.Clear()
-    histoRecoGen_newHybrid.Draw("colz")
-    corrLatex_newHybrid = ROOT.TLatex()
-    corrLatex_newHybrid.SetTextSize(0.65 * corrLatex_newHybrid.GetTextSize())
-    corrLatex_newHybrid.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_newHybrid.GetCorrelationFactor(),3)))
-    c.SaveAs(outDir+"newHybrid_GenReco2d.pdf")
-    c.Clear()
-    histoRecoGen_newHybrid2.Draw("colz")
-    corrLatex_newHybrid2 = ROOT.TLatex()
-    corrLatex_newHybrid2.SetTextSize(0.65 * corrLatex_newHybrid2.GetTextSize())
-    corrLatex_newHybrid2.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_newHybrid2.GetCorrelationFactor(),3)))
-    c.SaveAs(outDir+"newHybrid2_GenReco2d.pdf")
-    c.Clear()
-
-    histo2dbinned.SetStats(0)
-    hRespBinned = histo2dbinned.Clone()
-    histo2dbinned.Scale(1./(histo2dbinned.Integral()))
-    print ("binned correlation", histo2dbinned.GetCorrelationFactor())
+#    histoRecoGen_newHybrid.Draw("colz")
+#    corrLatex_newHybrid = ROOT.TLatex()
+#    corrLatex_newHybrid.SetTextSize(0.65 * corrLatex_newHybrid.GetTextSize())
+#    corrLatex_newHybrid.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_newHybrid.GetCorrelationFactor(),3)))
+#    c.SaveAs(outDir+"newHybrid_GenReco2d.pdf")
+#    c.Clear()
+#    histoRecoGen_newHybrid2.Draw("colz")
+#    corrLatex_newHybrid2 = ROOT.TLatex()
+#    corrLatex_newHybrid2.SetTextSize(0.65 * corrLatex_newHybrid2.GetTextSize())
+#    corrLatex_newHybrid2.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_newHybrid2.GetCorrelationFactor(),3)))
+#    c.SaveAs(outDir+"newHybrid2_GenReco2d.pdf")
+#    c.Clear()
+    
+    histoResp.SetStats(0)
+    hRespBinned = histoResp.Clone()
+    histoResp.Scale(1./(histoResp.Integral()))
+    print ("binned correlation", histoResp.GetCorrelationFactor())
 
     # from array import array
-    nbinsx = histo2dbinned.GetNbinsX()
-    nbinsy = histo2dbinned.GetNbinsY()
+    nbinsx = histoResp.GetNbinsX()
+    nbinsy = histoResp.GetNbinsY()
 
     ma = np.empty((nbinsx,nbinsy))
     ma2 = np.empty((nbinsx,nbinsy))
     for iBinX in range(1,nbinsx+1):
         for iBinY in range(1,nbinsy+1):
-            ma[iBinX-1,iBinY-1]=histo2dbinned.GetBinContent(iBinX,iBinY)
-            ma2[iBinY-1,iBinX-1]=histo2dbinned.GetBinContent(iBinX,iBinY)
+            ma[iBinX-1,iBinY-1]=histoResp.GetBinContent(iBinX,iBinY)
+            ma2[iBinY-1,iBinX-1]=histoResp.GetBinContent(iBinX,iBinY)
     print ("Condition number = ",np.linalg.cond(ma))
 
-    histo2dbinned.Scale(100.)
+    histoResp.Scale(100.)
 
 
     ROOT.gStyle.SetPaintTextFormat("2.2f")
-    histo2dbinned.SetMarkerSize(0.7)
-    histo2dbinned.GetZaxis().SetTitle("Transition Probability [%]")
+    histoResp.SetMarkerSize(0.7)
+    histoResp.GetZaxis().SetTitle("Transition Probability [%]")
     # style.setPalette("bird")
-    ROOT.gStyle.SetPalette(ROOT.kThermometer)
+    #ROOT.gStyle.SetPalette(ROOT.kThermometer)
     # ROOT.gStyle.SetPaintTextFormat("1.2f");
-    histo2dbinned.Draw("colz text")
+    histoResp.Draw("colz text")
+    c.SetLogy()
     c.SaveAs(outDir+"reg_response.pdf")
 
     c.Clear()
 
-    histo2dbinned_newHybrid.SetStats(0)
+    '''histo2dbinned_newHybrid.SetStats(0)
     hRespBinned_newHybrid = histo2dbinned_newHybrid.Clone()
 
     histo2dbinned_newHybrid.Scale(1./(histo2dbinned_newHybrid.Integral()))
@@ -528,65 +558,58 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     ROOT.gStyle.SetPaintTextFormat("2.2f")
     histo2dbinned_newHybrid.SetMarkerSize(0.7)
     histo2dbinned_newHybrid.GetZaxis().SetTitle("Transition Probability [%]")
-    ROOT.gStyle.SetPalette(ROOT.kThermometer)
+    #ROOT.gStyle.SetPalette(ROOT.kThermometer)
     # ROOT.gStyle.SetPaintTextFormat("1.2f");
     histo2dbinned_newHybrid.Draw("colz text")
     c.SaveAs(outDir+"newHybrid_response.pdf")
 
-    c.Clear()
+    c.Clear()'''
 
     histoRecoGen2.Scale(1./histoRecoGen2.Integral())
     # histoRecoGen2.Scale(100.)
     ROOT.gStyle.SetPaintTextFormat("1.2f");
-    # ROOT.gStyle.SetPaintTextFormat("1.0f");
     histoRecoGen2.SetStats(0)
     histoRecoGen2.SetMarkerSize(1)
     histoRecoGen2.Draw("colz text")
     c.SaveAs(outDir+"resp.pdf")
     c.Clear()
     histoRecoGen2_kr.Scale(1./histoRecoGen2_kr.Integral())
-    # histoRecoGen2_kr.Scale(100.)
     ROOT.gStyle.SetPaintTextFormat("1.2f");
-    # ROOT.gStyle.SetPaintTextFormat("1.0f");
     histoRecoGen2_kr.SetStats(0)
     histoRecoGen2_kr.SetMarkerSize(1)
     histoRecoGen2_kr.Draw("colz text")
     c.SaveAs(outDir+"kr_resp.pdf")
     c.Clear()
     histoRecoGen2_krReg.Scale(1./histoRecoGen2_krReg.Integral())
-    # histoRecoGen2_krReg.Scale(100.)
     ROOT.gStyle.SetPaintTextFormat("1.2f");
-    # ROOT.gStyle.SetPaintTextFormat("1.0f");
     histoRecoGen2_krReg.SetStats(0)
     histoRecoGen2_krReg.SetMarkerSize(1)
     histoRecoGen2_krReg.Draw("colz text")
     c.SaveAs(outDir+"krReg_resp.pdf")
     c.Clear()
     histoRecoGen2_lkr.Scale(1./histoRecoGen2_lkr.Integral())
-    # histoRecoGen2_lkr.Scale(100.)
     ROOT.gStyle.SetPaintTextFormat("1.2f");
-    # ROOT.gStyle.SetPaintTextFormat("1.0f");
     histoRecoGen2_lkr.SetStats(0)
     histoRecoGen2_lkr.SetMarkerSize(1)
     histoRecoGen2_lkr.Draw("colz text")
     c.SaveAs(outDir+"lkr_resp.pdf")
     c.Clear()
-    histoRecoGen2_newHybrid.Scale(1./histoRecoGen2_newHybrid.Integral())
+#    histoRecoGen2_newHybrid.Scale(1./histoRecoGen2_newHybrid.Integral())
     # histoRecoGen2_lkr.Scale(100.)
-    ROOT.gStyle.SetPaintTextFormat("1.2f");
+#    ROOT.gStyle.SetPaintTextFormat("1.2f");
     # ROOT.gStyle.SetPaintTextFormat("1.0f");
-    histoRecoGen2_newHybrid.SetStats(0)
-    histoRecoGen2_newHybrid.SetMarkerSize(1)
-    histoRecoGen2_newHybrid.Draw("colz text")
-    c.SaveAs(outDir+"newHybrid_resp.pdf")
-    c.Clear()
+#    histoRecoGen2_newHybrid.SetStats(0)
+#    histoRecoGen2_newHybrid.SetMarkerSize(1)
+#    histoRecoGen2_newHybrid.Draw("colz text")
+#    c.SaveAs(outDir+"newHybrid_resp.pdf")
+#    c.Clear()
 
     rms_reg, mean_reg, respRMS_reg = doRMSandMean(histo, "reg", outDir)
     rms_kr, mean_kr, respRMS_kr = doRMSandMean(histo_kr, "kr", outDir)
     rms_krReg, mean_krReg, respRMS_krReg = doRMSandMean(histo_krReg, "krReg", outDir)
     rms_lkr, mean_lkr, respRMS_lkr = doRMSandMean(histo_lkr, "lkr", outDir)
-    rms_newHybrid, mean_newHybrid, respRMS_newHybrid = doRMSandMean(histo_newHybrid, "newHybrid", outDir)
-    rms_newHybrid2, mean_newHybrid2, respRMS_newHybrid2 = doRMSandMean(histo_newHybrid2, "newHybrid2", outDir)
+#    rms_newHybrid, mean_newHybrid, respRMS_newHybrid = doRMSandMean(histo_newHybrid, "newHybrid", outDir)
+#    rms_newHybrid2, mean_newHybrid2, respRMS_newHybrid2 = doRMSandMean(histo_newHybrid2, "newHybrid2", outDir)
 
     purity_kr, stability_kr, eff_kr = doPSE(hResp_kr, histTrue, "kr", outDir)
 
@@ -626,33 +649,25 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
 
     outRootFile = ROOT.TFile(outDir+"/AllPlots.root","RECREATE")
     outRootFile.cd()
-    histoDNN.Write("shape_reg")
-    histoTrue.Write("shape_true")
-    histoLoose.Write("shape_lkr")
-    histoKinReco.Write("shape_kr")
-    histoShape5.Write("shape_trueNoKR")
-    histoShape6.Write("shape_regNoKR")
-    histoShape7.Write("shape_KRPlusRegNoKR")
-    histoShape8.Write("shape_newHybrid")
-    histoShape9.Write("shape_newHybrid2")
+    
     histo.Write("true_vs_reg")
     histo_kr.Write("true_vs_kr")
     histo_lkr.Write("true_vs_lkr")
     histo_krReg.Write("true_vs_krReg")
-    histo_newHybrid.Write("true_vs_newHybrid")
-    histo_newHybrid2.Write("true_vs_newHybrid2")
+#    histo_newHybrid.Write("true_vs_newHybrid")
+#    histo_newHybrid2.Write("true_vs_newHybrid2")
     histTrue.Write("true")
     histoRecoGen.Write("recoGen_reg")
     histoRecoGen2.Write("recoGen2_reg")
     histoRecoGen_kr.Write("recoGen_kr")
     histoRecoGen_lkr.Write("recoGen_lkr")
     histoRecoGen_krReg.Write("recoGen_krReg")
-    histoRecoGen_newHybrid.Write("recoGen_newHybrid")
+#    histoRecoGen_newHybrid.Write("recoGen_newHybrid")
     histoRecoGen2_krReg.Write("recoGen2_krReg")
     histoRecoGen2_lkr.Write("recoGen2_lkr")
     histoRecoGen2_kr.Write("recoGen2_kr")
-    histoRecoGen2_newHybrid.Write("recoGen2_newHybrid")
-    histoRecoGen2_newHybrid2.Write("recoGen2_newHybrid2")
+#    histoRecoGen2_newHybrid.Write("recoGen2_newHybrid")
+#    histoRecoGen2_newHybrid2.Write("recoGen2_newHybrid2")
     rms_reg.Write("rms_reg")
     respRMS_reg.Write("respRMS_reg")
     mean_reg.Write("mean_reg")
@@ -665,12 +680,12 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     rms_lkr.Write("rms_lkr")
     respRMS_lkr.Write("respRMS_lkr")
     mean_lkr.Write("mean_lkr")
-    rms_newHybrid.Write("rms_newHybrid")
-    respRMS_newHybrid.Write("respRMS_newHybrid")
-    mean_newHybrid.Write("mean_newHybrid")
-    rms_newHybrid2.Write("rms_newHybrid2")
-    respRMS_newHybrid2.Write("respRMS_newHybrid2")
-    mean_newHybrid2.Write("mean_newHybrid2")
+#    rms_newHybrid.Write("rms_newHybrid")
+#    respRMS_newHybrid.Write("respRMS_newHybrid")
+#    mean_newHybrid.Write("mean_newHybrid")
+#    rms_newHybrid2.Write("rms_newHybrid2")
+#    respRMS_newHybrid2.Write("respRMS_newHybrid2")
+#    mean_newHybrid2.Write("mean_newHybrid2")
     purity_kr.Write("purity_kr")
     stability_kr.Write("stability_kr")
     eff_kr.Write("efficiency_kr")
@@ -707,7 +722,7 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
     canvas = ROOT.TCanvas()
     weightHisto.Draw("histe")
-    weightHisto.SetTitle("Normalized and weighted m(tt) distibutions. Training")
+    weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
     weightHisto.SetYTitle('Normalized Counts')
     canvas.SaveAs("mNormalizedWeighted.pdf")
 

@@ -51,7 +51,7 @@ def defaultStyle():
 
     st.SetNdivisions(505, "xyz")
 
-    st.SetPalette(56)
+    #st.SetPalette(56)
     st.SetNumberContours(999)
 
     # st.SetErrorX(0)
@@ -73,7 +73,7 @@ def style1d():
     return st
 
 
-def setPaletteRWB():
+'''def setPaletteRWB():
     # Sets the current palette to red -> white -> blue
     from array import array
     steps = array('d', [0.0, 0.5, 1.0])
@@ -94,7 +94,7 @@ def setPaletteBWR():
     ROOT.TColor.CreateGradientColorTable(
         len(steps), steps, red, green, blue, ROOT.gStyle.GetNumberContours())
 
-
+'''
 defaultStyle()
 
 # not style, but similar

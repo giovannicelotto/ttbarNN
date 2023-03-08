@@ -2,6 +2,7 @@ import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 import ROOT
 import glob
+from array import array
 import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import keras
@@ -83,10 +84,11 @@ def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, p
     return eventInJet, eventOut, weights,lkrM,krM
 
 def NormalizeBinContent(histo):
-	for i in range(histo.GetNbinsX()):
-		for j in range(histo.GetNbinsY()):
+	for i in range(histo.GetNbinsX()+1):
+		for j in range(histo.GetNbinsY()+1):
 			if histo.GetBinContent(i, j)!=0:
-				histo.SetBinContent(i,j,  histo.GetBinContent(i, j)*1./(histo.GetXaxis().GetBinWidth(i)*histo.GetYaxis().GetBinWidth(j)))
+				histo.SetBinContent(i,j,  histo.GetBinContent(i, j)*1./(histo.GetXaxis().GetBinWidth(i)*histo.GetYaxis().GetBinWidth(j) ))
+				
 	return histo
 def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
 	'''
@@ -855,16 +857,15 @@ def doRMSandMean(histo, name, outDir):
     style.style1d()
     s = style.style1d()
     c=ROOT.TCanvas()
-    Xnb=18
-    Xr1=0.1
-    Xr2=0.9
-    dXbin=(Xr2-Xr1)/((Xnb));
+    logbins = array('d', np.concatenate( ( np.linspace(340, 500, 32, endpoint=False), [500, 510, 520, 530, 540, 550, 560, 570, 580, 590, 600, 625, 650, 675, 750, 800, 900, 1000, 1500])))  #used for 2d histograms
+    nlogbin = len(logbins)-1
+    dXbin = [logbins[i+1] - logbins[i] for i in range(nlogbin-1)]
     titleRMSVsGen_ptTop_full ="; M_{true};RMS"
     titleRespVsGen_ptTop_full ="; m(t#overline{t}) true;RMS"
     titleMeanVsGen_ptTop_full ="; m(t#overline{t}) true;Mean"
     h_RMSVsGen_=ROOT.TH1F()
     h_RMSVsGen_.SetDirectory(0)
-    h_RMSVsGen_.SetBins(Xnb,Xr1,Xr2)
+    h_RMSVsGen_.SetBins(nlogbin,logbins)
     h_RMSVsGen_.SetTitleOffset(2.0)
     h_RMSVsGen_.GetXaxis().SetTitleOffset(1.20)
     h_RMSVsGen_.GetYaxis().SetTitleOffset(1.30)
@@ -872,7 +873,7 @@ def doRMSandMean(histo, name, outDir):
     h_RMSVsGen_.SetStats(0)
     h_RespVsGen_=ROOT.TH1F()
     h_RespVsGen_.SetDirectory(0)
-    h_RespVsGen_.SetBins(Xnb,Xr1,Xr2)
+    h_RespVsGen_.SetBins(nlogbin,logbins)
     h_RespVsGen_.SetTitleOffset(2.0)
     h_RespVsGen_.GetXaxis().SetTitleOffset(1.20)
     h_RespVsGen_.GetYaxis().SetTitleOffset(1.30)
@@ -880,17 +881,17 @@ def doRMSandMean(histo, name, outDir):
     h_RespVsGen_.SetStats(0)
     h_meanVsGen_=ROOT.TH1F()
     h_meanVsGen_.SetDirectory(0)
-    h_meanVsGen_.SetBins(Xnb,Xr1,Xr2)
+    h_meanVsGen_.SetBins(nlogbin,logbins)
     h_meanVsGen_.SetTitleOffset(2.0)
     h_meanVsGen_.GetXaxis().SetTitleOffset(1.20)
     h_meanVsGen_.GetYaxis().SetTitleOffset(1.30)
     h_meanVsGen_.SetTitle(titleMeanVsGen_ptTop_full)
     h_meanVsGen_.SetStats(0)
-    for i in range(Xnb):
-        rms = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMS()
-        rms_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetRMSError()
-        mean = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMean()
-        mean_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(Xr1+i*dXbin) ,histo.GetXaxis().FindFixBin(Xr1+(i+1)*dXbin),"")).GetMeanError()
+    for i in range(nlogbin):
+        rms = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetRMS()
+        rms_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetRMSError()
+        mean = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetMean()
+        mean_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetMeanError()
         respRMS = rms/(1.+mean)
         respRMS_err = np.sqrt((1./(1+mean) * rms_err)**2. + (rms/(1+mean)**2. *mean_err)**2.)
         h_RMSVsGen_.SetBinContent(i+1, rms)
