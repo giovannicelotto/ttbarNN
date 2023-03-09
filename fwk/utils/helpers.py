@@ -857,12 +857,14 @@ def doRMSandMean(histo, name, outDir):
     style.style1d()
     s = style.style1d()
     c=ROOT.TCanvas()
-    logbins = array('d', np.concatenate( ( np.linspace(340, 500, 32, endpoint=False), [500, 510, 520, 530, 540, 550, 560, 570, 580, 590, 600, 625, 650, 675, 750, 800, 900, 1000, 1500])))  #used for 2d histograms
+    logbins = array('d', np.concatenate( ( np.linspace(340, 500, 32, endpoint=False), [500, 510, 520, 530, 540, 550, 560, 570, 580, 590, 600, 625, 650, 675, 750, 800, 900, 1000, 1500]))) 
     nlogbin = len(logbins)-1
-    dXbin = [logbins[i+1] - logbins[i] for i in range(nlogbin-1)]
-    titleRMSVsGen_ptTop_full ="; M_{true};RMS"
-    titleRespVsGen_ptTop_full ="; m(t#overline{t}) true;RMS"
-    titleMeanVsGen_ptTop_full ="; m(t#overline{t}) true;Mean"
+    dXbin = [logbins[i+1] - logbins[i] for i in range(nlogbin)]
+
+    titleRMSVsGen_ptTop_full ="	; m_{tt}^{true};	RMS"
+    titleRespVsGen_ptTop_full ="; m_{tt}^{true};	RMS"
+    titleMeanVsGen_ptTop_full ="; m_{tt}^{true};	Mean"
+
     h_RMSVsGen_=ROOT.TH1F()
     h_RMSVsGen_.SetDirectory(0)
     h_RMSVsGen_.SetBins(nlogbin,logbins)
@@ -871,6 +873,7 @@ def doRMSandMean(histo, name, outDir):
     h_RMSVsGen_.GetYaxis().SetTitleOffset(1.30)
     h_RMSVsGen_.SetTitle(titleRMSVsGen_ptTop_full);
     h_RMSVsGen_.SetStats(0)
+
     h_RespVsGen_=ROOT.TH1F()
     h_RespVsGen_.SetDirectory(0)
     h_RespVsGen_.SetBins(nlogbin,logbins)
@@ -879,6 +882,7 @@ def doRMSandMean(histo, name, outDir):
     h_RespVsGen_.GetYaxis().SetTitleOffset(1.30)
     h_RespVsGen_.SetTitle(titleRespVsGen_ptTop_full);
     h_RespVsGen_.SetStats(0)
+
     h_meanVsGen_=ROOT.TH1F()
     h_meanVsGen_.SetDirectory(0)
     h_meanVsGen_.SetBins(nlogbin,logbins)
@@ -887,18 +891,19 @@ def doRMSandMean(histo, name, outDir):
     h_meanVsGen_.GetYaxis().SetTitleOffset(1.30)
     h_meanVsGen_.SetTitle(titleMeanVsGen_ptTop_full)
     h_meanVsGen_.SetStats(0)
-    for i in range(nlogbin):
-        rms = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetRMS()
-        rms_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetRMSError()
-        mean = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetMean()
-        mean_err = (histo.ProjectionY("_py",histo.GetXaxis().FindFixBin(dXbin[1]+i*dXbin[i]) ,histo.GetXaxis().FindFixBin(dXbin[1]+(i+1)*dXbin[i]),"")).GetMeanError()
+
+    for i in range(nlogbin):  #from 0 to len-1
+        rms = (histo.ProjectionY(	"_py",	histo.GetXaxis().FindFixBin(logbins[i]),	histo.GetXaxis().FindFixBin(logbins[i] + dXbin[i]/2.),	"")).GetRMS()
+        rms_err = (histo.ProjectionY(	"_py",	histo.GetXaxis().FindFixBin(logbins[i]),	histo.GetXaxis().FindFixBin(logbins[i] + dXbin[i]/2.),	"")).GetRMSError()
+        mean = (histo.ProjectionY(	"_py",	histo.GetXaxis().FindFixBin(logbins[i]),	histo.GetXaxis().FindFixBin(logbins[i] + dXbin[i]/2.),	"")).GetMean()
+        mean_err = (histo.ProjectionY(	"_py",	histo.GetXaxis().FindFixBin(logbins[i]),	histo.GetXaxis().FindFixBin(logbins[i] + dXbin[i]/2.),	"")).GetMeanError()
         respRMS = rms/(1.+mean)
         respRMS_err = np.sqrt((1./(1+mean) * rms_err)**2. + (rms/(1+mean)**2. *mean_err)**2.)
+        
         h_RMSVsGen_.SetBinContent(i+1, rms)
         h_RMSVsGen_.SetBinError(i+1, rms_err)
         h_meanVsGen_.SetBinContent(i+1, mean)
         h_meanVsGen_.SetBinError(i+1, mean_err)
-
         h_RespVsGen_.SetBinContent(i+1, respRMS)
         h_RespVsGen_.SetBinError(i+1, respRMS_err)
 

@@ -202,7 +202,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     style.style1d()
     s = style.style1d()
 # 10 histograms defined for shapes.pdf output
-    '''
+    
    
     histoDNN  = ROOT.TH1F( "reco shape", ";m_{tt}", 50, 340, 1500)
     histoTrue = ROOT.TH1F( "true", ";m_{tt}", 50, 340, 1500)
@@ -306,7 +306,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoShape7.Write("shape_KRPlusRegNoKR")
     histoShape8.Write("shape_newHybrid")
     histoShape9.Write("shape_newHybrid2")
-    '''
+    
     style.style2d()
     s = style.style2d()
     
@@ -322,7 +322,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
 # Why not the same for LooseKinReco
 
 
-	# Set same directory for all the histos
+	# Detach the object from the file. When the files is closed the object is not deleted
     histos = [histo, histo_kr, histTrue, histo_krReg, histo_lkr]# histo_newHybrid2, histo_newHybrid]
     for i in histos:
         i.SetDirectory(0)
@@ -334,33 +334,27 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoRecoGen_lkr = ROOT.TH2F( "histoRecoGen_lkr", "		;m_{tt}^{kinReco};	m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
 #    histoRecoGen_newHybrid = ROOT.TH2F( "newHybrid m(tt)2d", ";m(tt) reco;m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
 #    histoRecoGen_newHybrid2 = ROOT.TH2F( "newHybrid2 m(tt)2d", ";m(tt) reco;m_{tt}^{true}",nlogbin, logbins, nlogbin, logbins )
-    histoRecoGen2 = ROOT.TH2F( "reg resp", ";reco bin		;True Bin", 20 ,340, 1500, 20 ,340, 1500)
-    histoRecoGen2_kr = ROOT.TH2F( "kr resp", ";reco bin		;True Bin", 20 ,340, 1500, 20 ,340, 1500)
-    histoRecoGen2_krReg = ROOT.TH2F( "kr+reg resp", ";reco bin	;True Bin", 20 ,340, 1500, 20 ,340, 1500)
-    histoRecoGen2_lkr = ROOT.TH2F( "lkr resp", ";reco bin	;True Bin", 20 ,340, 1500, 20 ,340, 1500)
+    histoRecoGen2 = ROOT.TH2F( "reg resp", ";reco bin		;True Bin", nlogbin, logbins, nlogbin, logbins)
+    histoRecoGen2_kr = ROOT.TH2F( "kr resp", ";reco bin		;True Bin", nlogbin, logbins, nlogbin, logbins)
+    histoRecoGen2_krReg = ROOT.TH2F( "kr+reg resp", ";reco bin	;True Bin", nlogbin, logbins, nlogbin, logbins)
+    histoRecoGen2_lkr = ROOT.TH2F( "lkr resp", ";reco bin	;True Bin", nlogbin, logbins, nlogbin, logbins)
 #    histoRecoGen2_newHybrid = ROOT.TH2F( "newHybrid resp", ";reco bin;True Bin", 20 ,340, 1500, 20 ,340, 1500)
 #    histoRecoGen2_newHybrid2 = ROOT.TH2F( "newHybrid2 resp", ";reco bin;True Bin", 20 ,340, 1500, 20 ,340, 1500)
     
-    histoRecoGenList = [histoRecoGen, histoRecoGen_kr, histoRecoGen_krReg, histoRecoGen_lkr, histoRecoGen2, histoRecoGen2_kr, histoRecoGen2_krReg, histoRecoGen2_lkr] 
+    histoRecoGenList  = [histoRecoGen, histoRecoGen_kr, histoRecoGen_krReg, histoRecoGen_lkr] 
+    histoRecoGenList2 = [histoRecoGen2, histoRecoGen2_kr, histoRecoGen2_krReg, histoRecoGen2_lkr]
     for i in histoRecoGenList:
+        i.SetDirectory(0)
+    for i in histoRecoGenList2:
         i.SetDirectory(0)
 
 
-    '''    histoRecoGen.SetDirectory(0)
-    histoRecoGen_kr.SetDirectory(0)  
-    histoRecoGen_krReg.SetDirectory(0) 
-    histoRecoGen_lkr.SetDirectory(0)
-    histoRecoGen_newHybrid.SetDirectory(0)
-    histoRecoGen_newHybrid2.SetDirectory(0)
-    histoRecoGen2.SetDirectory(0)
-    histoRecoGen2_kr.SetDirectory(0)
-    histoRecoGen2_krReg.SetDirectory(0)
-    histoRecoGen2_lkr.SetDirectory(0)
-    histoRecoGen2_newHybrid.SetDirectory(0)
-    histoRecoGen2_newHybrid2.SetDirectory(0)'''
+# HYBRID
+#    histoRecoGen2_newHybrid.SetDirectory(0)
+#    histoRecoGen2_newHybrid2.SetDirectory(0)
     
-    histoResp = ROOT.TH2F( "resp class", ";m_{tt}^{true};m_{tt} reco", nbin, ar_bins, nbin, ar_bins )
-    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";m_{tt}^{true};m_{tt} reco", nbin, ar_bins, nbin, ar_bins )
+    histoResp = ROOT.TH2F( "resp class", ";m_{tt}^{true};m_{tt}^{DNN}", nbin, ar_bins, nbin, ar_bins )
+#    histo2dbinned_newHybrid = ROOT.TH2F( "resp class newHybrid", ";m_{tt}^{true};m_{tt} reco", nbin, ar_bins, nbin, ar_bins )
     histTrueBinned = ROOT.TH1F( "true contents binned", ";m_{tt}", nbin, ar_bins)
     histTrueBinned.SetDirectory(0)
 
@@ -400,6 +394,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
             histo_lkr.Fill(Mtrue, diff_lkr, weight)
             histoRecoGen_lkr.Fill(lkrMass, Mtrue, weight)
             histoRecoGen2_lkr.Fill(lkrMass, Mtrue, weight)
+# HYBRID
 #        mAverage = []
 #        mAverage.append(Mpred)
 #        if lkrMass>0.:
@@ -431,6 +426,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
         i = NormalizeBinContent(i)
     for i in histoRecoGenList:
         i = NormalizeBinContent(i)
+# histoRecoGenList2 must not be normalized by the area because they give transition probabilites between bins. it is reasonable that larger bins will ahve larger proabhailtiy(?)
 
 
 # ---------------------------------------
@@ -464,14 +460,14 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
 #    c.Clear()
 
     histoRecoGen.Draw("colz")
-    histoRecoGen = NormalizeBinContent(histoRecoGen)
+    c.SetLogy()
     corrLatex = ROOT.TLatex()
     corrLatex.SetTextSize(0.65 * corrLatex.GetTextSize())
     corrLatex.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen.GetCorrelationFactor(),3)))
     c.SaveAs(outDir+"reg_GenReco2d.pdf")
     c.Clear()
+    
     histoRecoGen_kr.Draw("colz")
-    c.SetLogy()
     corrLatex_kr = ROOT.TLatex()
     corrLatex_kr.SetTextSize(0.65 * corrLatex_kr.GetTextSize())
     corrLatex_kr.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_kr.GetCorrelationFactor(),3)))
@@ -535,6 +531,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
 
     c.Clear()
 
+#HYBRID
     '''histo2dbinned_newHybrid.SetStats(0)
     hRespBinned_newHybrid = histo2dbinned_newHybrid.Clone()
 
@@ -594,6 +591,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoRecoGen2_lkr.Draw("colz text")
     c.SaveAs(outDir+"lkr_resp.pdf")
     c.Clear()
+# HYBRID
 #    histoRecoGen2_newHybrid.Scale(1./histoRecoGen2_newHybrid.Integral())
     # histoRecoGen2_lkr.Scale(100.)
 #    ROOT.gStyle.SetPaintTextFormat("1.2f");
@@ -604,6 +602,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
 #    c.SaveAs(outDir+"newHybrid_resp.pdf")
 #    c.Clear()
 
+# Q? RMS and mean based on histograms if you cut data you must know it
     rms_reg, mean_reg, respRMS_reg = doRMSandMean(histo, "reg", outDir)
     rms_kr, mean_kr, respRMS_kr = doRMSandMean(histo_kr, "kr", outDir)
     rms_krReg, mean_krReg, respRMS_krReg = doRMSandMean(histo_krReg, "krReg", outDir)
@@ -611,13 +610,35 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
 #    rms_newHybrid, mean_newHybrid, respRMS_newHybrid = doRMSandMean(histo_newHybrid, "newHybrid", outDir)
 #    rms_newHybrid2, mean_newHybrid2, respRMS_newHybrid2 = doRMSandMean(histo_newHybrid2, "newHybrid2", outDir)
 
-    purity_kr, stability_kr, eff_kr = doPSE(hResp_kr, histTrue, "kr", outDir)
 
+#GC new plot for all the means together
     style.style1d()
     s = style.style1d()
-
     c.SetLogx(False)
     c.SetLogy(False)
+    c.Clear()
+    mean_reg.SetStats(0)
+    mean_kr.SetStats(0)
+    mean_lkr.SetStats(0)
+    mean_krReg.SetStats(0)
+    mean_reg.Draw("histe")
+    mean_kr.Draw("same")
+    mean_lkr.Draw("same")
+    mean_krReg.Draw("same")
+    c.SaveAs(outDir+"allMeans.pdf")
+    
+
+    
+    
+    purity_kr, stability_kr, eff_kr = doPSE(hResp_kr, histTrue, "kr", outDir)
+# Q? why not for lkr?
+
+# put above
+#    style.style1d()
+#    s = style.style1d()
+
+#    c.SetLogx(False)
+#    c.SetLogy(False)
     c.Clear()
 
     g_purity = helpers.purityStabilityGraph(hRespBinned, 0)
@@ -796,7 +817,7 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
             sample_weight = weights_train,
             validation_split = 0.25,
             batch_size = batchSize,
-            epochs = 2,
+            epochs = 3500,
             shuffle = False,
             callbacks = callbacks,
             verbose = 1)
@@ -888,12 +909,6 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 
 
 
-
-''' inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler = loadData(
-                                    inPathFolder = inPathFolder, year = year,
-                                    additionalName = additionalName, testFraction = 0.4,
-                                    overwrite = False, withBTag = True, pTEtaPhiMode=True,
-                                    maxEvents = None)'''
 def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "rhoOutput/", modelName = "rhoRegModel_DEFAULTNAME", outFolder="outFolder_DEFAULTNAME/"):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler = loadData(
                                     inPathFolder = inPathFolder, year = year,
@@ -938,14 +953,14 @@ def main():
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
     # justEvaluate(inPathFolder="rhoInput/powheg/", additionalName="_preUL04_11_02_21", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
     #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg_newHybrid/")
-    doEvaluate = True
+    doEvaluate = False
     if (doEvaluate):
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
     
         print("Calling justEvaluate ...")
         justEvaluate(inPathFolder="/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/", additionalName="_preUL05_28_02_22_ttbar", year="2016", tokeep = keep,
-        	         modelDir = "preUL05_28_02_22/rhoReg_madgraph/", modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")
+        	         modelDir = "preUL05_28_02_22/rhoReg_madgraph/", modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22_justevaluated/rhoReg_madgraph/")
     else:
         print("Calling doTrainingAndEvaluation ...")
         doTrainingAndEvaluation(inPathFolder = "/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/", additionalName = "_preUL05_28_02_22_ttbar", year ="2016", tokeep = keep,
