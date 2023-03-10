@@ -148,3 +148,9 @@ trainedModel*
 optim_rho.txt
 classInput*/
 versions*/
+
+
+fwk/weights.pdf
+fwk/weights_m.pdf
+mNormalizedWeighted.pdf
+weights.pdf
