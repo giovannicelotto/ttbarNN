@@ -136,7 +136,7 @@ def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_
     if loadData:
         nJets=2
         print ("\t need to load from root file with settings: nJets >= "+str(nJets)+"; max Events = "+str(maxEvents))
-        inX, outY, weights, lkrM, krM = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", nJets = 2, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
+        inX, outY, weights, lkrM, krM = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", maxJets = 10, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
         inX=np.array(inX)
         outY=np.array(outY)
         weights=np.array(weights)

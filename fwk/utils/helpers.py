@@ -59,7 +59,7 @@ feature_names_all=[
 ######################### REGRESSION ##################################################################
 
 
-def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+def loadRegressionData(path, treeName, maxJets=10, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
     '''
     Pass the list of input output features, weights, and output of the invariant mass from LKR and FKR everything in list of list
     '''
@@ -75,7 +75,7 @@ def loadRegressionData(path, treeName, nJets=2, maxEvents=0, withBTag = False, p
         if "FR2" in path:
             filename = filename.replace(path,"")
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        a,b,c,l,k = loadMDataFlat(filename, filename, treeName, nJets=nJets, maxEvents=maxEvents, withBTag = withBTag, pTEtaPhiMode = pTEtaPhiMode)
+        a,b,c,l,k = loadMDataFlat(filename, filename, treeName, maxJets=maxJets, maxEvents=maxEvents, withBTag = withBTag, pTEtaPhiMode = pTEtaPhiMode)
         eventInJet+=a
         eventOut+=b
         weights+=c
@@ -90,7 +90,7 @@ def NormalizeBinContent(histo):
 				histo.SetBinContent(i,j,  histo.GetBinContent(i, j)*1./(histo.GetXaxis().GetBinWidth(i)*histo.GetYaxis().GetBinWidth(j) ))
 				
 	return histo
-def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+def loadMDataFlat(path,filename, treeName, maxJets=10, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
 	'''
 	Open trees
 	Set Branches to variables
@@ -103,7 +103,7 @@ def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fals
 	kinRecoOut=[]	# kinRecorho (to be compared with NN output)
 	lKinRecoOut=[]	# loosekinRecorho (to be compared with NN output)
 	weights=[]	# weights to be used in the NN
-	maxJets=nJets	# max number of jets(?)
+	maxJets=maxJets	# max number of jets(?)
 
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
@@ -371,7 +371,7 @@ def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fals
 			passMETCut = False
 
 		if(pass3==True):
-			numJets = njets[0]
+			numJets = njets[0]    # numJets is the number of jets in the events
 			countB=0.
 
 			# Top properties definition
@@ -385,8 +385,8 @@ def loadMDataFlat(path,filename, treeName, nJets=3, maxEvents=0, withBTag = Fals
 					bjets = []
 					nbjets = 0
 					ht = 0
-					for idx in range(maxJets):
-						if(idx<numJets):
+					for idx in range(maxJets):	# I don't have a maximum number of jets. looping from 0 to 10
+						if(idx<numJets):	# Loop over only the existing jets of the events ,<10
 							jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
 							jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
 							if pTEtaPhiMode:
