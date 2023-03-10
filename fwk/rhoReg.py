@@ -110,7 +110,7 @@ logbins = array('d', np.concatenate( ( np.linspace(340, 500, 32, endpoint=False)
 nlogbin = len(logbins)-1
 neg_bins = array('d', np.concatenate((np.concatenate((np.linspace(-1500, -750, 50, endpoint=False), np.linspace(-750, -650, 50, endpoint=False))), np.linspace(-650, -340, 311)) ))  #used for 2d histograms
 #logbins_diff = np.concatenate(([-200, -100, -50],np.concatenate((np.linspace(-20, 20, 40), [50, 100, 200]))))
-logbins_diff = np.linspace(-100, 100, 200)
+logbins_diff = np.linspace(-300, 300, 300)
 nlogbin_diff =len(logbins_diff)-1
 
 
@@ -131,12 +131,12 @@ def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_
         print("*** Not found the data in the right directory ***")
     else:
         print("\nData found in the directory :"+inPathFolder+year)
-        loadData = overwrite
+        loadData = overwrite # False
 
     if loadData:
-        nJets=2
-        print ("\t need to load from root file with settings: nJets >= "+str(nJets)+"; max Events = "+str(maxEvents))
-        inX, outY, weights, lkrM, krM = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", maxJets = 10, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
+        minJets=2
+        print ("\t need to load from root file with settings: nJets >= "+str(minJets)+"; max Events = "+str(maxEvents))
+        inX, outY, weights, lkrM, krM = helpers.loadRegressionData(inPathFolder+year+"/", "miniTree", maxJets = 4, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
         inX=np.array(inX)
         outY=np.array(outY)
         weights=np.array(weights)
@@ -617,10 +617,16 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     c.SetLogx(False)
     c.SetLogy(False)
     c.Clear()
-    mean_reg.SetStats(0)
-    mean_kr.SetStats(0)
-    mean_lkr.SetStats(0)
-    mean_krReg.SetStats(0)
+    def SetStatsColor(h,color):
+        h.SetStats(0)
+        h.SetLineColorAlpha(color, 0.6)
+	h.SetFillColorAlpha(color, 0.6)
+        return h
+    mean_reg 	= SetStatsColor(mean_reg, 0)
+    mean_kr 	= SetStatsColor(mean_kr, 1)
+    mean_lkr 	= SetStatsColor(mean_lkr, 2)
+    mean_krReg 	= SetStatsColor(mean_krReg, 3)
+    
     mean_reg.Draw("histe")
     mean_kr.Draw("same")
     mean_lkr.Draw("same")
@@ -713,6 +719,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     outRootFile.Close()
 
 ''' called in main
+
 doTrainingAndEvaluation(inPathFolder = "/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/", additionalName = "_preUL05_28_02_22_ttbar", year ="2016", tokeep = keep,
 				modelName = "preUL05_rhoRegModel_28_02_22", outFolder="preUL05_28_02_22/rhoReg_madgraph/")'''
 def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, outFolder="outFolder_DEFAULTNAME/", modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel"):
@@ -886,10 +893,10 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
         shap_values = explainer.shap_values(inX_test[:1000])
         print("... shap.summary_plot")
         matplotlib.pyplot.clf()
-        shap.summary_plot(shap_values, inX_test[:1000], plot_type="bar",
-            feature_names=feature_names,
-            class_names=class_names,
-            max_display=max_display,plot_size=[15.0,0.4*max_display+1.5],show=False)
+        shap.summary_plot(	shap_values, inX_test[:1000], plot_type="bar",
+			        feature_names=feature_names,
+            			class_names=class_names,
+            			max_display=max_display, plot_size=[15.0,0.4*max_display+1.5], show=False)
         matplotlib.pyplot.savefig(outFolder+"/"+year+"/"+"/shap_summary_{0}.pdf".format(name))
 
 
@@ -912,9 +919,9 @@ def doTrainingAndEvaluation(inPathFolder, additionalName, year, tokeep = None, o
 def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "rhoOutput/", modelName = "rhoRegModel_DEFAULTNAME", outFolder="outFolder_DEFAULTNAME/"):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, scaler = loadData(
                                     inPathFolder = inPathFolder, year = year,
-                                    additionalName = additionalName, testFraction = 0.99,
+                                    additionalName = additionalName, testFraction = 0.4,
                                     overwrite = False, withBTag = True, pTEtaPhiMode=True,
-                                    maxEvents = None)
+                                    maxEvents = 50000)
                                     # maxEvents = 50000)
 
     feature_names = [i for i in feature_names_all]

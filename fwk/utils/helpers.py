@@ -23,51 +23,53 @@ from sklearn.model_selection import train_test_split
 from numba import jit
 
 feature_names_all=[
-    "jet1Pt","jet1Eta","jet1Phi","jet1M","jet1BTag",
-    "jet2Pt","jet2Eta","jet2Phi","jet3M","jet2BTag",
-    #"jet3Pt","jet3Eta","jet3Phi","jet3M","jet3BTag",
-    "ht","nBJets","mlbmin",
-    "l1j1DR","l2j1DR","l1j2DR","l2j2DR",
+	"jet1Pt","jet1Eta","jet1Phi","jet1M","jet1BTag",
+	"jet2Pt","jet2Eta","jet2Phi","jet3M","jet2BTag",
+	"jet3Pt","jet3Eta","jet3Phi","jet3M","jet3BTag",
+	"jet4Pt","jet4Eta","jet4Phi","jet4M","jet4BTag",
+
+	"ht","nBJets","mlbmin",
+	"l1j1DR","l2j1DR","l1j2DR","l2j2DR",
 #"l1j3DR","l2j3DR",
-    "j1j2DR",
+	"j1j2DR",
 #"j1j3DR","l2j3DR",
-    "dilepPt","dilepEta","dilepPhi","dilepM",
-    "lep1Pt","lep1Eta","lep1Phi","lep1M",
-    "lep2Pt","lep2Eta","lep2Phi","lep2M",
-    "metPt","metPhi",
-    "lkr_rho","kr_rho",
-    "kr_ttbarPt","kr_ttbarEta","kr_ttbarPhi","kr_ttbarM",
-    "kr_topPt","kr_topEta","kr_topPhi",
-    "kr_atopPt","kr_atopEta","kr_atopPhi",
-    "kr_jetPt","kr_jetEta","kr_jetPhi","kr_jetM",
-    "llj1Pt","llj1Eta","llj1Phi","llj1M",
-    "llj2Pt","llj2Eta","llj2Phi","llj2M",
-    #"llj3Pt","llj3Eta","llj3Phi","llj3M",
-    "l1j1Pt","l1j1Eta","l1j1Phi","l1j1M",
-    "l1j2Pt","l1j2Eta","l1j2Phi","l1j2M",
-    #"l1j3Pt","l1j3Eta","l1j3Phi","l1j3M",
-    "l2j1Pt","l2j1Eta","l2j1Phi","l2j1M",
-    "l2j2Pt","l2j2Eta","l2j2Phi","l2j2M",
-    #"l2j3Pt","l2j3Eta","l2j3Phi","l2j3M",
-    "njets",
-    "lkr_ttbarPt","lkr_ttbarEta","lkr_ttbarPhi","lkr_ttbarM",
-    "lkr_jetPt","lkr_jetEta","lkr_jetPhi","lkr_jetM",
-    "yearID", "channelID"
+	"dilepPt","dilepEta","dilepPhi","dilepM",
+	"lep1Pt","lep1Eta","lep1Phi","lep1M",
+	"lep2Pt","lep2Eta","lep2Phi","lep2M",
+	"metPt","metPhi",
+	"lkr_rho","kr_rho",
+	"kr_ttbarPt","kr_ttbarEta","kr_ttbarPhi","kr_ttbarM",
+	"kr_topPt","kr_topEta","kr_topPhi",
+	"kr_atopPt","kr_atopEta","kr_atopPhi",
+	"kr_jetPt","kr_jetEta","kr_jetPhi","kr_jetM",
+	"llj1Pt","llj1Eta","llj1Phi","llj1M",
+	"llj2Pt","llj2Eta","llj2Phi","llj2M",
+#"llj3Pt","llj3Eta","llj3Phi","llj3M",
+	"l1j1Pt","l1j1Eta","l1j1Phi","l1j1M",
+	"l1j2Pt","l1j2Eta","l1j2Phi","l1j2M",
+#"l1j3Pt","l1j3Eta","l1j3Phi","l1j3M",
+	"l2j1Pt","l2j1Eta","l2j1Phi","l2j1M",
+	"l2j2Pt","l2j2Eta","l2j2Phi","l2j2M",
+#"l2j3Pt","l2j3Eta","l2j3Phi","l2j3M",
+	"njets",
+	"lkr_ttbarPt","lkr_ttbarEta","lkr_ttbarPhi","lkr_ttbarM",
+	"lkr_jetPt","lkr_jetEta","lkr_jetPhi","lkr_jetM",
+	"yearID", "channelID"
 ]
 
 
 ######################### REGRESSION ##################################################################
 
 
-def loadRegressionData(path, treeName, maxJets=10, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+def loadRegressionData(path, treeName, maxJets=4, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
     '''
     Pass the list of input output features, weights, and output of the invariant mass from LKR and FKR everything in list of list
     '''
     print("loadRegressionData called \n\n")
-    pathToSearch = path.replace("FR2","*")
-    fileNames = glob.glob(pathToSearch+'*.root')		# List of files.root in the directory
-    print (path)
-    print (fileNames)
+#    pathToSearch = path.replace("FR2","*")
+    fileNames = glob.glob(path+'*.root')		# List of files.root in the directory
+    print ("Searching in the path: \t",path)
+    print (len(fileNames), " files to be used\n",fileNames)
     eventInJet, eventOut, weights,lkrM,krM = [],[],[],[],[]	# Empty lists for input, output, weights, outputs of analytical results
     n=0
     for filename in fileNames:					# Looping over the file names
@@ -90,7 +92,7 @@ def NormalizeBinContent(histo):
 				histo.SetBinContent(i,j,  histo.GetBinContent(i, j)*1./(histo.GetXaxis().GetBinWidth(i)*histo.GetYaxis().GetBinWidth(j) ))
 				
 	return histo
-def loadMDataFlat(path,filename, treeName, maxJets=10, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+def loadMDataFlat(path,filename, treeName, maxJets=4, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
 	'''
 	Open trees
 	Set Branches to variables
@@ -103,7 +105,7 @@ def loadMDataFlat(path,filename, treeName, maxJets=10, maxEvents=0, withBTag = F
 	kinRecoOut=[]	# kinRecorho (to be compared with NN output)
 	lKinRecoOut=[]	# loosekinRecorho (to be compared with NN output)
 	weights=[]	# weights to be used in the NN
-	maxJets=maxJets	# max number of jets(?)
+	maxJets=maxJets	# max number of jets
 
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
@@ -379,14 +381,16 @@ def loadMDataFlat(path,filename, treeName, maxJets=10, maxEvents=0, withBTag = F
 			antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
 			ttbar = top+antitop
 # number of jets requirements
-			if ((numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut):
-				if(ttbar.M()>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):
+# NQ? require jetpt>30 but in the root it's already like that
+# Same for eta
+			if ((numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut):				# suppose we enter in an interesting event
+				if(ttbar.M()>0. and genpartonjetPt>30. and abs(genpartonjetEta)<2.4):			# satisfies requirements for the jet and ttbar
 					jets = []
 					bjets = []
 					nbjets = 0
 					ht = 0
-					for idx in range(maxJets):	# I don't have a maximum number of jets. looping from 0 to 10
-						if(idx<numJets):	# Loop over only the existing jets of the events ,<10
+					for idx in range(maxJets):	# Max number of jets I want in the event (10)					Suppose it's 4
+						if(idx<numJets):	# Number of jets smaller than total number of jets in the event			idx range from 0 to 3
 							jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
 							jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
 							if pTEtaPhiMode:
@@ -398,12 +402,12 @@ def loadMDataFlat(path,filename, treeName, maxJets=10, maxEvents=0, withBTag = F
 								jets_info.append(jet4.Px()) #1
 								jets_info.append(jet4.Py())#2
 								jets_info.append(jet4.Pz())#3
-								jets_info.append(jet4.E())#4
-							jets.append(jet4) #1-12
+								jets_info.append(jet4.E())#4								4 kin features fro each jets
+							jets.append(jet4) 
 							bTagged=int(bool(jetBTagged[idx]))
 							ht = ht+jet4.Pt()
 							if withBTag:
-								jets_info.append(bTagged)
+								jets_info.append(bTagged)								# 5 features with the info on btag
 							if(bTagged):
 								bjets.append(jet4)
 						else:
