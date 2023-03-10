@@ -144,7 +144,7 @@ rhoInput
 pretrainedModel
 trainedModel*
 
-preUL*/
+#preUL*/
 optim_rho.txt
 classInput*/
 versions*/
