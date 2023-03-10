@@ -160,6 +160,7 @@ def loadData(inPathFolder = "rhoInput/years", year = "2016", additionalName = "_
         inX = inX[:maxEvents]
         outY = outY[:maxEvents]
         weights = weights[:maxEvents]
+        lkrM = lkrM[:maxEvents]
         krM = krM[:maxEvents]
 
     #outY = outY.reshape((outY.shape[0], 1))
@@ -284,7 +285,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     histoShape9.SetLineColor(ROOT.kCyan)
     histoShape9.SetLineStyle(ROOT.kDashed)
     histoShape9.Draw("h0same")
-    l = ROOT.TLegend(0.7,0.7,0.9,0.9)
+    l = ROOT.TLegend(0.7,0.5,0.9,0.7)
     l.AddEntry(histoDNN, "DNN")
     l.AddEntry(histoTrue, "truth")
     l.AddEntry(histoLoose, "LKR")
@@ -473,7 +474,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     corrLatex_kr.DrawLatexNDC(0.65, 0.85, str(np.round(histoRecoGen_kr.GetCorrelationFactor(),3)))
     c.SaveAs(outDir+"kr_GenReco2d.pdf")
     c.Clear()
-    c.SetLogy(False)
+    c.SetLogy()
     histoRecoGen_krReg.Draw("colz")
     corrLatex_krReg = ROOT.TLatex()
     corrLatex_krReg.SetTextSize(0.65 * corrLatex_kr.GetTextSize())
@@ -567,28 +568,32 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     ROOT.gStyle.SetPaintTextFormat("1.2f");
     histoRecoGen2.SetStats(0)
     histoRecoGen2.SetMarkerSize(1)
-    histoRecoGen2.Draw("colz text")
+#   histoRecoGen2.Draw("colz text")
+    histoRecoGen2.Draw("colz")
     c.SaveAs(outDir+"resp.pdf")
     c.Clear()
     histoRecoGen2_kr.Scale(1./histoRecoGen2_kr.Integral())
     ROOT.gStyle.SetPaintTextFormat("1.2f");
     histoRecoGen2_kr.SetStats(0)
     histoRecoGen2_kr.SetMarkerSize(1)
-    histoRecoGen2_kr.Draw("colz text")
+#    histoRecoGen2_kr.Draw("colz text")
+    histoRecoGen2_kr.Draw("colz")
     c.SaveAs(outDir+"kr_resp.pdf")
     c.Clear()
     histoRecoGen2_krReg.Scale(1./histoRecoGen2_krReg.Integral())
     ROOT.gStyle.SetPaintTextFormat("1.2f");
     histoRecoGen2_krReg.SetStats(0)
     histoRecoGen2_krReg.SetMarkerSize(1)
-    histoRecoGen2_krReg.Draw("colz text")
+#    histoRecoGen2_krReg.Draw("colz text")
+    histoRecoGen2_krReg.Draw("colz")
     c.SaveAs(outDir+"krReg_resp.pdf")
     c.Clear()
     histoRecoGen2_lkr.Scale(1./histoRecoGen2_lkr.Integral())
     ROOT.gStyle.SetPaintTextFormat("1.2f");
     histoRecoGen2_lkr.SetStats(0)
     histoRecoGen2_lkr.SetMarkerSize(1)
-    histoRecoGen2_lkr.Draw("colz text")
+#    histoRecoGen2_lkr.Draw("colz text")
+    histoRecoGen2_lkr.Draw("colz")
     c.SaveAs(outDir+"lkr_resp.pdf")
     c.Clear()
 # HYBRID
@@ -620,7 +625,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     def SetStatsColor(h,color):
         h.SetStats(0)
         h.SetLineColorAlpha(color, 0.6)
-	h.SetFillColorAlpha(color, 0.6)
+        h.SetFillColorAlpha(color, 0.6)
         return h
     mean_reg 	= SetStatsColor(mean_reg, 0)
     mean_kr 	= SetStatsColor(mean_kr, 1)
@@ -631,6 +636,11 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year = "", outFo
     mean_kr.Draw("same")
     mean_lkr.Draw("same")
     mean_krReg.Draw("same")
+    l = ROOT.TLegend(0.7,0.5,0.9,0.7)
+    l.AddEntry(mean_reg, "DNN")
+    l.AddEntry(mean_kr, "KR")
+    l.AddEntry(mean_lkr, "LKR")
+    l.AddEntry(mean_krReg, "KR+DNN(noKR)")
     c.SaveAs(outDir+"allMeans.pdf")
     
 
@@ -921,7 +931,7 @@ def justEvaluate(inPathFolder, additionalName, year, tokeep = None, modelDir = "
                                     inPathFolder = inPathFolder, year = year,
                                     additionalName = additionalName, testFraction = 0.4,
                                     overwrite = False, withBTag = True, pTEtaPhiMode=True,
-                                    maxEvents = 50000)
+                                    maxEvents = None)
                                     # maxEvents = 50000)
 
     feature_names = [i for i in feature_names_all]
@@ -960,7 +970,7 @@ def main():
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")
     # justEvaluate(inPathFolder="rhoInput/powheg/", additionalName="_preUL04_11_02_21", year="FR2", tokeep = [41,42,35,60,84,64,30,76,39,88],
     #             modelDir = "preUL04_11_02_21/rhoReg_madgraph/", modelName = "rhoRegModel_preUL04_11_02_21", outFolder="preUL04_11_02_21/rhoReg_powheg_newHybrid/")
-    doEvaluate = False
+    doEvaluate = True
     if (doEvaluate):
     # doBaysianOptim(inPathFolder = "rhoInput/madgraph_ghost/", additionalName = "_preUL04_11_02_21_ghost", year ="FR2",
     #                 tokeep = keep, outFolder="preUL04_11_02_21_ghost/rho_madgraph_optim_ghost_perIterationSave/")

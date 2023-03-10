@@ -21,7 +21,7 @@ def defaultStyle():
     st.SetPadColor(ROOT.kWhite)
 
     # Margins:
-    st.SetPadTopMargin(0.06)
+    st.SetPadTopMargin(0.12)
     st.SetPadBottomMargin(0.12)
     st.SetPadLeftMargin(0.16)
     st.SetPadRightMargin(0.04)
