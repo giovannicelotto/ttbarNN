@@ -1,7 +1,8 @@
 
 .README.md
 Diagram.PNG
-simpleplto.py
+simpleplot.py
+npyData/
 outputs/
 # Byte-compiled / optimized / DLL files
 __pycache__/
