@@ -257,10 +257,12 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
 # *                             *
 # *******************************
     plt.close('all')
+
+    index = 0      
     for el in [yPredicted, lkrM, krM]:
-        index = 0
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))
         fig.subplots_adjust(right=0.8)
+          
         counts, xedges, yedges, im = ax.hist2d(yTest, el - yTest, bins=(80, 80), range=[[340, 1500], [-400, 400]] ,norm=mpl.colors.LogNorm(), cmap=plt.cm.jet)
         cbar_ax = fig.add_axes([0.81, 0.11, 0.05, 0.77])
         cbar = fig.colorbar(im, cax=cbar_ax)
@@ -268,7 +270,9 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
         ax.set_ylabel(['m$_{tt}^{DNN}$', 'm$_{tt}^{Loose}$', 'm$_{tt}^{Kin}$'][index]+" - True", fontsize=18)
         cbar.set_label('Counts', fontsize=19)
         cbar.ax.tick_params(labelsize=18)
+        print(outDir+"/"+['Reg', 'Loose', 'Kin'][index]+"MinusTrueVsTrue.pdf")
         fig.savefig(outDir+"/"+['Reg', 'Loose', 'Kin'][index]+"MinusTrueVsTrue.pdf")
+        plt.cla()   
         index = index +1
 
         

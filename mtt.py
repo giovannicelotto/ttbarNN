@@ -20,10 +20,10 @@ import shap
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
 maxEvents_          = None
-epochs_             = 15000
+epochs_             = 5000
 learningRate_       = 10**-3
-batchSize_          = 50000  # 25000
-dropout_            = 0.5     # 0.4
+batchSize_          = 25000  # 25000
+dropout_            = 0.4     # 0.4
 nDense_             = 2
 nNodes_             = 400
 regRate_            = 0.001    
@@ -267,7 +267,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
     plt.legend(['train', 'validation'], loc='upper right')
     plt.savefig(outFolder+"/"+year+"/loss.pdf")
 
-    saveModel = True
+    saveModel = not doEvaluate
     if saveModel:
         model.save(outFolder+"/"+modelName+".h5")
         tf.keras.backend.clear_session()

@@ -6,16 +6,27 @@ import tensorflow as tf
 
 #definisci un append function che aggiunge il nome della variabile se non già presente
 def getFeatureNames():
-	feature_names =['lkr_ttbarM', 'kr_ttbarM', 'dileptonM', 'llj1j2_M', 'llj1j2MET_M', 'njets', 'nbjets' 'extraJetsM', 'mlb_min',
-					'jet1pt', 'jet1eta, jet1phi', 'jet1m', 'jet1btag',
-					'jet2pt', 'jet2eta, jet2phi', 'jet2m', 'jet2btag'
-					'lep1pt', 'lep1eta, lep1phi', 'lep1m',
-					'lep2pt', 'lep2eta, lep2phi', 'lep2m',
+	feature_names =['lkr_ttbarpt', 'lkr_ttbareta', 'lkr_ttbarphi', 'lkr_ttbarM',
+					'kr_ttbarpt', 'kr_ttbareta', 'kr_ttbarphi', 'kr_ttbarM',
+					'dileptonpt', 'dileptoneta', 'dileptonphi', 'dileptonM',
+					'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi', 'llj1j2M',
+					'llj1j2METpt','llj1j2METeta', 'llj1j2METphi', 'llj1j2MET_M', 'njets', 'nbjets', 'extraJetsM', 'mlb_min',
+					'jet1pt', 'jet1eta', 'jet1phi', 'jet1m', 'jet1btag',
+					'jet2pt', 'jet2eta', 'jet2phi', 'jet2m', 'jet2btag',
+					'lep1pt', 'lep1eta', 'lep1phi', 'lep1m',
+					'lep2pt', 'lep2eta', 'lep2phi', 'lep2m',
 					'metpt', 'metphi', 'ht',
 					'dR_lepton1_jet1', 'dR_lepton1_jet2', 'dR_lepton2_jet1', 'dR_lepton2_jet2', 'dR_jet1_jet2'
 	]
 	return feature_names
-	
+def append4vector(evFeatures, a):
+	evFeatures.append(a.Pt())
+	evFeatures.append(a.Eta())
+	evFeatures.append(a.Phi())
+	evFeatures.append(a.M())
+
+
+
 def NormalizeBinWidth1d(h):
 	for i in range(1, h.GetNbinsX()+1):
 		if h.GetBinContent(i) != 0:
@@ -176,6 +187,7 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
 	ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
 	dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
+	zero=ROOT.TLorentzVector(0., 0., 0., 0.)
 
 	bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
 	print("\nLooping in the trees with ", tree.GetEntries()," entries. Only ",maxEntries, " will be used")  # GC
@@ -192,6 +204,7 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 		lkr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
 		bjettemp.SetPtEtaPhiM(0.,0.,0.,0.)
 		dilepton.SetPtEtaPhiM(0.,0.,0.,0.)
+
 		ht = 0
 		# Generated vectors
 		top.SetPtEtaPhiM(0.,0.,0.,0.)
@@ -272,34 +285,36 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 				
 
 			if (haslkrs and lkr_ttbar.M()>0.):
-				evFeatures.append(lkr_ttbar.M())     # 1
+				append4vector(evFeatures,lkr_ttbar)
 				lKinRecoOut.append(lkr_ttbar.M())   # 2	Output of the LooseKinReco
 			else:
-				evFeatures.append(0.)
+				append4vector(evFeatures,zero)
 				lKinRecoOut.append(0.)
 			if (haskrs and kr_ttbar.M()>0.):
-				evFeatures.append(kr_ttbar.M())     # 2
+				append4vector(evFeatures, kr_ttbar)
 				kinRecoOut.append(kr_ttbar.M())     # 
 			else:
-				evFeatures.append(0.)
+				append4vector(evFeatures, zero)
 				kinRecoOut.append(0.)
 
 			met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
 			#allLepton = dilepton + met
 			
-			evFeatures.append(dilepton.M())								# 3
+			append4vector(evFeatures, dilepton)
 
 			if (len(bjets) >= 2):
-				evFeatures.append((dilepton+bjets[0]+bjets[1]).M())				# 4
-				evFeatures.append((dilepton+bjets[0]+bjets[1]+met).M())			# 5 
+				append4vector(evFeatures, dilepton+bjets[0]+bjets[1])
+				append4vector(evFeatures, (dilepton+bjets[0]+bjets[1]+met))
+				
 			elif (len(bjets) == 1):
 				nonbjet = [jets[i] for i in range(len(btag)) if btag[i] == 0][0]
-				evFeatures.append((dilepton+ bjets[0]+ nonbjet).M())			# 4
-				evFeatures.append((dilepton+bjets[0]+ nonbjet+met).M())			# 5
-			elif (len(bjets) == 0):
-				evFeatures.append((dilepton+ jets[0] + jets[1]).M())			# 4
-				evFeatures.append((dilepton+ jets[0] + jets[1] + met).M())		# 5
+				append4vector(evFeatures, (dilepton+ bjets[0]+ nonbjet))
+				append4vector(evFeatures,(dilepton+bjets[0]+ nonbjet+met))
 
+			elif (len(bjets) == 0):
+				append4vector(evFeatures, (dilepton+ jets[0] + jets[1]))
+				append4vector(evFeatures, dilepton+ jets[0] + jets[1] + met)
+				
 			evFeatures.append(numJets)									 		# 6
 			evFeatures.append(nbjets)											# 7
 			if(numJets>2):
