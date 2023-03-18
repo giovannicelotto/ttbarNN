@@ -1,8 +1,5 @@
 # *****************************************************************
 # Idea : cambia completamente il modo di salvare i file:
-# Carica dotrainingandevaluation
-#   carica loaddata
-#       Qui avviene lo splitting. Salva in diversi numpy array training and testing
 #       
 # 
 # Introduce matrici di risposta hist2d
@@ -23,19 +20,19 @@ import shap
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
 maxEvents_          = None
-epochs_             = 5000
-learningRate_       = 10**-4
-batchSize_          = 50000
-dropout_            = 0.5
+epochs_             = 15000
+learningRate_       = 10**-3
+batchSize_          = 50000  # 25000
+dropout_            = 0.5     # 0.4
 nDense_             = 2
-nNodes_             = 50
+nNodes_             = 400
 regRate_            = 0.001    
 activation_         = 'selu'
 outputActivation_   = 'linear'  
-patiencelR_         = 300
-patienceeS_         = 900
+patiencelR_         = 30
+patienceeS_         = 400
 testFraction_       = 0.3
-doEvaluate          = False
+doEvaluate          = True
 reduceLR_factor     = 0.2
 
 def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEtaPhiMode, maxEvents):
@@ -107,7 +104,12 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
     print("Number training events :", inX_train.shape[0], len(inX_train))
     print("Number of features     :", inX_train.shape[1])
     print("loadData ended returning inX_train and so on...")
-
+    if createNewData:
+        np.save(dataPathFolderYear+"/testing/flat_inX"    + additionalName+"test.npy", inX_test)
+        np.save(dataPathFolderYear+"/testing/flat_outY"   + additionalName+"test.npy", outY_test)
+        np.save(dataPathFolderYear+"/testing/flat_weights"+ additionalName+"test.npy", weights_test)
+        np.save(dataPathFolderYear+"/testing/flat_lkrM"   + additionalName+"test.npy", lkrM_test)
+        np.save(dataPathFolderYear+"/testing/flat_krM"    + additionalName+"test.npy", krM_test)
     return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test
 
 def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFolder, modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel"):
@@ -265,6 +267,14 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
     plt.legend(['train', 'validation'], loc='upper right')
     plt.savefig(outFolder+"/"+year+"/loss.pdf")
 
+    saveModel = True
+    if saveModel:
+        model.save(outFolder+"/"+modelName+".h5")
+        tf.keras.backend.clear_session()
+        tf.keras.backend.set_learning_phase(0)
+        model = tf.keras.models.load_model(outFolder+"/"+modelName+".h5")
+        print('inputs: ', [input.op.name for input in model.inputs])
+        print('outputs: ', [output.op.name for output in model.outputs])
     #corr = pearsonr(outY_test.reshape(outY_test.shape[0]), y_predicted.reshape(y_predicted.shape[0]))
     #print("correlation:",corr[0])
 # statistica distance: measures how one probab distr P is different from a second Q. In our case predicted output and expected one
@@ -294,14 +304,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
         plt.savefig(outFolder+"/"+year+"/"+"shap_summary_{0}.pdf".format(name))
 
 
-    saveModel = True
-    if saveModel:
-        model.save(outFolder+"/"+modelName+".h5")
-        tf.keras.backend.clear_session()
-        tf.keras.backend.set_learning_phase(0)
-        model = tf.keras.models.load_model(outFolder+"/"+modelName+".h5")
-        print('inputs: ', [input.op.name for input in model.inputs])
-        print('outputs: ', [output.op.name for output in model.outputs])
+    
         #frozen_graph = freeze_session(tf.compat.v1.keras.backend.get_session(), output_names=[out.op.name for out in model.outputs])
         #tf.compat.v1.train.write_graph(frozen_graph, outFolder+ modelName+'.pbtxt', as_text=True)
         #tf.compat.v1.train.write_graph(frozen_graph, outFolder+ modelName+'.pb', as_text=False)

@@ -4,13 +4,18 @@ import numpy as np
 from progress.bar import IncrementalBar
 import tensorflow as tf
 
-
+#definisci un append function che aggiunge il nome della variabile se non già presente
 def getFeatureNames():
-	feature_names =['lkr_ttbarM', 'kr_ttbarM', 'dileptonM', 'llj1j2_M', 'llj1j2MET_M', 'njets', 'extraJetsM'] #, , 'MET_x', 'MET_y', 'allLeptonM'
-# njets è u discriminante per quando considere le masse invarianti
-# massa invariane di tutti i extra jet se presente
-
+	feature_names =['lkr_ttbarM', 'kr_ttbarM', 'dileptonM', 'llj1j2_M', 'llj1j2MET_M', 'njets', 'nbjets' 'extraJetsM', 'mlb_min',
+					'jet1pt', 'jet1eta, jet1phi', 'jet1m', 'jet1btag',
+					'jet2pt', 'jet2eta, jet2phi', 'jet2m', 'jet2btag'
+					'lep1pt', 'lep1eta, lep1phi', 'lep1m',
+					'lep2pt', 'lep2eta, lep2phi', 'lep2m',
+					'metpt', 'metphi', 'ht',
+					'dR_lepton1_jet1', 'dR_lepton1_jet2', 'dR_lepton2_jet1', 'dR_lepton2_jet2', 'dR_jet1_jet2'
+	]
 	return feature_names
+	
 def NormalizeBinWidth1d(h):
 	for i in range(1, h.GetNbinsX()+1):
 		if h.GetBinContent(i) != 0:
@@ -187,7 +192,7 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 		lkr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
 		bjettemp.SetPtEtaPhiM(0.,0.,0.,0.)
 		dilepton.SetPtEtaPhiM(0.,0.,0.,0.)
-
+		ht = 0
 		# Generated vectors
 		top.SetPtEtaPhiM(0.,0.,0.,0.)
 		antitop.SetPtEtaPhiM(0.,0.,0.,0.)
@@ -248,49 +253,17 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 			for idx in range(min(numJets,maxJets)):
 				jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
 				jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-				#if pTEtaPhiMode:
-			#		jets_info.append(jet4.Pt())
-			#		jets_info.append(jet4.Eta())
-			#		jets_info.append(jet4.Phi())
-			#		jets_info.append(jet4.M())
-			#	else:
-			#		jets_info.append(jet4.Px()) #1
-			#		jets_info.append(jet4.Py())#2
-			#		jets_info.append(jet4.Pz())#3
-			#		jets_info.append(jet4.E())#4								4 kin features fro each jets
 				jets.append(jet4) 
 				bTagged=int(bool(jetBTagged[idx]))
 				btag.append(bTagged)
-				#ht = ht+jet4.Pt()
+				ht = ht+jet4.Pt()
 			#	if withBTag:
 			#		evFeatures.append(bTagged)								# 5 features with the info on btag
 					
 				if(bTagged):
 					bjets.append(jet4)
-			#else:
-		#		jets_info.append(0.)
-		#		jets_info.append(0.)
-		#		jets_info.append(0.)
-		#		jets_info.append(0.)
-		#		if withBTag:
-		#			jets_info.append(0.)
-		#	mlb_min = 9999.
-	#		comb = 9999
-	#		comb1 = 9999
-	#		comb2 = 9999
-	#		nbjets = len(bjets)
-		#	nBJets = len(bjets)
-		
-	#		for i in range(nbjets):
-	#			bjettemp.SetPtEtaPhiM(bjets[i].Pt(),bjets[i].Eta(),bjets[i].Phi(),bjets[i].M())
-	#			comb1 = (lep1+bjettemp).M()
-	#			comb2 = (lep2+bjettemp).M()
-	#			comb = comb1 if comb1<comb2 else comb2
-	#			if(comb<mlb_min):
-	#				mlb_min=comb
-	#		if mlb_min > 9990:
-	#			mlb_min = 0.
-			
+
+			nbjets = len(bjets)
 			weights.append(totWeight)
 			kr_top.SetPtEtaPhiM(kinReco_top_pt[0],kinReco_top_eta[0],kinReco_top_phi[0],kinReco_top_m[0])
 			kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0],kinReco_antitop_eta[0],kinReco_antitop_phi[0],kinReco_antitop_m[0])
@@ -327,13 +300,68 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 				evFeatures.append((dilepton+ jets[0] + jets[1]).M())			# 4
 				evFeatures.append((dilepton+ jets[0] + jets[1] + met).M())		# 5
 
-			evFeatures.append(numJets)
+			evFeatures.append(numJets)									 		# 6
+			evFeatures.append(nbjets)											# 7
 			if(numJets>2):
 				extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
 				for j in range(int(numJets-2)):
-					extraJet = extraJet + jets[j+2]
-				evFeatures.append(extraJet.M())
+					extraJet = extraJet + jets[j+2]							
+				evFeatures.append(extraJet.M())									# 8
+			else:
+				evFeatures.append(0)
 
+			mlb_min = 0
+			for i in range(nbjets):
+				bjettemp.SetPtEtaPhiM(bjets[i].Pt(),bjets[i].Eta(),bjets[i].Phi(),bjets[i].M())
+				comb1 = (lep1+bjettemp).M()	
+				comb2 = (lep2+bjettemp).M()
+				comb = comb1 if comb1<comb2 else comb2
+				if (i==0):
+					mlb_min=comb
+				elif(comb < mlb_min):
+					mlb_min = comb
+			evFeatures.append(mlb_min)											# 9
+
+			evFeatures.append(jets[0].Pt())										# 9
+			evFeatures.append(jets[0].Eta())									# 10
+			evFeatures.append(jets[0].Phi())									# 11
+			evFeatures.append(jets[0].M())										# 12
+			evFeatures.append(btag[0])											# 13
+
+			evFeatures.append(jets[1].Pt())										# 14
+			evFeatures.append(jets[1].Eta())									# 15
+			evFeatures.append(jets[1].Phi())									# 16
+			evFeatures.append(jets[1].M())										# 17
+			evFeatures.append(btag[1])											# 18
+
+			evFeatures.append(lep1.Pt())										# 19
+			evFeatures.append(lep1.Eta())										# 20
+			evFeatures.append(lep1.Phi())										# 21
+			evFeatures.append(lep1.M())											# 22
+
+			evFeatures.append(lep2.Pt())										# 23
+			evFeatures.append(lep2.Eta())										# 24
+			evFeatures.append(lep2.Phi())										# 25
+			evFeatures.append(lep2.M())											# 26
+
+			evFeatures.append(met.Pt())											# 27
+			evFeatures.append(met.Phi())
+			
+			dR_lepton1_jet1 = lep1.DeltaR(jets[0])
+			dR_lepton1_jet2 = lep1.DeltaR(jets[1])
+			dR_lepton2_jet1 = lep2.DeltaR(jets[0])
+			dR_lepton2_jet2 = lep2.DeltaR(jets[1])
+			# DeltaR with additional jets ?
+			dR_jet1_jet2 = jets[0].DeltaR(jets[1])
+			
+			evFeatures.append(ht)
+			evFeatures.append(dR_lepton1_jet1)
+			evFeatures.append(dR_lepton1_jet2)
+			evFeatures.append(dR_lepton2_jet1)
+			evFeatures.append(dR_lepton2_jet2)
+			evFeatures.append(dR_jet1_jet2)
+			
+			
 
 			
 			#evFeatures.append(met.Pt()*np.sinh(met.Phi()))				# 4
