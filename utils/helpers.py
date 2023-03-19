@@ -16,7 +16,7 @@ def getFeatureNames():
 					'lep1pt', 'lep1eta', 'lep1phi', 'lep1m',
 					'lep2pt', 'lep2eta', 'lep2phi', 'lep2m',
 					'metpt', 'metphi', 'ht',
-					'dR_lepton1_jet1', 'dR_lepton1_jet2', 'dR_lepton2_jet1', 'dR_lepton2_jet2', 'dR_jet1_jet2'
+					'dR_lepton1_jet1', 'dR_lepton1_jet2', 'dR_lepton2_jet1', 'dR_lepton2_jet2', 'dR_jet1_jet2','channelID'
 	]
 	return feature_names
 def append4vector(evFeatures, a):
@@ -51,10 +51,15 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
 
-
+	channelID = None
 	isEMuChannel = False
 	if ("emu_") in filename:
 		isEMuChannel = True
+		channelID = 0
+	elif ("mumu_") in filename:
+		channelID = -1
+	elif ("ee_") in filename:
+		channelID = 1
 
 	print("Read TTree: {} (Entries: {})".format(treeName, tree.GetEntries()))
 # Setting branches in the tree
@@ -304,15 +309,15 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 
 			if (len(bjets) >= 2):
 				append4vector(evFeatures, dilepton+bjets[0]+bjets[1])
-				append4vector(evFeatures, (dilepton+bjets[0]+bjets[1]+met))
+				append4vector(evFeatures, dilepton+bjets[0]+bjets[1]+met)
 				
 			elif (len(bjets) == 1):
 				nonbjet = [jets[i] for i in range(len(btag)) if btag[i] == 0][0]
-				append4vector(evFeatures, (dilepton+ bjets[0]+ nonbjet))
-				append4vector(evFeatures,(dilepton+bjets[0]+ nonbjet+met))
+				append4vector(evFeatures, dilepton+ bjets[0]+ nonbjet)
+				append4vector(evFeatures,dilepton+bjets[0]+ nonbjet+met)
 
 			elif (len(bjets) == 0):
-				append4vector(evFeatures, (dilepton+ jets[0] + jets[1]))
+				append4vector(evFeatures, dilepton+ jets[0] + jets[1])
 				append4vector(evFeatures, dilepton+ jets[0] + jets[1] + met)
 				
 			evFeatures.append(numJets)									 		# 6
@@ -337,28 +342,14 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 					mlb_min = comb
 			evFeatures.append(mlb_min)											# 9
 
-			evFeatures.append(jets[0].Pt())										# 9
-			evFeatures.append(jets[0].Eta())									# 10
-			evFeatures.append(jets[0].Phi())									# 11
-			evFeatures.append(jets[0].M())										# 12
+			append4vector(evFeatures, jets[0])										# 12
 			evFeatures.append(btag[0])											# 13
 
-			evFeatures.append(jets[1].Pt())										# 14
-			evFeatures.append(jets[1].Eta())									# 15
-			evFeatures.append(jets[1].Phi())									# 16
-			evFeatures.append(jets[1].M())										# 17
+			append4vector(evFeatures, jets[1])
 			evFeatures.append(btag[1])											# 18
 
-			evFeatures.append(lep1.Pt())										# 19
-			evFeatures.append(lep1.Eta())										# 20
-			evFeatures.append(lep1.Phi())										# 21
-			evFeatures.append(lep1.M())											# 22
-
-			evFeatures.append(lep2.Pt())										# 23
-			evFeatures.append(lep2.Eta())										# 24
-			evFeatures.append(lep2.Phi())										# 25
-			evFeatures.append(lep2.M())											# 26
-
+			append4vector(evFeatures, lep1)
+			append4vector(evFeatures, lep2)
 			evFeatures.append(met.Pt())											# 27
 			evFeatures.append(met.Phi())
 			
@@ -375,14 +366,8 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 			evFeatures.append(dR_lepton2_jet1)
 			evFeatures.append(dR_lepton2_jet2)
 			evFeatures.append(dR_jet1_jet2)
+			evFeatures.append(channelID)
 			
-			
-
-			
-			#evFeatures.append(met.Pt()*np.sinh(met.Phi()))				# 4
-			#evFeatures.append(met.Pt()*np.cosh(met.Phi()))				# 5
-			#evFeatures.append(allLepton.M())							# 6
-
 
 			
 			eventIn.append(evFeatures)
