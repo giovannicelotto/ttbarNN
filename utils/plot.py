@@ -23,15 +23,21 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
         os.makedirs(outDir)
     yTest = yTest[:,0]
     yPredicted = yPredicted[:,0]
+# *******************************
+# *                             *
+# *     Invariant Mass Plot     *
+# *                             *
+# ******************************* 
     print("Invariant Mass plot: Predicted vs True")
-    f = plt.figure()
-    plt.hist(yPredicted,    bins=100, range=(340,1500), label="Reco",   histtype=u'step', alpha=0.5)
-    plt.hist(yTest,         bins=100, range=(340,1500), label="True",   histtype=u'step', alpha=0.5)
-    plt.hist(lkrM,          bins=100, range=(340,1500), label="Loose",  histtype=u'step', alpha=0.5)
-    plt.hist(krM,           bins=100, range=(340,1500), label="kinReco",histtype=u'step', alpha=0.5)
-    plt.legend(loc = "best")
-    plt.ylabel('Events')
-    plt.xlabel('m_{tt} (GeV/c)')
+    f, ax = plt.subplots(1, 1)
+    ax.hist(yPredicted,    bins=100, range=(340,1500), label="Reco",   histtype=u'step', alpha=0.5)
+    ax.hist(yTest,         bins=100, range=(340,1500), label="True",   histtype=u'step', alpha=0.5)
+    ax.hist(lkrM,          bins=100, range=(340,1500), label="Loose",  histtype=u'step', alpha=0.5)
+    ax.hist(krM,           bins=100, range=(340,1500), label="kinReco",histtype=u'step', alpha=0.5)
+    ax.vlines(x=340, ymin=0, ymax=ax.get_ylim()[1])
+    ax.legend(loc = "best")
+    ax.set_ylabel('Events')
+    ax.set_xlabel('m_{tt} (GeV/c)')
     f.savefig(outDir+"/m_tt.pdf", bbox_inches='tight')
     plt.close()
     
@@ -62,6 +68,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
     #ax.set_xscale('log')
     ax.set_xlabel("$m_{tt}^{True}$")
     ax.legend(fontsize=18, loc='best')
+    ax.set_xscale('log')
     fig.savefig(outDir+"/pse.pdf", bbox_inches='tight')
     plt.cla()
 
@@ -82,32 +89,40 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
     kinErrRmsBinned = np.array([])
     LooseErrRmsBinned = np.array([])
 		
-    elementsPerBin = np.array([])
+    regElementsPerBin = np.array([])
+    kinElementsPerBin = np.array([])
+    LooseElementsPerBin = np.array([])
+# Makes sense to compare only when kin and loose works
 
+    
     for i in range(len(logbins)-1):
-        mask = (yTest >= logbins[i]) & (yTest <= logbins[i+1])
+        mask = (yTest >= logbins[i]) & (yTest < logbins[i+1])
+        kinMask = (krM>1) & (mask) & (krM<3*10**6)
+        LooseMask = (lkrM>1) & (mask) 
         regMeanBinned       = np.append( regMeanBinned      ,   np.mean(yPredicted[mask]-yTest[mask]))
-        kinMeanBinned       = np.append( kinMeanBinned      ,   np.mean(krM[mask]-yTest[mask]))
-        LooseMeanBinned     = np.append( LooseMeanBinned    ,   np.mean(lkrM[mask]-yTest[mask]))
+        kinMeanBinned       = np.append( kinMeanBinned      ,   np.mean(krM[kinMask]-yTest[kinMask]))
+        LooseMeanBinned     = np.append( LooseMeanBinned    ,   np.mean(lkrM[LooseMask]-yTest[LooseMask]))
 
         regRmsBinned        = np.append( regRmsBinned       ,   np.std(yPredicted[mask]-yTest[mask]))
-        kinRmsBinned        = np.append( kinRmsBinned       ,   np.std(krM[mask]-yTest[mask]))
-        LooseRmsBinned      = np.append( LooseRmsBinned     ,   np.std(lkrM[mask]-yTest[mask]))
+        kinRmsBinned        = np.append( kinRmsBinned       ,   np.std(krM[kinMask]-yTest[kinMask]))
+        LooseRmsBinned      = np.append( LooseRmsBinned     ,   np.std(lkrM[LooseMask]-yTest[LooseMask]))
         
-        elementsPerBin      = np.append( elementsPerBin     ,  len(mask[mask==1]))
+        regElementsPerBin      = np.append( regElementsPerBin     ,  len(mask[mask==1]))
+        kinElementsPerBin      = np.append( kinElementsPerBin     ,  len(kinMask[kinMask==1]))
+        LooseElementsPerBin      = np.append( LooseElementsPerBin     ,  len(LooseMask[LooseMask==1]))
 
-        regErrRmsBinned     = np.append( regErrRmsBinned    ,   np.sqrt((moment(yPredicted[mask]-yTest[mask], 4)-((elementsPerBin[i]-3)/(elementsPerBin[i]-1)*regRmsBinned**4)[0])/elementsPerBin[i]))
-        LooseErrRmsBinned   = np.append( LooseErrRmsBinned  ,   np.sqrt((moment(lkrM[mask]-yTest[mask], 4)-((elementsPerBin[i]-3)/(elementsPerBin[i]-1)*LooseRmsBinned**4)[0])/elementsPerBin[i]))
-        kinErrRmsBinned     = np.append( kinErrRmsBinned    ,   np.sqrt((moment(krM[mask]-yTest[mask], 4)-((elementsPerBin[i]-3)/(elementsPerBin[i]-1)*kinRmsBinned**4)[0])/elementsPerBin[i]))
+        regErrRmsBinned     = np.append( regErrRmsBinned    ,   np.sqrt((moment(yPredicted[mask]-yTest[mask], 4)-((regElementsPerBin[i]-3)/(regElementsPerBin[i]-1)*regRmsBinned**4)[0])/regElementsPerBin[i]))
+        LooseErrRmsBinned   = np.append( LooseErrRmsBinned  ,   np.sqrt((moment(lkrM[LooseMask]-yTest[LooseMask], 4)-((LooseElementsPerBin[i]-3)/(LooseElementsPerBin[i]-1)*LooseRmsBinned**4)[0])/LooseElementsPerBin[i]))
+        kinErrRmsBinned     = np.append( kinErrRmsBinned    ,   np.sqrt((moment(krM[kinMask]-yTest[kinMask], 4)-((kinElementsPerBin[i]-3)/(kinElementsPerBin[i]-1)*kinRmsBinned**4)[0])/kinElementsPerBin[i]))
 
 
-
+    print("kinMeanBinned\t", kinMeanBinned[:5])
     #fig, ax = plt.subplots(1, 1)
     errX = (logbins[1:]-logbins[:len(logbins)-1])/2
     x = logbins[:len(logbins)-1] + errX
-    ax.errorbar(x, regMeanBinned,  regRmsBinned/np.sqrt(elementsPerBin), errX, linestyle='None', label = 'DNN')
-    ax.errorbar(x+1, LooseMeanBinned,  regRmsBinned/np.sqrt(elementsPerBin), errX, linestyle='None', label = 'Loose')
-    ax.errorbar(x-1, kinMeanBinned,  regRmsBinned/np.sqrt(elementsPerBin), errX, linestyle='None', label = 'Kin')
+    ax.errorbar(x, regMeanBinned,  regRmsBinned/np.sqrt(regElementsPerBin), errX, linestyle='None', label = 'DNN')
+    ax.errorbar(x+1, LooseMeanBinned,  LooseRmsBinned/np.sqrt(LooseElementsPerBin), errX, linestyle='None', label = 'Loose')
+    ax.errorbar(x-1, kinMeanBinned,  kinRmsBinned/np.sqrt(kinElementsPerBin), errX, linestyle='None', label = 'Kin')
     ax.set_xlabel("$m_{tt}^{True}$ (GeV)")
     ax.set_ylabel("<Pred> - <True>")
     ax.legend(fontsize=18)
@@ -121,58 +136,6 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
     fig.savefig(outDir+"/allRms.pdf", bbox_inches='tight')
     plt.cla()
     
-    regMeanBinned = np.array([])
-    LooseMeanBinned = np.array([])
-    kinMeanBinned = np.array([])
-    regRmsBinned = np.array([])
-    kinRmsBinned = np.array([])
-    LooseRmsBinned = np.array([])
-    regErrRmsBinned = np.array([])
-    kinErrRmsBinned = np.array([])
-    LooseErrRmsBinned = np.array([])
-        
-    elementsPerBin = np.array([])
-
-    for i in range(len(logbins)-1):
-        mask = (yTest >= logbins[i]) & (yTest <= logbins[i+1])
-        regMeanBinned = np.append( regMeanBinned,   np.mean(yPredicted[mask]-yTest[mask]))
-        kinMeanBinned = np.append( kinMeanBinned,   np.mean(krM[mask]-yTest[mask]))
-        LooseMeanBinned = np.append( LooseMeanBinned  , np.mean(lkrM[mask]-yTest[mask]))
-
-        regRmsBinned        = np.append( regRmsBinned       ,   np.std(yPredicted[mask]-yTest[mask]))
-        kinRmsBinned        = np.append( kinRmsBinned       ,   np.std(krM[mask]-yTest[mask]))
-        LooseRmsBinned      = np.append( LooseRmsBinned     ,   np.std(lkrM[mask]-yTest[mask]))
-        
-        elementsPerBin      = np.append( elementsPerBin     ,  len(mask[mask==1]))
-
-        regErrRmsBinned     = np.append( regErrRmsBinned    ,   np.sqrt((moment(yPredicted[mask]-yTest[mask], 4)-((elementsPerBin[i]-3)/(elementsPerBin[i]-1)*regRmsBinned**4)[0])/elementsPerBin[i]))
-        LooseErrRmsBinned   = np.append( LooseErrRmsBinned  ,   np.sqrt((moment(lkrM[mask]-yTest[mask], 4)-((elementsPerBin[i]-3)/(elementsPerBin[i]-1)*LooseRmsBinned**4)[0])/elementsPerBin[i]))
-        kinErrRmsBinned     = np.append( kinErrRmsBinned    ,   np.sqrt((moment(krM[mask]-yTest[mask], 4)-((elementsPerBin[i]-3)/(elementsPerBin[i]-1)*kinRmsBinned**4)[0])/elementsPerBin[i]))
-
-
-
-
-    #fig, ax = plt.subplots(1, 1)
-    errX = (logbins[1:]-logbins[:len(logbins)-1])/2
-    x = logbins[:len(logbins)-1] + errX
-    ax.errorbar(x, regMeanBinned,  regRmsBinned/np.sqrt(elementsPerBin), errX, linestyle='None', label = 'DNN')
-    ax.errorbar(x+3, LooseMeanBinned,  regRmsBinned/np.sqrt(elementsPerBin), errX, linestyle='None', label = 'Loose')
-    ax.errorbar(x-3, kinMeanBinned,  regRmsBinned/np.sqrt(elementsPerBin), errX, linestyle='None', label = 'Kin')
-    ax.set_xlabel("$m_{tt}^{True}$ (GeV)")
-    ax.set_ylabel("<Pred> - <True>")
-    ax.legend(fontsize=18)
-    fig.savefig(outDir+"/allMeans.pdf", bbox_inches='tight')
-    plt.cla()
-
-    #fig, ax = plt.subplots(1, 1)
-    ax.errorbar(x, regRmsBinned, regErrRmsBinned, errX, linestyle='None', label = 'DNN')
-    ax.plot(x, LooseRmsBinned,  linestyle='None', label = 'Loose', markersize=4, marker='o')
-    ax.plot(x, kinRmsBinned,  linestyle='None', label = 'Kin', markersize=4, marker='o')
-    ax.set_xscale('log')
-    ax.set_ylim(0, 1500)
-    ax.legend(fontsize=18, bbox_to_anchor=(1, 1))
-    fig.savefig(outDir+"/allRms.pdf", bbox_inches='tight')
-
 
     
     hk1 = ROOT.TH1F( "kinRecoResolution1", "kinReco - True [%d < m < %d];\Delta m_{tt}" %(recoBin[0] ,recoBin[1]), 200, -400, 400)
@@ -271,7 +234,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
         cbar.set_label('Counts', fontsize=19)
         cbar.ax.tick_params(labelsize=18)
         print(outDir+"/"+['Reg', 'Loose', 'Kin'][index]+"MinusTrueVsTrue.pdf")
-        fig.savefig(outDir+"/"+['Reg', 'Loose', 'Kin'][index]+"MinusTrueVsTrue.pdf")
+        fig.savefig(outDir+"/"+['Reg', 'Loose', 'Kin'][index]+"MinusTrueVsTrue.pdf", bbox_inches='tight')
         plt.cla()   
         index = index +1
 

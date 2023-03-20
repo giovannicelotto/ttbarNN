@@ -43,13 +43,18 @@ def getMRegModelFlat(regRate, activation, dropout, nDense, nNodes, inputDim, out
 # large weights are penalized with L2 with respect to L1
 
     dense_kwargs = dict(
+        # try with this     kernel_initializer=initializers.RandomNormal(stddev=0.01), experiment stddev
         kernel_initializer = tf.keras.initializers.glorot_normal(),             # initializes the weights of the dense layer with Glorot normal distribution, which is a commonly used weight initialization method for deep learning models.
         kernel_regularizer = l2_reg,                                            # using L2 regularization
         kernel_constraint = tf.keras.constraints.max_norm(5)                    # the max_norm constraint is used to limit the maximum norm of the weight vector to 5,
     )
 # Input Layer
     inputs = tf.keras.layers.Input(shape = (inputDim))
+# Batch returns gamma * (batch - mean(batch)) / sqrt(var(batch) + epsilon) + beta
     x = tf.keras.layers.BatchNormalization()(inputs)
+    #epsilon=0.001,
+    #momentum=0.99, moving_mean_initializer="zeros",  moving_variance_initializer="ones",         # used during inference/predict
+    #center=True, beta_initializer="zeros", scale=True, gamma_initializer="ones")
 # First Dense Layer with activation function, batch normalization and drop out
     #x = tf.keras.layers.Dense(nNodes, **dense_kwargs)(x)
     #x = tf.keras.layers.Activation(activation)(x)

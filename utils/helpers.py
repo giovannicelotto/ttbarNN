@@ -10,7 +10,8 @@ def getFeatureNames():
 					'kr_ttbarpt', 'kr_ttbareta', 'kr_ttbarphi', 'kr_ttbarM',
 					'dileptonpt', 'dileptoneta', 'dileptonphi', 'dileptonM',
 					'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi', 'llj1j2M',
-					'llj1j2METpt','llj1j2METeta', 'llj1j2METphi', 'llj1j2MET_M', 'njets', 'nbjets', 'extraJetsM', 'mlb_min',
+					'llj1j2METpt','llj1j2METeta', 'llj1j2METphi', 'llj1j2MET_M', 'njets', 'nbjets',
+					'extraJetspt', 'extraJetseta', 'extraJetsphi', 'extraJetsM', 'mlb_min',
 					'jet1pt', 'jet1eta', 'jet1phi', 'jet1m', 'jet1btag',
 					'jet2pt', 'jet2eta', 'jet2phi', 'jet2m', 'jet2btag',
 					'lep1pt', 'lep1eta', 'lep1phi', 'lep1m',
@@ -321,14 +322,21 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 				append4vector(evFeatures, dilepton+ jets[0] + jets[1] + met)
 				
 			evFeatures.append(numJets)									 		# 6
-			evFeatures.append(nbjets)											# 7
+			evFeatures.append(nbjets)
+			
+			#extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
 			if(numJets>2):
-				extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
-				for j in range(int(numJets-2)):
-					extraJet = extraJet + jets[j+2]							
-				evFeatures.append(extraJet.M())									# 8
+				if (len(bjets) >= 4):
+					append4vector(evFeatures, bjets[2]+bjets[3])
+
+				elif (len(bjets) == 3):
+					nonbjet = [jets[i] for i in range(len(btag)) if btag[i] == 0][0] #first non-bjet with highest momentum
+					append4vector(evFeatures, bjets[2]+ nonbjet)
+				
+				elif (len(bjets) <= 2):
+					append4vector(evFeatures, jets[2] + jets[3])
 			else:
-				evFeatures.append(0)
+				append4vector(evFeatures, zero)
 
 			mlb_min = 0
 			for i in range(nbjets):
