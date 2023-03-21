@@ -7,10 +7,12 @@ import matplotlib as mpl
 from utils.style import *
 import numpy as np
 from scipy.stats import moment
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 ROOT.gROOT.SetBatch(True)
 
 logbins = np.concatenate( ( np.linspace(340, 500, 16, endpoint=False), [500, 520, 540, 560, 580, 600, 650, 750, 1000, 1500]))
-recoBin = np.array([340, 400, 450, 500, 1500])
+recoBin = np.array([340, 420, 480, 620, 1500])
+nRecoBin = len(recoBin)-1
 
 def FillHisto(mtrue, mpred, histos):
     for i in range(0,4):
@@ -35,9 +37,10 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
     ax.hist(lkrM,          bins=100, range=(340,1500), label="Loose",  histtype=u'step', alpha=0.5)
     ax.hist(krM,           bins=100, range=(340,1500), label="kinReco",histtype=u'step', alpha=0.5)
     ax.vlines(x=340, ymin=0, ymax=ax.get_ylim()[1])
-    ax.legend(loc = "best")
-    ax.set_ylabel('Events')
-    ax.set_xlabel('m_{tt} (GeV/c)')
+    ax.legend(loc = "best", fontsize=18)
+    ax.tick_params(labelsize=16)
+    ax.set_ylabel('Events', fontsize=18)
+    ax.set_xlabel('m_{tt} (GeV/c)', fontsize=18)
     f.savefig(outDir+"/m_tt.pdf", bbox_inches='tight')
     plt.close()
     
@@ -67,7 +70,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
     ax.errorbar(x_, GenRecoBinith/RecoBinith, None, dx_, linestyle='None', label='Stability')
     #ax.set_xscale('log')
     ax.set_xlabel("$m_{tt}^{True}$")
-    ax.legend(fontsize=18, loc='best')
+    ax.legend(fontsize=18, loc='best',bbox_to_anchor=(1, 0.5))
     ax.set_xscale('log')
     fig.savefig(outDir+"/pse.pdf", bbox_inches='tight')
     plt.cla()
@@ -97,7 +100,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
     
     for i in range(len(logbins)-1):
         mask = (yTest >= logbins[i]) & (yTest < logbins[i+1])
-        kinMask = (krM>1) & (mask) & (krM<3*10**6)
+        kinMask = (krM>1) & (mask) & (krM<1500)
         LooseMask = (lkrM>1) & (mask) 
         regMeanBinned       = np.append( regMeanBinned      ,   np.mean(yPredicted[mask]-yTest[mask]))
         kinMeanBinned       = np.append( kinMeanBinned      ,   np.mean(krM[kinMask]-yTest[kinMask]))
@@ -124,19 +127,61 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, year, outFolder)
     ax.errorbar(x+1, LooseMeanBinned,  LooseRmsBinned/np.sqrt(LooseElementsPerBin), errX, linestyle='None', label = 'Loose')
     ax.errorbar(x-1, kinMeanBinned,  kinRmsBinned/np.sqrt(kinElementsPerBin), errX, linestyle='None', label = 'Kin')
     ax.set_xlabel("$m_{tt}^{True}$ (GeV)")
-    ax.set_ylabel("<Pred> - <True>")
+    ax.set_ylabel("Mean(Pred - True) [GeV]")
     ax.legend(fontsize=18)
     fig.savefig(outDir+"/allMeans.pdf", bbox_inches='tight')
 
     fig, ax = plt.subplots(1, 1)
     ax.errorbar(x, regRmsBinned, regErrRmsBinned, errX, linestyle='None', label = 'DNN')
-    ax.errorbar(x+1, LooseRmsBinned, LooseErrRmsBinned, errX, linestyle='None', label = 'Loose')
-    ax.errorbar(x-1, kinRmsBinned, kinErrRmsBinned, errX, linestyle='None', label = 'Kin')
+    ax.errorbar(x, LooseRmsBinned, LooseErrRmsBinned/10, errX, linestyle='None', label = 'Loose err/10')
+    ax.errorbar(x, kinRmsBinned, kinErrRmsBinned/10, errX, linestyle='None', label = 'Kin err/10')
     ax.legend(fontsize=18)
+    ax.set_lim("RMS(Pred-True) [GeV]", fontsize=18)
     fig.savefig(outDir+"/allRms.pdf", bbox_inches='tight')
     plt.cla()
     
+# *******************************
+# *                             *
+# *      Response Matrix        *
+# *                             *
+# ******************************* 
+    A = np.empty((nRecoBin, nRecoBin))
+    for i in range(nRecoBin):
+        maskGen = (yTest >= recoBin[i]) & (yTest < recoBin[i+1])
+        genFilter = yTest[maskGen]
+        normalization = len(genFilter)
+        
+        for j in range(nRecoBin):
+            print(f"Bin generated #{i}\tBin reconstructed #{j}\r", end="")
+            maskRecoGen = (yPredicted >= recoBin[j]) & (yPredicted < recoBin[j+1]) & maskGen
+            entries = len(yPredicted[maskRecoGen])
 
+            if normalization == 0:
+                A[j, i] = 0
+            else:
+                A[j, i] = entries/normalization
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    im = ax.matshow(A, cmap=plt.cm.jet, alpha=0.7, norm=mpl.colors.LogNorm())
+    ax.set_title("Generated (bin number)", fontsize=18)
+    #ax.set_xlabel("Generated (bin number)", fontsize=18)
+    ax.set_ylabel("Reconstructed (bin number)", fontsize=18)
+    ax.tick_params(labelsize=18)
+    ax.xaxis.set_ticks(np.arange(0, nRecoBin, 1.0))
+    ax.yaxis.set_ticks(np.arange(0, nRecoBin, 1.0))
+    for y in range(nRecoBin):
+        for x in range(nRecoBin):
+            plt.text(x , y , '%.3f' % A[y, x],
+                    horizontalalignment='center',
+                    verticalalignment='center',
+                    )
+    divider = make_axes_locatable(ax)
+    cax = divider.append_axes("right", size="5%", pad=0.25)
+    cbar = plt.colorbar(im, ax=ax, cax=cax)
+    cbar.set_label(r'', fontsize=18)
+    cbar.ax.tick_params(labelsize=18)
+    fig.savefig(outDir+"/ResponseMatrix.pdf", bbox_inches='tight')
+    plt.cla()
     
     hk1 = ROOT.TH1F( "kinRecoResolution1", "kinReco - True [%d < m < %d];\Delta m_{tt}" %(recoBin[0] ,recoBin[1]), 200, -400, 400)
     hk2 = ROOT.TH1F( "kinRecoResolution2", "kinReco - True [%d < m < %d];\Delta m_{tt}" %(recoBin[1] ,recoBin[2]), 200, -400, 400)
