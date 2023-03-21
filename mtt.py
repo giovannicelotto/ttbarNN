@@ -1,24 +1,3 @@
-# *****************************************************************
-#
-# 2) Plots di numero eventi con soluzione loose, kin, DNN  
-# 3) PCA on the dataset, to see which features have more importance
-# Introduce matrici di risposta hist2d
-# ***   Problem the NN tries to understand a common pattern in both the case in which lkr works and kr works and when they don't
-# it is problematic to give the same weight in these cases. This is an exaple of missing data
-# I would use a NN when they both works a NN for events in which at least one does not work
-# One side we improve the RMS (i.e.) on the other one we gain new info from data discarded
-
-
-# df[df['hasLooseKinRecoSolution']==True]['hasKinRecoSolution']
-# There are cases in which Loose works and kinReco works and not works
-# df[df['hasLooseKinRecoSolution']==False]['hasKinRecoSolution']
-# There are cases in which Loose does not work and kinReco works and not works
-# df[df['hasKinRecoSolution']==False]['hasLooseKinRecoSolution']
-# There are cases in which kinReco does not work and LoosekinReco works and not works
-# df[df['hasKinRecoSolution']==True]['hasLooseKinRecoSolution']
-# There are cases in which kinReco works and LoosekinReco works and not works
-# ******************************************************************** 
-
 import os
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -29,24 +8,25 @@ import matplotlib.pyplot as plt
 from array import array
 import tensorflow as tf
 import shap
+from scipy.stats.stats import pearsonr
+from scipy.spatial.distance import jensenshannon
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
-maxEvents_          = 10000000
-epochs_             = 5000
-learningRate_       = 0.001    # 10^-3
-batchSize_          = 50000  # 25000
-dropout_            = 0.4     # 0.4
-nDense_             = 2
-nNodes_             = 400
-regRate_            = 0.001    
+maxEvents_          = 100000
+epochs_             = 80      # 5000
+learningRate_       = 0.001      # 10^-3
+batchSize_          = 200     # 25000
+dropout_            = 0.      # 0.4
+nDense_             = 1
+nNodes_             = 12
+regRate_            = 0.01    
 activation_         = 'selu'
 outputActivation_   = 'linear'  
 #patiencelR_         = 30
-patienceeS_         = 100
+patienceeS_         = 50
 testFraction_       = 0.3
 doEvaluate          = False
-
-reduceLR_factor     = 0.2
+reduceLR_factor     = 0.
 
 def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEtaPhiMode, maxEvents):
     '''
@@ -82,7 +62,7 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
     if createNewData:
         minJets=2
         print ("\nNew data will be loaded with settings: nJets >= "+str(minJets)+"; max Events = "+str(maxEvents))
-        inX, outY, weights, lkrM, krM = loadRegressionData("/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/"+year, "miniTree", maxJets = 10, maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
+        inX, outY, weights, lkrM, krM = loadRegressionData("/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/"+year, "miniTree", maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
         inX=np.array(inX)
         outY=np.array(outY)
         weights=np.array(weights)
@@ -111,7 +91,7 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
 
     print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape)
 
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state=1999)
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state=1995)
     
     print ("\tData splitted succesfully")
     print("Number training events :", inX_train.shape[0], len(inX_train))
@@ -132,7 +112,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
                                     additionalName = additionalName, testFraction = testFraction_,
                                     withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = maxEvents_)
-                                    # maxEvents = 10000)
+
 
     print(" Check element number 890 of inX_tets", inX_test[89,0],"\n")      
     print ("Input events with \t",inX_train.shape[1], "features")
@@ -147,17 +127,17 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 # *                             *
 # *******************************
 
-    weightBins = array('d', [340, 450, 650, 950, 1200, 1500])
+    weightBins = array('d', [340, 345, 350, 355, 360, 370, 380,  420, 440, 460, 480, 500, 550, 600, 700, 800, 1000, 1500])
     wegihtNBin = len(weightBins)-1
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
 
     print("Filling histo with m_tt")
     for m, weight in zip(outY_train, weights_train):
         weightHisto.Fill(m,abs(weight))
-    #weightHisto = NormalizeBinWidth1d(weightHisto)
+    weightHisto = NormalizeBinWidth1d(weightHisto)
     
     canvas = ROOT.TCanvas()
-    weightHisto.Draw("histe")
+    weightHisto.Draw("hist")
     weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
     weightHisto.SetYTitle('Normalized Counts')
     canvas.SaveAs(outFolder+ "/weights/mttOriginalWeight.pdf")
@@ -169,10 +149,18 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 
     for binX in range(1,weightHisto.GetNbinsX()+1):
         c = weightHisto.GetBinContent(binX)
-        if c>0:
-            weightHisto.SetBinContent(binX, maximumBinContent/c)
+#        if c>0:
+#            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+c*9))
+
+        if ((binX >= maximumBin) & (c>0)):
+            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+4*c))
+        elif (c>0):
+            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+c))
         else:
-            weightHisto.SetTitle("Weights distributions")
+            weightHisto.SetBinContent(binX, 1.)
+    weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
+    weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
+    weightHisto.SetTitle("Weights distributions")
     canvas.SetLogy(1)
     canvas.SaveAs(outFolder+"/weights/weights.pdf")
     weights_train_original = weights_train
@@ -216,12 +204,10 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
                                             )
 
     print ("compiling model")
-    model.compile(optimizer=optimizer, loss=tf.keras.losses.MeanAbsolutePercentageError(), metrics=['mean_absolute_error','mean_squared_error'])
+    model.compile(optimizer=optimizer, loss = tf.keras.losses.MeanSquaredError(), metrics=['mean_absolute_error','mean_absolute_percentage_error'])
 
 
     callbacks=[]
-# three Keras callbacks that are used to monitor and control the training of a neural network model:
-# Learning rate scheduler. It reduces the learning rate by a factor of 0.1 if the validation loss does not improve for 3 epochs. This helps the model to converge faster and avoid overshooting the optimal solution.
     #reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=patiencelR_, factor=reduceLR_factor)
     # ADAM already optimizes the LR in each direction
 # This callback monitors the validation loss and stops training if the validation loss does not improve for 300 epochs
@@ -229,8 +215,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 # This callback saves the weights of the best performing model during training, based on the validation loss. The saved model is stored in the specified output folder with the name "model_best.h5"
     modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
 
-# Not using the reduce_lr Q? why?
-    #callbacks.append(reduce_lr)
+
     callbacks.append(earlyStop)
     callbacks.append(modelCheckpoint)
 
@@ -238,7 +223,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
     fit = model.fit(
             inX_train,
             outY_train,
-            #sample_weight = weights_train,
+            sample_weight = weights_train,
             validation_split = 0.25,
             batch_size = batchSize,
             epochs = epochs_,
@@ -277,15 +262,15 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
     plt.savefig(outFolder+"/"+year+"/mean_absolute_error.pdf")
     #  "mean_absolute_percentage_error"
     plt.figure(1)
-    plt.plot(fit.history['mean_squared_error'][1:])
-    plt.plot(fit.history['val_mean_squared_error'][1:])
-    plt.title('model mean_squared_error')
-    plt.ylabel('mean_squared_error')
+    plt.plot(fit.history['mean_absolute_percentage_error'][1:])
+    plt.plot(fit.history['val_mean_absolute_percentage_error'][1:])
+    plt.title('model mean_absolute_percentage_error')
+    plt.ylabel('mean_absolute_percentage_error')
     plt.xlabel('epoch')
     # plt.yscale('log')
-    plt.ylim(ymax = min(fit.history['mean_squared_error'])*1.4, ymin = min(fit.history['mean_squared_error'])*0.9)
+    plt.ylim(ymax = min(fit.history['mean_absolute_percentage_error'])*1.4, ymin = min(fit.history['mean_absolute_percentage_error'])*0.9)
     plt.legend(['train', 'validation'], loc='upper right')
-    plt.savefig(outFolder+"/"+year+"/mean_squared_error.pdf")
+    plt.savefig(outFolder+"/"+year+"/mean_absolute_percentage_error.pdf")
     # "Loss"
     plt.figure(2)
     plt.plot(fit.history['loss'][1:])
@@ -298,16 +283,18 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
     plt.legend(['train', 'validation'], loc='upper right')
     plt.savefig(outFolder+"/"+year+"/loss.pdf")
 
-    #corr = pearsonr(outY_test.reshape(outY_test.shape[0]), y_predicted.reshape(y_predicted.shape[0]))
-    #print("correlation:",corr[0])
+    corr = pearsonr(outY_test.reshape(outY_test.shape[0]), y_predicted.reshape(y_predicted.shape[0]))
+    print("correlation:",corr[0])
 # statistica distance: measures how one probab distr P is different from a second Q. In our case predicted output and expected one
-    #kl = compute_kl_divergence(y_predicted, outY_test, etMaximum(),kinH[1].GetMaximum(),kinH[2].GetMaximum(),kinH[3].GetMaximum(),
-    #                  LooseH[0].GetMaximum(),LooseH[1].GetMaximum(),LooseH[2].GetMaximum(),LooseH[3].GetMaximum(),
-    #                  DNNH[0].Get
+    #kl = compute_kl_divergence(y_predicted, outY_test, n_bins=100)
+    #print ("KL", kl)
+# another way to say how similar are two distributions
+    #js = compute_js_divergence(y_predicted, outY_test, n_bins=100)
+    #print ("JS", js)
     doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train, krM_train, year = year, outFolder = outFolder+"/train")
     print("Plots for testing")
     doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, year = year, outFolder = outFolder+"/test")
-# weights test are just the ones from mlb distributions (or the original ones)
+
 
     #print('Before defining class \'rho\'')
     #class_names=["mtt"]
