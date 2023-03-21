@@ -32,7 +32,7 @@ def NormalizeBinWidth1d(h):
 	for i in range(1, h.GetNbinsX()+1):
 		if h.GetBinContent(i) != 0:
 			h.SetBinContent(i, h.GetBinContent(i)*1./h.GetBinWidth(i))
-		return h
+	return h
 			
 def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False, pTEtaPhiMode=False):
 	'''
@@ -263,7 +263,7 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 		
 		# Add here requirements on maxjets
 		# conditions fro building an input events (training or testing)
-		if (pass3 and (numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut and (ttbar.M()>340.)):
+		if (pass3 and (numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut and (ttbar.M()>340.) & (kinReco_antitop_m<2000) & (kinReco_antitop_m>1) & (looseKinReco_ttbar_m > 1) & (looseKinReco_ttbar_m < 2000)):
 			
 			# jets identification
 			jets = []
@@ -283,6 +283,8 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 					bjets.append(jet4)
 
 			nbjets = len(bjets)
+			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
+			sortedJets = bjets + nonbjets
 			weights.append(totWeight)
 			kr_top.SetPtEtaPhiM(kinReco_top_pt[0],kinReco_top_eta[0],kinReco_top_phi[0],kinReco_top_m[0])
 			kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0],kinReco_antitop_eta[0],kinReco_antitop_phi[0],kinReco_antitop_m[0])
@@ -313,9 +315,9 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 				append4vector(evFeatures, dilepton+bjets[0]+bjets[1]+met)
 				
 			elif (len(bjets) == 1):
-				nonbjet = [jets[i] for i in range(len(btag)) if btag[i] == 0][0]
-				append4vector(evFeatures, dilepton+ bjets[0]+ nonbjet)
-				append4vector(evFeatures,dilepton+bjets[0]+ nonbjet+met)
+				
+				append4vector(evFeatures, dilepton+ bjets[0]+ nonbjets[0])
+				append4vector(evFeatures,dilepton+bjets[0]+ nonbjets[0]+met)
 
 			elif (len(bjets) == 0):
 				append4vector(evFeatures, dilepton+ jets[0] + jets[1])
@@ -324,17 +326,19 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 			evFeatures.append(numJets)									 		# 6
 			evFeatures.append(nbjets)
 			
-			#extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
-			if(numJets>2):
-				if (len(bjets) >= 4):
-					append4vector(evFeatures, bjets[2]+bjets[3])
-
-				elif (len(bjets) == 3):
-					nonbjet = [jets[i] for i in range(len(btag)) if btag[i] == 0][0] #first non-bjet with highest momentum
-					append4vector(evFeatures, bjets[2]+ nonbjet)
-				
+			extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
+			if(numJets>2):		# if therea are extrajet
+				if (len(bjets) >= 3):
+					for jetTemp in bjets[2:]:
+						extraJet = extraJet + jetTemp	# only from the third bjet
+					for jetTemp in nonbjets:			# plus oall the non bjet
+						extraJet = extraJet + jetTemp	
+					append4vector(evFeatures, extraJet)				
 				elif (len(bjets) <= 2):
-					append4vector(evFeatures, jets[2] + jets[3])
+					for jetTemp in nonbjets[2-len(bjets):]:
+						extraJet = extraJet + jetTemp
+					append4vector(evFeatures, extraJet)
+
 			else:
 				append4vector(evFeatures, zero)
 
@@ -350,32 +354,31 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 					mlb_min = comb
 			evFeatures.append(mlb_min)											# 9
 
-			append4vector(evFeatures, jets[0])										# 12
+			append4vector(evFeatures, sortedJets[0])										# 12
 			evFeatures.append(btag[0])											# 13
 
-			append4vector(evFeatures, jets[1])
+			append4vector(evFeatures, sortedJets[1])
 			evFeatures.append(btag[1])											# 18
 
 			append4vector(evFeatures, lep1)
 			append4vector(evFeatures, lep2)
 			evFeatures.append(met.Pt())											# 27
 			evFeatures.append(met.Phi())
-			
-			dR_lepton1_jet1 = lep1.DeltaR(jets[0])
-			dR_lepton1_jet2 = lep1.DeltaR(jets[1])
-			dR_lepton2_jet1 = lep2.DeltaR(jets[0])
-			dR_lepton2_jet2 = lep2.DeltaR(jets[1])
-			# DeltaR with additional jets ?
-			dR_jet1_jet2 = jets[0].DeltaR(jets[1])
-			
 			evFeatures.append(ht)
+			
+			dR_lepton1_jet1 = lep1.DeltaR(sortedJets[0])
+			dR_lepton1_jet2 = lep1.DeltaR(sortedJets[1])
+			dR_lepton2_jet1 = lep2.DeltaR(sortedJets[0])
+			dR_lepton2_jet2 = lep2.DeltaR(sortedJets[1])
+			# DeltaR with additional jets ?
+			dR_jet1_jet2 = sortedJets[0].DeltaR(sortedJets[1])	
+			
 			evFeatures.append(dR_lepton1_jet1)
 			evFeatures.append(dR_lepton1_jet2)
 			evFeatures.append(dR_lepton2_jet1)
 			evFeatures.append(dR_lepton2_jet2)
 			evFeatures.append(dR_jet1_jet2)
 			evFeatures.append(channelID)
-			
 
 			
 			eventIn.append(evFeatures)
