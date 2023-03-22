@@ -10,6 +10,7 @@ import tensorflow as tf
 import shap
 from scipy.stats.stats import pearsonr
 from scipy.spatial.distance import jensenshannon
+from sklearn.utils import shuffle
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
 maxEvents_          = 100000
@@ -18,15 +19,16 @@ learningRate_       = 0.001      # 10^-3
 batchSize_          = 200     # 25000
 dropout_            = 0.      # 0.4
 nDense_             = 1
-nNodes_             = 12
-regRate_            = 0.01    
+nNodes_             = 24
+regRate_            = 0.001    
 activation_         = 'selu'
 outputActivation_   = 'linear'  
 #patiencelR_         = 30
-patienceeS_         = 50
+patienceeS_         = 200
 testFraction_       = 0.3
 doEvaluate          = False
 reduceLR_factor     = 0.
+validation_split_   = 0.6
 
 def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEtaPhiMode, maxEvents):
     '''
@@ -46,6 +48,7 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
     print ("\t activation   = "+str(activation_))
     #print ("\t patiencelR   = "+str(patiencelR_))
     print ("\t patienceeS   = "+str(patienceeS_))
+    print ("\t valid split  = "+str(validation_split_))
 
 
     
@@ -68,6 +71,7 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
         weights=np.array(weights)
         lkrM=np.array(lkrM)
         krM=np.array(krM)
+        inX, outY, weights, lkrM, krM = shuffle(inX, outY, weights, lkrM, krM, random_state = 1998)
         np.save(dataPathFolderYear+"/flat_inX"+additionalName+".npy", inX)
         np.save(dataPathFolderYear+"/flat_outY"+additionalName+".npy", outY)
         np.save(dataPathFolderYear+"/flat_weights"+additionalName+".npy", weights)
@@ -90,8 +94,8 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
         krM = krM[:maxEvents]
 
     print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape)
-
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state=1995)
+    
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state=1999)
     
     print ("\tData splitted succesfully")
     print("Number training events :", inX_train.shape[0], len(inX_train))
@@ -113,8 +117,10 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
                                     withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = maxEvents_)
 
+    np.save(dataPathFolderYear+"/testing/flat_inX"    + additionalName+"train.npy", inX_train)
+    np.save(dataPathFolderYear+"/testing/flat_outY"    + additionalName+"train.npy", outY_train)
 
-    print(" Check element number 890 of inX_tets", inX_test[89,0],"\n")      
+    print(" Check element number 89 of inX_test", inX_test[89,0],"\n")      
     print ("Input events with \t",inX_train.shape[1], "features")
 # Reduce to most useful features (to be kept)
     #feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
@@ -127,7 +133,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 # *                             *
 # *******************************
 
-    weightBins = array('d', [340, 345, 350, 355, 360, 370, 380,  420, 440, 460, 480, 500, 550, 600, 700, 800, 1000, 1500])
+    weightBins = array('d', [340, 342.5, 345, 347.5, 351, 355, 357.5, 360, 365, 380, 420,  440, 460, 480, 500, 550, 600, 700, 800, 1000])
     wegihtNBin = len(weightBins)-1
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
 
@@ -149,13 +155,9 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 
     for binX in range(1,weightHisto.GetNbinsX()+1):
         c = weightHisto.GetBinContent(binX)
-#        if c>0:
-#            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+c*9))
-
-        if ((binX >= maximumBin) & (c>0)):
-            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+4*c))
-        elif (c>0):
-            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+c))
+        if (c>0):
+            weightHisto.SetBinContent(binX, maximumBinContent/c)
+      
         else:
             weightHisto.SetBinContent(binX, 1.)
     weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
@@ -167,11 +169,12 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
     weights_train_=[]
     for w,m in zip(weights_train, outY_train):
         weightBin = weightHisto.FindBin(m)
-        addW = weightHisto.GetBinContent(weightBin)	# weights for importance
+        addW = weightHisto.GetBinContent(weightBin)	    # weights for importance
         weights_train_.append(abs(w)*addW)           	# weights of the training are the product of the original weights and the weights used to give more importance to regions with few events
-    weights_train = np.array(weights_train_)		# final weights_train is np array
+    weights_train = np.array(weights_train_)		    # final weights_train is np array
 
-    weights_train = 1./np.mean(weights_train)*weights_train	# normalized by the mean
+    weights_train = 1./np.mean(weights_train)*weights_train
+
 
 
 # *******************************
@@ -180,22 +183,12 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 # *                             *
 # *******************************
 
-# hyperparameters
-    learningRate = learningRate_
-    batchSize = batchSize_
-    dropout = dropout_
-    nDense = nDense_
-    nNodes = nNodes_
-    regRate = regRate_
-    activation = activation_
-    outputActivation = outputActivation_
-
     print ("getting model")
-    model = getMRegModelFlat(regRate = regRate, activation = activation, dropout = dropout, nDense = nDense,
-                                      nNodes = nNodes, inputDim = inX_train.shape[1], outputActivation = outputActivation)
+    model = getMRegModelFlat(regRate = regRate_, activation = activation_, dropout = dropout_, nDense = nDense_,
+                                      nNodes = nNodes_, inputDim = inX_train.shape[1], outputActivation = outputActivation_)
 
 
-    optimizer = tf.keras.optimizers.Adam(   lr = learningRate,
+    optimizer = tf.keras.optimizers.Adam(   lr = learningRate_,
                                             beta_1=0.9, beta_2=0.999,   # memory lifetime of the first and second moment
                                             epsilon=1e-07,              # regularization constant to avoid divergences
                                             #weight_decay=None,
@@ -221,15 +214,17 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 
     print ("fitting model")
     fit = model.fit(
-            inX_train,
-            outY_train,
-            sample_weight = weights_train,
-            validation_split = 0.25,
-            batch_size = batchSize,
+            x = inX_train,
+            y = outY_train,
+            batch_size = batchSize_,
             epochs = epochs_,
-            shuffle = False,
+            verbose = 1,
             callbacks = callbacks,
-            verbose = 1)
+            validation_split = validation_split_,                   # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
+            shuffle = False,
+            sample_weight = weights_train
+
+            )
 
     saveModel = not doEvaluate
     if saveModel:
