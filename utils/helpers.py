@@ -3,38 +3,20 @@ import ROOT
 import numpy as np
 from progress.bar import IncrementalBar
 import tensorflow as tf
+import random
 
 #definisci un append function che aggiunge il nome della variabile se non già presente
 def getFeatureNames():
-	feature_names =['lkr_ttbarpt', 'lkr_ttbareta', 'lkr_ttbarphi', 'lkr_ttbarM',
-					'kr_ttbarpt', 'kr_ttbareta', 'kr_ttbarphi', 'kr_ttbarM',
-					'dileptonpt', 'dileptoneta', 'dileptonphi', 'dileptonM',
-					'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi', 'llj1j2M',
-					'llj1j2METpt','llj1j2METeta', 'llj1j2METphi', 'llj1j2MET_M', 'njets', 'nbjets',
-					'extraJetspt', 'extraJetseta', 'extraJetsphi', 'extraJetsM', 'mlb_min',
-					'jet1pt', 'jet1eta', 'jet1phi', 'jet1m', 'jet1btag',
-					'jet2pt', 'jet2eta', 'jet2phi', 'jet2m', 'jet2btag',
-					'lep1pt', 'lep1eta', 'lep1phi', 'lep1m',
-					'lep2pt', 'lep2eta', 'lep2phi', 'lep2m',
-					'metpt', 'metphi', 'ht',
-					'dR_lepton1_jet1', 'dR_lepton1_jet2', 'dR_lepton2_jet1', 'dR_lepton2_jet2', 'dR_jet1_jet2','channelID'
-	]
+	feature_names =['lkr_ttbar_M', 'kr_ttbar_M', 'dilepton_M', 'llj1j2_M', 'llj1j2MET_M', 'extraJets_M'] #  'channelID' , 
 	return feature_names
-def append4vector(evFeatures, a):
-	evFeatures.append(a.Pt())
-	evFeatures.append(a.Eta())
-	evFeatures.append(a.Phi())
-	evFeatures.append(a.M())
-
-
 
 def NormalizeBinWidth1d(h):
 	for i in range(1, h.GetNbinsX()+1):
 		if h.GetBinContent(i) != 0:
 			h.SetBinContent(i, h.GetBinContent(i)*1./h.GetBinWidth(i))
 	return h
-			
-def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False, pTEtaPhiMode=False):
+
+def loadMDataFlat(path, filename, treeName, maxEvents, withBTag = False, pTEtaPhiMode=False):
 	'''
 	Open trees
 	Set Branches to variables
@@ -47,7 +29,7 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	kinRecoOut=[]	# kinRecoM (to be compared with NN output)
 	lKinRecoOut=[]	# loosekinRecoM (to be compared with NN output)
 	weights=[]		# weights to be used in the NN
-	maxJets=maxJets	# max number of jets
+
 
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
@@ -121,7 +103,6 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	tree.SetBranchAddress("lepton1_phi", lepton1_phi)
 	lepton1_m =  np.array([0], dtype='f')
 	tree.SetBranchAddress("lepton1_m", lepton1_m)
-
 	lepton2_pt =  np.array([0], dtype='f')
 	tree.SetBranchAddress("lepton2_pt", lepton2_pt)
 	lepton2_eta =  np.array([0], dtype='f')
@@ -135,7 +116,7 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	tree.SetBranchAddress("met_pt", met_pt)
 	met_phi =  np.array([0], dtype='f')
 	tree.SetBranchAddress("met_phi", met_phi)
-	# there must be met_eta
+
 # kinReco top and antitop
 	kinReco_top_pt =  np.array([0], dtype='f')
 	tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
@@ -164,15 +145,16 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	looseKinReco_ttbar_m =  np.array([0], dtype='f')
 	tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
 # Jets
-	jetBTagged = np.array([0]*20, dtype='f')
-	tree.SetBranchAddress("jets_btag", (jetBTagged))
+	jetBTagScore = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_btag_score", (jetBTagScore))
+	jetTopMatched = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_topMatched", (jetTopMatched))
+	jetAntiTopMatched = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_antitopMatched", (jetAntiTopMatched))
 
 	
 # If maxevents is defined only a fraction of events
-	if maxEvents!=0:
-		maxEntries = maxEvents
-	else:
-		maxEntries = tree.GetEntries()
+	maxEntries = tree.GetEntries()
 	    
 	bigNumber = 20000
 	maxForBar = int(maxEntries/bigNumber)
@@ -196,7 +178,7 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	zero=ROOT.TLorentzVector(0., 0., 0., 0.)
 
 	bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
-	print("\nLooping in the trees with ", tree.GetEntries()," entries. Only ",maxEntries, " will be used")  # GC
+	print("\nLooping in the trees with ", tree.GetEntries()," entries")  # GC
 	for i in range(maxEntries):
 		lep1.SetPtEtaPhiM(0.,0.,0.,0.)
 		lep2.SetPtEtaPhiM(0.,0.,0.,0.)
@@ -256,20 +238,25 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 			passMETCut = True
 		else:
 			passMETCut = False
-			
+# Generated
 		top.SetPtEtaPhiM(gen_top_pt[0],gen_top_eta[0],gen_top_phi[0],gen_top_m[0])
 		antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
 		ttbar = top+antitop
+# kinReco
+		kr_top.SetPtEtaPhiM(kinReco_top_pt[0],kinReco_top_eta[0],kinReco_top_phi[0],kinReco_top_m[0])
+		kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0],kinReco_antitop_eta[0],kinReco_antitop_phi[0],kinReco_antitop_m[0])
+		kr_ttbar= kr_antitop + kr_top
+# LooseKinReco
+		lkr_ttbar.SetPtEtaPhiM(looseKinReco_ttbar_pt[0],looseKinReco_ttbar_eta[0],looseKinReco_ttbar_phi[0],looseKinReco_ttbar_m[0])
 		
-		# Add here requirements on maxjets
+
 		# conditions fro building an input events (training or testing)
-		if (pass3 and (numJets>=2) and passMETCut and (dilepton.M()>20.) and passMLLCut and (ttbar.M()>340.) & (kinReco_antitop_m<2000) & (kinReco_antitop_m>1) & (looseKinReco_ttbar_m > 1) & (looseKinReco_ttbar_m < 2000)):
-			
+		if (pass3 & (numJets>=2) & passMETCut & (dilepton.M()>20.) & passMLLCut & (ttbar.M()>340) & (ttbar.M()<1500) & (kr_ttbar.M()<1500) & (kr_ttbar.M()>1) & (lkr_ttbar.M() > 1) & (lkr_ttbar.M() < 1500)):
 			# jets identification
 			jets = []
 			bjets = []
 			btag = []
-			for idx in range(min(numJets,maxJets)):
+			for idx in range(numJets):
 				jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
 				jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
 				jets.append(jet4) 
@@ -284,48 +271,31 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 
 			nbjets = len(bjets)
 			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
-			sortedJets = bjets + nonbjets
+			sortedJets = bjets + nonbjets		
 			weights.append(totWeight)
-			kr_top.SetPtEtaPhiM(kinReco_top_pt[0],kinReco_top_eta[0],kinReco_top_phi[0],kinReco_top_m[0])
-			kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0],kinReco_antitop_eta[0],kinReco_antitop_phi[0],kinReco_antitop_m[0])
-			kr_ttbar= kr_antitop + kr_top
-			lkr_ttbar.SetPtEtaPhiM(looseKinReco_ttbar_pt[0],looseKinReco_ttbar_eta[0],looseKinReco_ttbar_phi[0],looseKinReco_ttbar_m[0])
+
 				
 
-			if (haslkrs and lkr_ttbar.M()>0.):
-				append4vector(evFeatures,lkr_ttbar)
-				lKinRecoOut.append(lkr_ttbar.M())   # 2	Output of the LooseKinReco
-			else:
-				append4vector(evFeatures,zero)
-				lKinRecoOut.append(0.)
-			if (haskrs and kr_ttbar.M()>0.):
-				append4vector(evFeatures, kr_ttbar)
-				kinRecoOut.append(kr_ttbar.M())     # 
-			else:
-				append4vector(evFeatures, zero)
-				kinRecoOut.append(0.)
+			evFeatures.append(lkr_ttbar.M())
+			lKinRecoOut.append(lkr_ttbar.M())   # 2	Output of the LooseKinReco
+			evFeatures.append(kr_ttbar.M())
+			kinRecoOut.append(kr_ttbar.M())     # 
 
-			met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
-			#allLepton = dilepton + met
+			evFeatures.append(dilepton.M())
+
 			
-			append4vector(evFeatures, dilepton)
-
 			if (len(bjets) >= 2):
-				append4vector(evFeatures, dilepton+bjets[0]+bjets[1])
-				append4vector(evFeatures, dilepton+bjets[0]+bjets[1]+met)
+				evFeatures.append((dilepton + bjets[0] + bjets[1]).M())
+				evFeatures.append((dilepton + bjets[0] + bjets[1]+met).M())
 				
 			elif (len(bjets) == 1):
 				
-				append4vector(evFeatures, dilepton+ bjets[0]+ nonbjets[0])
-				append4vector(evFeatures,dilepton+bjets[0]+ nonbjets[0]+met)
+				evFeatures.append((dilepton + bjets[0] + nonbjets[0]).M())
+				evFeatures.append((dilepton + bjets[0] + nonbjets[0]+met).M())
 
 			elif (len(bjets) == 0):
-				append4vector(evFeatures, dilepton+ jets[0] + jets[1])
-				append4vector(evFeatures, dilepton+ jets[0] + jets[1] + met)
-				
-			evFeatures.append(numJets)									 		# 6
-			evFeatures.append(nbjets)
-			
+				evFeatures.append((dilepton+ jets[0] + jets[1]).M())
+				evFeatures.append((dilepton+ jets[0] + jets[1] + met).M())
 			extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
 			if(numJets>2):		# if therea are extrajet
 				if (len(bjets) >= 3):
@@ -333,53 +303,15 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 						extraJet = extraJet + jetTemp	# only from the third bjet
 					for jetTemp in nonbjets:			# plus oall the non bjet
 						extraJet = extraJet + jetTemp	
-					append4vector(evFeatures, extraJet)				
+					evFeatures.append(extraJet.M())				
 				elif (len(bjets) <= 2):
 					for jetTemp in nonbjets[2-len(bjets):]:
 						extraJet = extraJet + jetTemp
-					append4vector(evFeatures, extraJet)
+					evFeatures.append(extraJet.M())
 
 			else:
-				append4vector(evFeatures, zero)
-
-			mlb_min = 0
-			for i in range(nbjets):
-				bjettemp.SetPtEtaPhiM(bjets[i].Pt(),bjets[i].Eta(),bjets[i].Phi(),bjets[i].M())
-				comb1 = (lep1+bjettemp).M()	
-				comb2 = (lep2+bjettemp).M()
-				comb = comb1 if comb1<comb2 else comb2
-				if (i==0):
-					mlb_min=comb
-				elif(comb < mlb_min):
-					mlb_min = comb
-			evFeatures.append(mlb_min)											# 9
-
-			append4vector(evFeatures, sortedJets[0])										# 12
-			evFeatures.append(btag[0])											# 13
-
-			append4vector(evFeatures, sortedJets[1])
-			evFeatures.append(btag[1])											# 18
-
-			append4vector(evFeatures, lep1)
-			append4vector(evFeatures, lep2)
-			evFeatures.append(met.Pt())											# 27
-			evFeatures.append(met.Phi())
-			evFeatures.append(ht)
-			
-			dR_lepton1_jet1 = lep1.DeltaR(sortedJets[0])
-			dR_lepton1_jet2 = lep1.DeltaR(sortedJets[1])
-			dR_lepton2_jet1 = lep2.DeltaR(sortedJets[0])
-			dR_lepton2_jet2 = lep2.DeltaR(sortedJets[1])
-			# DeltaR with additional jets ?
-			dR_jet1_jet2 = sortedJets[0].DeltaR(sortedJets[1])	
-			
-			evFeatures.append(dR_lepton1_jet1)
-			evFeatures.append(dR_lepton1_jet2)
-			evFeatures.append(dR_lepton2_jet1)
-			evFeatures.append(dR_lepton2_jet2)
-			evFeatures.append(dR_jet1_jet2)
-			evFeatures.append(channelID)
-
+				evFeatures.append(0)
+		
 			
 			eventIn.append(evFeatures)
 			eventOut.append([ttbar.M()])
@@ -388,20 +320,24 @@ def loadMDataFlat(path, filename, treeName, maxJets, maxEvents, withBTag = False
 	return eventIn, eventOut, weights, lKinRecoOut, kinRecoOut
 
 
-def loadRegressionData(path, treeName, maxJets=10, maxEvents=0, withBTag = False, pTEtaPhiMode=False):
+def loadRegressionData(path, treeName,maxEvents=0, withBTag = False, pTEtaPhiMode=False):
     '''
     Pass the list of input output features, weights, and output of the invariant mass from LKR and FKR everything in list of list
     '''
     print("loadRegressionData called \n\n")
-    print("Searching root files in ", path)
+    print("Searching root files in ", path)	
     fileNames = glob.glob(path+'/*.root')		# List of files.root in the directory
+    print(fileNames)
+    fileNames = [i for i in fileNames if "ee" in i][:2] + [i for i in fileNames if "mumu" in i][:2] + [i for i in fileNames if "emu" in i][:2]
     print (len(fileNames), " files to be used\n")
+    #random.shuffle(fileNames)
+
     eventIn, eventOut, weights,lkrM,krM = [],[],[],[],[]	# Empty lists for input, output, weights, outputs of analytical results
     n=0
     for filename in fileNames:					# Looping over the file names
         n = n+1
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        i,o,w,l,k = loadMDataFlat(filename, filename, treeName, maxJets=maxJets, maxEvents=maxEvents, withBTag = withBTag, pTEtaPhiMode = pTEtaPhiMode)
+        i,o,w,l,k = loadMDataFlat(filename, filename, treeName, maxEvents=maxEvents, withBTag = withBTag, pTEtaPhiMode = pTEtaPhiMode)
         eventIn+=i
         eventOut+=o
         weights+=w

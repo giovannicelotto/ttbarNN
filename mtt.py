@@ -11,24 +11,25 @@ import shap
 from scipy.stats.stats import pearsonr
 from scipy.spatial.distance import jensenshannon
 from sklearn.utils import shuffle
+from scipy.stats import gaussian_kde
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
-maxEvents_          = 100000
-epochs_             = 80      # 5000
-learningRate_       = 0.001      # 10^-3
-batchSize_          = 200     # 25000
-dropout_            = 0.      # 0.4
+maxEvents_          = 700000
+testFraction_       = 0.3
+validation_split_   = 0.2
+epochs_             = 500      # 5000
+learningRate_       = 0.002      # 10^-3
+batchSize_          = 512     
 nDense_             = 1
-nNodes_             = 24
-regRate_            = 0.001    
+nNodes_             = 12
+regRate_            = 0.001   
 activation_         = 'selu'
 outputActivation_   = 'linear'  
+patienceeS_         = 30
 #patiencelR_         = 30
-patienceeS_         = 200
-testFraction_       = 0.3
-doEvaluate          = False
 reduceLR_factor     = 0.
-validation_split_   = 0.6
+dropout_            = 0.      # 0.4
+doEvaluate          = False
 
 def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEtaPhiMode, maxEvents):
     '''
@@ -38,20 +39,18 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
     print ("LoadData for year "+year+"/"+" from "+dataPathFolderYear+"/flat_[..]"+additionalName+".npy")
     print ("\t maxEvents    = "+str(maxEvents))
     print ("\t testFraction = "+str(testFraction))
+    print ("\t valid split  = "+str(validation_split_))
     print ("\t Epochs       = "+str(epochs_))
     print ("\t learningRate = "+str(learningRate_))  
     print ("\t batchSize    = "+str(batchSize_))
-    print ("\t dropout      = "+str(dropout_))
     print ("\t nDense       = "+str(nDense_))
     print ("\t nNodes       = "+str(nNodes_))
     print ("\t regRate      = "+str(regRate_))
     print ("\t activation   = "+str(activation_))
     #print ("\t patiencelR   = "+str(patiencelR_))
     print ("\t patienceeS   = "+str(patienceeS_))
-    print ("\t valid split  = "+str(validation_split_))
+    print ("\t dropout      = "+str(dropout_))
 
-
-    
 
     createNewData = False
     if not os.path.exists(dataPathFolderYear+"/flat_inX"+additionalName+".npy"):
@@ -65,12 +64,12 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
     if createNewData:
         minJets=2
         print ("\nNew data will be loaded with settings: nJets >= "+str(minJets)+"; max Events = "+str(maxEvents))
-        inX, outY, weights, lkrM, krM = loadRegressionData("/nfs/dust/cms/user/celottog/TopRhoNetwork/rhoInput/powheg/"+year, "miniTree", maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
-        inX=np.array(inX)
-        outY=np.array(outY)
-        weights=np.array(weights)
-        lkrM=np.array(lkrM)
-        krM=np.array(krM)
+        inX, outY, weights, lkrM, krM = loadRegressionData("/nfs/dust/cms/user/celottog/ttbarSignalFromDilepton", "miniTree", maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
+        inX     = np.array(inX)
+        outY    = np.array(outY)
+        weights = np.array(weights)
+        lkrM    = np.array(lkrM)
+        krM     = np.array(krM)
         inX, outY, weights, lkrM, krM = shuffle(inX, outY, weights, lkrM, krM, random_state = 1998)
         np.save(dataPathFolderYear+"/flat_inX"+additionalName+".npy", inX)
         np.save(dataPathFolderYear+"/flat_outY"+additionalName+".npy", outY)
@@ -79,23 +78,23 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
         np.save(dataPathFolderYear+"/flat_krM"+additionalName+".npy", krM)
 
     print("*** inX, outY, weights, lkrM, krM loading")
-    inX = np.load(dataPathFolderYear+"/flat_inX"+additionalName+".npy")
-    outY = np.load(dataPathFolderYear+"/flat_outY"+additionalName+".npy")
+    inX     = np.load(dataPathFolderYear+"/flat_inX"+additionalName+".npy")
+    outY    = np.load(dataPathFolderYear+"/flat_outY"+additionalName+".npy")
     weights = np.load(dataPathFolderYear+"/flat_weights"+additionalName+".npy")
-    lkrM = np.load(dataPathFolderYear+"/flat_lkrM"+additionalName+".npy")
-    krM = np.load(dataPathFolderYear+"/flat_krM"+additionalName+".npy")
+    lkrM    = np.load(dataPathFolderYear+"/flat_lkrM"+additionalName+".npy")
+    krM     = np.load(dataPathFolderYear+"/flat_krM"+additionalName+".npy")
     print("*** inX, outY, weights, lkrM, krM loaded")
 
     if maxEvents is not None:
-        inX = inX[:maxEvents]
-        outY = outY[:maxEvents]
+        inX     = inX[:maxEvents]
+        outY    = outY[:maxEvents]
         weights = weights[:maxEvents]
-        lkrM = lkrM[:maxEvents]
-        krM = krM[:maxEvents]
+        lkrM    = lkrM[:maxEvents]
+        krM     = krM[:maxEvents]
 
     print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape)
     
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state=1999)
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state = 1999)
     
     print ("\tData splitted succesfully")
     print("Number training events :", inX_train.shape[0], len(inX_train))
@@ -107,9 +106,11 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
         np.save(dataPathFolderYear+"/testing/flat_weights"+ additionalName+"test.npy", weights_test)
         np.save(dataPathFolderYear+"/testing/flat_lkrM"   + additionalName+"test.npy", lkrM_test)
         np.save(dataPathFolderYear+"/testing/flat_krM"    + additionalName+"test.npy", krM_test)
+
     return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test
 
-def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFolder, modelName = "rhoRegModel_preUL04_moreInputs_Pt30_madgraph_cutSel"):
+def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, modelName):
+    
     dataPathFolderYear = os.path.join(dataPathFolder, year)   
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = loadData(
                                     dataPathFolder = dataPathFolder, year = year,
@@ -117,8 +118,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
                                     withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = maxEvents_)
 
-    np.save(dataPathFolderYear+"/testing/flat_inX"    + additionalName+"train.npy", inX_train)
-    np.save(dataPathFolderYear+"/testing/flat_outY"    + additionalName+"train.npy", outY_train)
+
 
     print(" Check element number 89 of inX_test", inX_test[89,0],"\n")      
     print ("Input events with \t",inX_train.shape[1], "features")
@@ -133,7 +133,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 # *                             *
 # *******************************
 
-    weightBins = array('d', [340, 342.5, 345, 347.5, 351, 355, 357.5, 360, 365, 380, 420,  440, 460, 480, 500, 550, 600, 700, 800, 1000])
+    weightBins = array('d', [340, 342.5, 345, 347.5, 350, 355, 360, 370, 385, 405,  420, 440, 460, 480, 500, 550, 600, 700, 800, 1000])
     wegihtNBin = len(weightBins)-1
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
 
@@ -141,7 +141,26 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
     for m, weight in zip(outY_train, weights_train):
         weightHisto.Fill(m,abs(weight))
     weightHisto = NormalizeBinWidth1d(weightHisto)
+
     
+    '''xs_ = np.linspace(340, 800, 1000)
+    kde = gaussian_kde(outY_train[:,0])(xs_)        
+    kde = kde/np.max(kde)                           # set the max od the kde to 1
+    xsmax = xs_[np.argmax(kde)]
+    myexp = np.piecewise(xs_, [xs_<xsmax, xs_>=xsmax], [1, np.exp(-(xs_-xsmax)[xs_>=xsmax]/200)])
+    #kde_prime = np.abs(kde[2:]-kde[:len(kde)-2]/(2*(xs_[1]-xs_[0])))
+    #kde_sec = np.abs(kde[2:]-2*kde[1:len(kde)-1]+kde[:len(kde)-2]/(xs_[1]-xs_[0])**2)
+
+    fig, ax = plt.subplots(1, 1)
+    #ax.plot(xs_, myexp)
+    ax.plot(xs_, (1/kde)*myexp)
+    #ax.plot(xs_, (1/kde)*myexp)
+    #ax.plot(xs_[1:len(xs_)-1], kde_prime)
+    #ax.plot(xs_[1:len(xs_)-1], kde_sec)
+    #ax.plot(xs_, 0.004*0.004*1/(0.004+kde), linewidth=0.5, marker='o', markersize=1)
+    fig.savefig(outFolder+"/weights/kde.pdf")
+    plt.cla()'''
+
     canvas = ROOT.TCanvas()
     weightHisto.Draw("hist")
     weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
@@ -155,11 +174,14 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 
     for binX in range(1,weightHisto.GetNbinsX()+1):
         c = weightHisto.GetBinContent(binX)
-        if (c>0):
-            weightHisto.SetBinContent(binX, maximumBinContent/c)
-      
+        #if (c>0):
+        #    weightHisto.SetBinContent(binX, maximumBinContent/(0.1*maximumBinContent + 0.9*c))
+        if ((binX >= maximumBin) & (c>0)):
+            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+9*c))
+        elif (c>0):
+            weightHisto.SetBinContent(binX, 2*maximumBinContent/(maximumBinContent+4*c))
         else:
-            weightHisto.SetBinContent(binX, 1.)
+            weightHisto.SetBinContent(binX, 1.)     
     weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
     weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
     weightHisto.SetTitle("Weights distributions")
@@ -211,6 +233,14 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
 
     callbacks.append(earlyStop)
     callbacks.append(modelCheckpoint)
+    '''divisor = int ((1-validation_split_)*(1-testFraction_)*maxEvents_)
+    inX_valid = inX_train[divisor:]
+    inX_train = inX_train[:divisor]
+    outY_valid = outY_train[divisor:]
+    outY_train = outY_train[:divisor]
+    weights_valid = weights_train[divisor:]
+    weights_train = weights_train[:divisor]
+    '''
 
     print ("fitting model")
     fit = model.fit(
@@ -221,6 +251,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
             verbose = 1,
             callbacks = callbacks,
             validation_split = validation_split_,                   # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
+            #validation_data = (inX_valid, outY_valid, weights_valid),
             shuffle = False,
             sample_weight = weights_train
 
@@ -314,7 +345,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, tokeep, outFol
         #tf.compat.v1.train.write_graph(frozen_graph, outFolder+ modelName+'.pbtxt', as_text=True)
         #tf.compat.v1.train.write_graph(frozen_graph, outFolder+ modelName+'.pb', as_text=False)
         #print ("Saved model to",outFolder+'/'+year+'/'+modelName+'.pbtxt/.pb/.h5')
-def justEvaluate(dataPathFolder, additionalName, year, tokeep, modelDir, modelName, outFolder):
+def justEvaluate(dataPathFolder, additionalName, year, modelDir, modelName, outFolder):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = loadData(
                                     dataPathFolder = dataPathFolder, year = year,
                                     additionalName = additionalName, testFraction = testFraction_,
@@ -335,12 +366,12 @@ def main():
     
     if (doEvaluate):
         print("Calling justEvaluate ...")
-        justEvaluate(dataPathFolder="/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName="_ttbar", year="2016", tokeep = keep,
+        justEvaluate(dataPathFolder="/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName="_ttbar", year="2016", 
         	         modelDir = "/nfs/dust/cms/user/celottog/mttNN/outputs", modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs")
     
     else:
        print("Calling doTrainingAndEvaluation ...")
-       doTrainingAndEvaluation(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName = "_ttbar", year ="2016", tokeep = keep,
+       doTrainingAndEvaluation(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName = "_ttbar", year ="2016", 
 				modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs")
 if __name__ == "__main__":
 	main()
