@@ -145,6 +145,8 @@ def loadMDataFlat(path, filename, treeName, maxEvents, withBTag = False, pTEtaPh
 	looseKinReco_ttbar_m =  np.array([0], dtype='f')
 	tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
 # Jets
+	jetBTagged = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_btagged", (jetBTagged))
 	jetBTagScore = np.array([0]*20, dtype='f')
 	tree.SetBranchAddress("jets_btag_score", (jetBTagScore))
 	jetTopMatched = np.array([0]*20, dtype='f')
@@ -328,7 +330,7 @@ def loadRegressionData(path, treeName,maxEvents=0, withBTag = False, pTEtaPhiMod
     print("Searching root files in ", path)	
     fileNames = glob.glob(path+'/*.root')		# List of files.root in the directory
     print(fileNames)
-    fileNames = [i for i in fileNames if "ee" in i][:2] + [i for i in fileNames if "mumu" in i][:2] + [i for i in fileNames if "emu" in i][:2]
+    fileNames = [i for i in fileNames if "ee" in i][:3] + [i for i in fileNames if "mumu" in i][:3] + [i for i in fileNames if "emu" in i][:3]
     print (len(fileNames), " files to be used\n")
     #random.shuffle(fileNames)
 
