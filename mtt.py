@@ -12,31 +12,58 @@ from scipy.stats.stats import pearsonr
 from scipy.spatial.distance import jensenshannon
 from sklearn.utils import shuffle
 from scipy.stats import gaussian_kde
+from scipy.stats import entropy
+from sklearn.preprocessing import PowerTransformer
+from sklearn.preprocessing import QuantileTransformer
+
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
-maxEvents_          = 700000
+nFiles_             = 3
+maxEvents_          = 100001
 testFraction_       = 0.3
-validation_split_   = 0.2
-epochs_             = 500      # 5000
-learningRate_       = 0.002      # 10^-3
-batchSize_          = 512     
-nDense_             = 1
-nNodes_             = 12
-regRate_            = 0.001   
-activation_         = 'selu'
-outputActivation_   = 'linear'  
-patienceeS_         = 30
+validation_split_   = 0.3
+epochs_             = 100       # 5000
+learningRate_       = 0.01     # 10^-3
+batchSize_          = 128        
+nDense_             = 2   
+nNodes_             = 64   
+regRate_            = 0.01
+activation_         = 'relu'
+outputActivation_   = 'linear'
+patienceeS_         = 15
 #patiencelR_         = 30
 reduceLR_factor     = 0.
-dropout_            = 0.      # 0.4
+dropout_            = 0.     
 doEvaluate          = False
+additionalName_     = "_complex"
+exp_tau             = 150
 
-def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEtaPhiMode, maxEvents):
+
+def KLdiv(p, q):
+    xs_ = np.linspace(340, 800, 50)
+    kde_p = gaussian_kde(p)(xs_) 
+    kde_q = gaussian_kde(q)(xs_) 
+    kl_divergence = entropy(kde_p, kde_q)
+    return kl_divergence
+
+def JSdist(p, q):
+    xs_ = np.linspace(340, 800, 50)
+    kde_p = gaussian_kde(p)(xs_) 
+    kde_q = gaussian_kde(q)(xs_) 
+    
+    m = (kde_p + kde_q) / 2
+
+    return [np.sqrt(entropy(kde_p, m)/2 + entropy(kde_q, m)/2), jensenshannon(kde_p, kde_q)]
+
+
+def loadData(dataPathFolder , additionalName, testFraction, withBTag, pTEtaPhiMode, maxEvents):
     '''
     Load data from saved numpy arrays or create them if not available (using loadRegressionData)
     '''
-    dataPathFolderYear = os.path.join(dataPathFolder, year)
-    print ("LoadData for year "+year+"/"+" from "+dataPathFolderYear+"/flat_[..]"+additionalName+".npy")
+    
+    print ("LoadData from "+dataPathFolder+"/flat_[..]"+additionalName+".npy")
+    print ("\t nFiles       = "+str(nFiles_))
     print ("\t maxEvents    = "+str(maxEvents))
     print ("\t testFraction = "+str(testFraction))
     print ("\t valid split  = "+str(validation_split_))
@@ -50,39 +77,49 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
     #print ("\t patiencelR   = "+str(patiencelR_))
     print ("\t patienceeS   = "+str(patienceeS_))
     print ("\t dropout      = "+str(dropout_))
+    print ("\t expTau       = "+str(exp_tau))
 
 
     createNewData = False
-    if not os.path.exists(dataPathFolderYear+"/flat_inX"+additionalName+".npy"):
+    if not os.path.exists(dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy"):
         createNewData = True
-        print("*** Not found the data in the right directory ***")
+        print("*** Not found the data in the directory "+dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy")
         print("***           Producing new data              ***")
     else:
-        print("\nData found in the directory :"+dataPathFolderYear)
+        print("\nData found in the directory :" + dataPathFolder)
         createNewData = False
 
     if createNewData:
         minJets=2
         print ("\nNew data will be loaded with settings: nJets >= "+str(minJets)+"; max Events = "+str(maxEvents))
-        inX, outY, weights, lkrM, krM = loadRegressionData("/nfs/dust/cms/user/celottog/ttbarSignalFromDilepton", "miniTree", maxEvents = 0 if maxEvents==None else maxEvents, withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
+        inX, outY, weights, lkrM, krM = loadRegressionData("/nfs/dust/cms/user/celottog/ttbarSignalFromDilepton", "miniTree", nFiles=nFiles_,  withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
         inX     = np.array(inX)
         outY    = np.array(outY)
         weights = np.array(weights)
         lkrM    = np.array(lkrM)
         krM     = np.array(krM)
-        inX, outY, weights, lkrM, krM = shuffle(inX, outY, weights, lkrM, krM, random_state = 1998)
-        np.save(dataPathFolderYear+"/flat_inX"+additionalName+".npy", inX)
-        np.save(dataPathFolderYear+"/flat_outY"+additionalName+".npy", outY)
-        np.save(dataPathFolderYear+"/flat_weights"+additionalName+".npy", weights)
-        np.save(dataPathFolderYear+"/flat_lkrM"+additionalName+".npy", lkrM)
-        np.save(dataPathFolderYear+"/flat_krM"+additionalName+".npy", krM)
+        #pt = PowerTransformer(method='box-cox', standardize=True)
+        #quantile_transformer = QuantileTransformer(output_distribution='normal', random_state=0)
+        #inX[:,0] = np.ndarray.flatten(pt.fit_transform(inX[:,0].reshape(-1, 1)))
+        #inX[:,1] = np.ndarray.flatten(pt.fit_transform(inX[:,1].reshape(-1, 1)))
+        #inX[:,2] = np.ndarray.flatten(quantile_transformer.fit_transform(inX[:,2].reshape(-1, 1)))
+
+        inX, outY, weights, lkrM, krM = shuffle(inX, outY, weights, lkrM, krM, random_state = 1999)
+        print("Number training events before [:maxEvents]:", inX.shape[0], len(inX))
+        if not os.path.exists(dataPathFolder+"/"+additionalName):
+            os.makedirs(dataPathFolder+"/"+additionalName)
+        np.save(dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy", inX)
+        np.save(dataPathFolder+"/"+additionalName+ "/flat_outY"+additionalName+".npy", outY)
+        np.save(dataPathFolder+"/"+additionalName+ "/flat_weights"+additionalName+".npy", weights)
+        np.save(dataPathFolder+"/"+additionalName+ "/flat_lkrM"+additionalName+".npy", lkrM)
+        np.save(dataPathFolder+"/"+additionalName+ "/flat_krM"+additionalName+".npy", krM)
 
     print("*** inX, outY, weights, lkrM, krM loading")
-    inX     = np.load(dataPathFolderYear+"/flat_inX"+additionalName+".npy")
-    outY    = np.load(dataPathFolderYear+"/flat_outY"+additionalName+".npy")
-    weights = np.load(dataPathFolderYear+"/flat_weights"+additionalName+".npy")
-    lkrM    = np.load(dataPathFolderYear+"/flat_lkrM"+additionalName+".npy")
-    krM     = np.load(dataPathFolderYear+"/flat_krM"+additionalName+".npy")
+    inX     = np.load(dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy")
+    outY    = np.load(dataPathFolder+"/"+additionalName+ "/flat_outY"+additionalName+".npy")
+    weights = np.load(dataPathFolder+"/"+additionalName+ "/flat_weights"+additionalName+".npy")
+    lkrM    = np.load(dataPathFolder+"/"+additionalName+ "/flat_lkrM"+additionalName+".npy")
+    krM     = np.load(dataPathFolder+"/"+additionalName+ "/flat_krM"+additionalName+".npy")
     print("*** inX, outY, weights, lkrM, krM loaded")
 
     if maxEvents is not None:
@@ -94,38 +131,47 @@ def loadData(dataPathFolder , year, additionalName, testFraction, withBTag, pTEt
 
     print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape)
     
+    #pt = PowerTransformer(method='box-cox', standardize=True)
+    #qt = QuantileTransformer(output_distribution='normal', random_state=0)
+    #inX[:,] = qt.fit_transform(inX)
+
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state = 1999)
-    
+
     print ("\tData splitted succesfully")
     print("Number training events :", inX_train.shape[0], len(inX_train))
     print("Number of features     :", inX_train.shape[1])
     print("loadData ended returning inX_train and so on...")
+    if not os.path.exists(dataPathFolder+"/"+additionalName+ "/testing"):
+        os.makedirs(dataPathFolder+"/"+additionalName+ "/testing")
+    
     if createNewData:
-        np.save(dataPathFolderYear+"/testing/flat_inX"    + additionalName+"test.npy", inX_test)
-        np.save(dataPathFolderYear+"/testing/flat_outY"   + additionalName+"test.npy", outY_test)
-        np.save(dataPathFolderYear+"/testing/flat_weights"+ additionalName+"test.npy", weights_test)
-        np.save(dataPathFolderYear+"/testing/flat_lkrM"   + additionalName+"test.npy", lkrM_test)
-        np.save(dataPathFolderYear+"/testing/flat_krM"    + additionalName+"test.npy", krM_test)
+        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_inX"    + additionalName+"_test.npy", inX_test)
+        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_outY"   + additionalName+"_test.npy", outY_test)
+        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_weights"+ additionalName+"_test.npy", weights_test)
+        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_lkrM"   + additionalName+"_test.npy", lkrM_test)
+        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_krM"    + additionalName+"_test.npy", krM_test)
 
     return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test
 
-def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, modelName):
+def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData"):
     
-    dataPathFolderYear = os.path.join(dataPathFolder, year)   
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = loadData(
-                                    dataPathFolder = dataPathFolder, year = year,
+                                    dataPathFolder = dataPathFolder, 
                                     additionalName = additionalName, testFraction = testFraction_,
                                     withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = maxEvents_)
-
-
+    # Create the output folder if it does not exist
+    if not os.path.exists(outFolder):
+        os.makedirs(outFolder)
 
     print(" Check element number 89 of inX_test", inX_test[89,0],"\n")      
-    print ("Input events with \t",inX_train.shape[1], "features")
-# Reduce to most useful features (to be kept)
+
+
     #feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
     featureNames = getFeatureNames()
     print('Features:', featureNames)
+
+
 
 # *******************************
 # *                             *
@@ -133,7 +179,7 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, mod
 # *                             *
 # *******************************
 
-    weightBins = array('d', [340, 342.5, 345, 347.5, 350, 355, 360, 370, 385, 405,  420, 440, 460, 480, 500, 550, 600, 700, 800, 1000])
+    weightBins = array('d', [340, 342.5, 345, 347.5, 350, 355, 360, 370, 380, 390, 400, 410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
     wegihtNBin = len(weightBins)-1
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
 
@@ -158,35 +204,39 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, mod
     #ax.plot(xs_[1:len(xs_)-1], kde_prime)
     #ax.plot(xs_[1:len(xs_)-1], kde_sec)
     #ax.plot(xs_, 0.004*0.004*1/(0.004+kde), linewidth=0.5, marker='o', markersize=1)
-    fig.savefig(outFolder+"/weights/kde.pdf")
+    fig.savefig(outFolder+"/model/kde.pdf")
     plt.cla()'''
-
+    if not os.path.exists(outFolder+ "/model"):
+        os.makedirs(outFolder+ "/model")
     canvas = ROOT.TCanvas()
     weightHisto.Draw("hist")
     weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
     weightHisto.SetYTitle('Normalized Counts')
-    canvas.SaveAs(outFolder+ "/weights/mttOriginalWeight.pdf")
+    canvas.SaveAs(outFolder + "/model/mttOriginalWeight.pdf")
 
     weightHisto.Scale(1./weightHisto.Integral())
     maximumBin = weightHisto.GetMaximumBin()
     maximumBinContent = weightHisto.GetBinContent(maximumBin)
 
-
+    firstMidpoint = (weightHisto.GetXaxis().GetBinLowEdge(1)+weightHisto.GetXaxis().GetBinUpEdge(1))/2
+    #print("firstMidpoint: ", firstMidpoint)
     for binX in range(1,weightHisto.GetNbinsX()+1):
+        midpoint = (weightHisto.GetXaxis().GetBinLowEdge(binX) + weightHisto.GetXaxis().GetBinUpEdge(binX))/2
+        #print("Current midpoint:\t", midpoint)
         c = weightHisto.GetBinContent(binX)
-        #if (c>0):
-        #    weightHisto.SetBinContent(binX, maximumBinContent/(0.1*maximumBinContent + 0.9*c))
-        if ((binX >= maximumBin) & (c>0)):
-            weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent+9*c))
-        elif (c>0):
-            weightHisto.SetBinContent(binX, 2*maximumBinContent/(maximumBinContent+4*c))
+        if (c>0):
+            weightHisto.SetBinContent(binX, maximumBinContent/(c)*np.exp(-(midpoint-firstMidpoint)/exp_tau))#
+        #if ((binX >= maximumBin+10) & (c>0)):
+        #    weightHisto.SetBinContent(binX, 1)
+        #elif (c>0):
+        #    weightHisto.SetBinContent(binX, maximumBinContent/c)
         else:
             weightHisto.SetBinContent(binX, 1.)     
     weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
     weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
     weightHisto.SetTitle("Weights distributions")
     canvas.SetLogy(1)
-    canvas.SaveAs(outFolder+"/weights/weights.pdf")
+    canvas.SaveAs(outFolder+"/model/weights.pdf")
     weights_train_original = weights_train
     weights_train_=[]
     for w,m in zip(weights_train, outY_train):
@@ -219,28 +269,35 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, mod
                                             )
 
     print ("compiling model")
-    model.compile(optimizer=optimizer, loss = tf.keras.losses.MeanSquaredError(), metrics=['mean_absolute_error','mean_absolute_percentage_error'])
+    #model.compile(optimizer=optimizer, loss = tf.keras.losses.MeanSquaredError(), metrics=['mean_absolute_error','mean_absolute_percentage_error'])
+    model.compile(optimizer=optimizer, loss = tf.keras.losses.MeanSquaredError())
 
 
     callbacks=[]
     #reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=patiencelR_, factor=reduceLR_factor)
-    # ADAM already optimizes the LR in each direction
-# This callback monitors the validation loss and stops training if the validation loss does not improve for 300 epochs
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=patienceeS_, restore_best_weights=True)
-# This callback saves the weights of the best performing model during training, based on the validation loss. The saved model is stored in the specified output folder with the name "model_best.h5"
-    modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
-
-
+    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=patienceeS_, verbose = 1, restore_best_weights=True)
+    #modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
     callbacks.append(earlyStop)
-    callbacks.append(modelCheckpoint)
-    '''divisor = int ((1-validation_split_)*(1-testFraction_)*maxEvents_)
-    inX_valid = inX_train[divisor:]
-    inX_train = inX_train[:divisor]
-    outY_valid = outY_train[divisor:]
-    outY_train = outY_train[:divisor]
-    weights_valid = weights_train[divisor:]
-    weights_train = weights_train[:divisor]
-    '''
+    #callbacks.append(modelCheckpoint)
+    
+    divisor = int ((1-validation_split_)*len(inX_train))
+    outY_valid      = outY_train[divisor:]
+    inX_valid       = inX_train[divisor:]
+    weights_valid   = weights_train[divisor:]
+    inX_train       = inX_train[:divisor]
+    outY_train      = outY_train[:divisor]
+    weights_train   = weights_train[:divisor]
+
+    jsTV = JSdist(inX_train[:len(outY_valid)-1,0], inX_valid[:len(outY_valid)-1,0])
+    print ("JS between LooseR training and validation", str(jsTV[0])[:6], str(jsTV[1])[:6])    
+    jsTV = JSdist(inX_train[:len(outY_valid)-1,1], inX_valid[:len(outY_valid)-1,1])
+    print ("JS between KinR training and validation", str(jsTV[0])[:6], str(jsTV[1])[:6])       
+
+    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_inX"    + additionalName+"_train.npy", inX_train)
+    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_outY"   + additionalName+"_train.npy", outY_train)
+    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_inX"    + additionalName+"_valid.npy", inX_valid)
+    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_outY"   + additionalName+"_valid.npy", outY_valid)
+        
 
     print ("fitting model")
     fit = model.fit(
@@ -250,83 +307,54 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, mod
             epochs = epochs_,
             verbose = 1,
             callbacks = callbacks,
-            validation_split = validation_split_,                   # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
-            #validation_data = (inX_valid, outY_valid, weights_valid),
+            #validation_split = validation_split_,                   # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
+            validation_data = (inX_valid, outY_valid, weights_valid),
+            #validation_data = (inX_valid, outY_valid),#, weights_valid),
             shuffle = False,
             sample_weight = weights_train
-
             )
 
     saveModel = not doEvaluate
     if saveModel:
-        model.save(outFolder+"/"+modelName+".h5")
+        model.save(outFolder+"/model/"+modelName+".h5")
         tf.keras.backend.clear_session()
         tf.keras.backend.set_learning_phase(0)
-        model = tf.keras.models.load_model(outFolder+"/"+modelName+".h5")
+        model = tf.keras.models.load_model(outFolder+"/model/"+modelName+".h5")
         print('inputs: ', [input.op.name for input in model.inputs])
         print('outputs: ', [output.op.name for output in model.outputs])
 
 
 # Real prediction based on training
     y_predicted = model.predict(inX_test)
-    np.save(dataPathFolderYear+"/testing/flat_regY"   + additionalName+"test.npy", y_predicted)
     y_predicted_train = model.predict(inX_train)
+    y_predicted_valid = model.predict(inX_valid)
+    
+    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_regY"   + additionalName+"_test.npy", y_predicted)
+    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_regY"   + additionalName+"_train.npy", y_predicted_train)
+    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_regY"   + additionalName+"_valid.npy", y_predicted_valid)
 
-    if not os.path.exists(outFolder+"/"+year):
-        os.makedirs(outFolder+"/"+year)
-
-    #  "mean_absolute_error"
-    plt.figure(0)
-    plt.plot(fit.history['mean_absolute_error'][1:])
-    plt.plot(fit.history['val_mean_absolute_error'][1:])
-    plt.title('model mean_absolute_error')
-    plt.ylabel('mean_absolute_error')
-    plt.xlabel('epoch')
-    # plt.yscale('log')
-    plt.ylim(ymax = min(fit.history['mean_absolute_error'])*1.4, ymin = min(fit.history['mean_absolute_error'])*0.9)
-    plt.legend(['train', 'validation'], loc='upper right')
-    plt.savefig(outFolder+"/"+year+"/mean_absolute_error.pdf")
-    #  "mean_absolute_percentage_error"
-    plt.figure(1)
-    plt.plot(fit.history['mean_absolute_percentage_error'][1:])
-    plt.plot(fit.history['val_mean_absolute_percentage_error'][1:])
-    plt.title('model mean_absolute_percentage_error')
-    plt.ylabel('mean_absolute_percentage_error')
-    plt.xlabel('epoch')
-    # plt.yscale('log')
-    plt.ylim(ymax = min(fit.history['mean_absolute_percentage_error'])*1.4, ymin = min(fit.history['mean_absolute_percentage_error'])*0.9)
-    plt.legend(['train', 'validation'], loc='upper right')
-    plt.savefig(outFolder+"/"+year+"/mean_absolute_percentage_error.pdf")
-    # "Loss"
-    plt.figure(2)
-    plt.plot(fit.history['loss'][1:])
-    plt.plot(fit.history['val_loss'][1:])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    # plt.yscale('log')
-    plt.ylim(ymax = max(min(fit.history['loss']), min(fit.history['val_loss']))*1.4, ymin = min(min(fit.history['loss']),min(fit.history['val_loss']))*0.9)
-    plt.legend(['train', 'validation'], loc='upper right')
-    plt.savefig(outFolder+"/"+year+"/loss.pdf")
+    doPlotLoss(fit = fit, outFolder=outFolder+"/model")
+    
 
     corr = pearsonr(outY_test.reshape(outY_test.shape[0]), y_predicted.reshape(y_predicted.shape[0]))
     print("correlation:",corr[0])
-# statistica distance: measures how one probab distr P is different from a second Q. In our case predicted output and expected one
-    #kl = compute_kl_divergence(y_predicted, outY_test, n_bins=100)
-    #print ("KL", kl)
-# another way to say how similar are two distributions
-    #js = compute_js_divergence(y_predicted, outY_test, n_bins=100)
-    #print ("JS", js)
-    doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train, krM_train, year = year, outFolder = outFolder+"/train")
+    
+    kl = KLdiv(y_predicted[:,0], outY_test[:,0])
+    print ("KL", kl)
+    js = JSdist(y_predicted[:,0], outY_test[:,0])
+    print ("JS", str(js[0])[:6], str(js[1])[:6])
+    with open(outFolder+"/model/Info.txt", "w") as f:
+        f.write("JS\t"+ str(js[0])[:6]+"\n"+"KL\t"+ str(kl)[:6])
+        print(model.summary(), file=f)
+
+        
+
+    doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train[:divisor], krM_train[:divisor], outFolder = outFolder+"/train")
     print("Plots for testing")
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, year = year, outFolder = outFolder+"/test")
+    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test")
 
 
-    #print('Before defining class \'rho\'')
-    #class_names=["mtt"]
-    #print('After defining class \'rho\'')
     max_display = inX_test.shape[1]
-# Commented till here
     for explainer, name  in [(shap.GradientExplainer(model,inX_test[:1000]),"GradientExplainer"),]:
         shap.initjs()
         print("... {0}: explainer.shap_values(X)".format(name))
@@ -334,10 +362,9 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, mod
         print("... shap.summary_plot")
         plt.clf()
         shap.summary_plot(	shap_values, inX_test[:1000], plot_type="bar",
-			        feature_names=featureNames,
-     #       			class_names=class_names,
+			            feature_names=featureNames,
             			max_display=max_display, plot_size=[15.0,0.4*max_display+1.5], show=False)
-        plt.savefig(outFolder+"/"+year+"/"+"shap_summary_{0}.pdf".format(name))
+        plt.savefig(outFolder+"/model/"+"shap_summary_{0}.pdf".format(name))
 
 
     
@@ -345,20 +372,21 @@ def doTrainingAndEvaluation(dataPathFolder, year, additionalName, outFolder, mod
         #tf.compat.v1.train.write_graph(frozen_graph, outFolder+ modelName+'.pbtxt', as_text=True)
         #tf.compat.v1.train.write_graph(frozen_graph, outFolder+ modelName+'.pb', as_text=False)
         #print ("Saved model to",outFolder+'/'+year+'/'+modelName+'.pbtxt/.pb/.h5')
-def justEvaluate(dataPathFolder, additionalName, year, modelDir, modelName, outFolder):
+
+
+
+def justEvaluate(dataPathFolder, additionalName, modelDir, modelName, outFolder):
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = loadData(
-                                    dataPathFolder = dataPathFolder, year = year,
+                                    dataPathFolder = dataPathFolder,
                                     additionalName = additionalName, testFraction = testFraction_,
                                     withBTag = True, pTEtaPhiMode=True,
                                     maxEvents = maxEvents_)
 
 
-    featureNames = getFeatureNames()
-
     model = tf.keras.models.load_model(modelDir+"/"+modelName+".h5")
     y_predicted = model.predict(inX_test)
 
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, year = year, outFolder = outFolder+"/test")
+    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test")
 
 def main():
     print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
@@ -366,12 +394,12 @@ def main():
     
     if (doEvaluate):
         print("Calling justEvaluate ...")
-        justEvaluate(dataPathFolder="/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName="_ttbar", year="2016", 
-        	         modelDir = "/nfs/dust/cms/user/celottog/mttNN/outputs", modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs")
+        justEvaluate(dataPathFolder="/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName = additionalName_, 
+        	         modelDir = "/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_+"/model", modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_)
     
     else:
        print("Calling doTrainingAndEvaluation ...")
-       doTrainingAndEvaluation(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName = "_ttbar", year ="2016", 
-				modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs")
+       doTrainingAndEvaluation(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName = additionalName_, 
+				modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_)
 if __name__ == "__main__":
 	main()

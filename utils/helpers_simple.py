@@ -2,25 +2,15 @@ import glob
 import ROOT
 import numpy as np
 from progress.bar import IncrementalBar
-import tensorflow as tf
 import random
+from sklearn.preprocessing import PowerTransformer
+from sklearn.preprocessing import QuantileTransformer
+
 
 #definisci un append function che aggiunge il nome della variabile se non già presente
 def getFeatureNames():
-	feature_names =['lkr_ttbarpt', 'lkr_ttbareta', 'lkr_ttbarphi', 'lkr_ttbarM',
-				'kr_ttbarpt', 'kr_ttbareta', 'kr_ttbarphi', 'kr_ttbarM',
-				'dileptonpt', 'dileptoneta', 'dileptonphi', 'dileptonM',
-				'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi', 'llj1j2M',
-				'llj1j2METpt','llj1j2METeta', 'llj1j2METphi', 'llj1j2MET_M', 'njets', 'nbjets',
-				'extraJetspt', 'extraJetseta', 'extraJetsphi', 'extraJetsM', 'lb_pt', 'lb_eta', 'lb_phi', 'lb_M',
-				'jet1pt', 'jet1eta', 'jet1phi', 'jet1m', 'jet1btag',
-				'jet2pt', 'jet2eta', 'jet2phi', 'jet2m', 'jet2btag',
-				'lep1pt', 'lep1eta', 'lep1phi', 'lep1m',
-				'lep2pt', 'lep2eta', 'lep2phi', 'lep2m',
-				'metpt', 'metphi', 'ht',
-				'dR_lep1_lep2','dR_lepton1_jet1', 'dR_lepton1_jet2', 'dR_lepton2_jet1', 'dR_lepton2_jet2', 'dR_jet1_jet2','channelID'
-				]
-	#feature_names =['lkr_ttbar_M', 'kr_ttbar_M', 'dilepton_M', 'llj1j2_M', 'llj1j2MET_M', 'extraJets_M'] #  'channelID' , 
+
+	feature_names =['lkr_ttbar_M', 'kr_ttbar_M', 'dilepton_M'] # , 'llj1j2_M', 'llj1j2MET_M', 'extraJets_M' 'channelID' , 
 	return feature_names
 
 def append4vector(evFeatures, a):
@@ -28,44 +18,6 @@ def append4vector(evFeatures, a):
 	evFeatures.append(a.Eta())
 	evFeatures.append(a.Phi())
 	evFeatures.append(a.M())
-
-
-def rotation(jets, lep1, lep2, met):
-	# Sign of Eta of First Jet
-	signEta = lep1.Eta()/np.abs(lep1.Eta())
-	# Phi first jet
-	phiFirst = lep1.Phi()
-	# Sign of Phi of Second Jet after the shift in Phi
-	newPhiSecond = lep2.Phi() - lep1.Phi()
-	newPhiSecond = newPhiSecond - 2*np.pi*(newPhiSecond > np.pi) + 2*np.pi*(newPhiSecond< -np.pi)
-	signPhi = (newPhiSecond)/np.abs(newPhiSecond)
-
-	
-
-	for i in range(len(jets)):
-		# Sign of Eta
-		jets[i].SetPtEtaPhiM(jets[i].Pt(), jets[i].Eta()*signEta, jets[i].Phi(), jets[i].M())
-		# Shift in Phi and bring back to [-pi, pi]
-		jets[i].SetPhi( jets[i].Phi() - phiFirst)
-		jets[i].SetPhi( jets[i].Phi() - 2*np.pi*(jets[i].Phi() > np.pi) + 2*np.pi*(jets[i].Phi() < -np.pi))
-		# Sign of Phi
-		jets[i].SetPhi(jets[i].Phi()*signPhi)
-
-	lep1.SetPtEtaPhiM(lep1.Pt(), lep1.Eta()*signEta, lep1.Phi(),  lep1.M())	
-	lep1.SetPhi( lep1.Phi() - phiFirst)
-	lep1.SetPhi( lep1.Phi() - 2*np.pi*(lep1.Phi() > np.pi) + 2*np.pi*(lep1.Phi() < -np.pi))
-	lep1.SetPhi(lep1.Phi()*signPhi)
-
-	lep2.SetPtEtaPhiM(lep2.Pt(), lep2.Eta()*signEta, lep2.Phi(),  lep2.M())	
-	lep2.SetPhi( lep2.Phi() - phiFirst)
-	lep2.SetPhi( lep2.Phi() - 2*np.pi*(lep2.Phi() > np.pi) + 2*np.pi*(lep2.Phi() < -np.pi))
-	lep2.SetPhi(lep2.Phi()*signPhi)
-
-	met.SetPhi( met.Phi() - phiFirst)
-	met.SetPhi( met.Phi() - 2*np.pi*(met.Phi() > np.pi) + 2*np.pi*(met.Phi() < -np.pi))
-	met.SetPhi(met.Phi()*signPhi)
-
-
 
 
 def NormalizeBinWidth1d(h):
@@ -221,40 +173,27 @@ def loadMDataFlat(path, filename, treeName, withBTag = False, pTEtaPhiMode=False
 # Tlorentz vectors
 	lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
 	lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-#GC	jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-	met=ROOT.TLorentzVector(0.,0.,0.,0.)
 	kr_top=ROOT.TLorentzVector(0.,0.,0.,0.)
 	kr_antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
 	lkr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-	kr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
-	lkr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
 	kr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-	bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
 	top=ROOT.TLorentzVector(0.,0.,0.,0.)
 	antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
 	ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
 	dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
-	zero=ROOT.TLorentzVector(0., 0., 0., 0.)
-	extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
-	mlb = ROOT.TLorentzVector(0.,0.,0.,0.)
+
+	
 
 	bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
 	for i in range(maxEntries):
 		lep1.SetPtEtaPhiM(0.,0.,0.,0.)
 		lep2.SetPtEtaPhiM(0.,0.,0.,0.)
-#GC		jet4.SetPtEtaPhiM(0.,0.,0.,0.)
-		met.SetPtEtaPhiM(0.,0.,0.,0.)
+
 		kr_top.SetPtEtaPhiM(0.,0.,0.,0.)
 		kr_antitop.SetPtEtaPhiM(0.,0.,0.,0.)
 		lkr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
-		kr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
 		kr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
-		lkr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
-		bjettemp.SetPtEtaPhiM(0.,0.,0.,0.)
 		dilepton.SetPtEtaPhiM(0.,0.,0.,0.)
-		extraJet.SetPtEtaPhiM(0., 0., 0., 0.)
-		mlb.SetPtEtaPhiM(0., 0., 0., 0.)
-
 		ht = 0
 		# Generated vectors
 		top.SetPtEtaPhiM(0.,0.,0.,0.)
@@ -269,8 +208,7 @@ def loadMDataFlat(path, filename, treeName, withBTag = False, pTEtaPhiMode=False
 			bar.next()
 
 		pass3= bool(passStep3[0])
-		haskrs = bool(hasKinRecoSolution[0])
-		haslkrs = bool(hasLooseKinRecoSolution[0])
+		
 		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
 # Pass3: correct reconstruction of leptons
 		if (pass3==True):
@@ -313,116 +251,20 @@ def loadMDataFlat(path, filename, treeName, withBTag = False, pTEtaPhiMode=False
 		
 
 		# conditions fro building an input events (training or testing)
-		if (pass3 & (numJets>=2) & passMETCut & (dilepton.M()>20.) & passMLLCut & (ttbar.M()>340) & (ttbar.M()<1500) & (kr_ttbar.M()<1500) & (kr_ttbar.M()>1) & (lkr_ttbar.M() > 1) & (lkr_ttbar.M() < 1500)):
-			# jets identification
-			jets = []
-			bjets = []
-			btag = []
-			for idx in range(numJets):
-				jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-				jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-				jets.append(jet4)
-				ht = ht+jet4.Pt()
-				bTagged=int(bool(jetBTagged[idx]))
-				btag.append(bTagged)
-				
+		if (pass3 & (numJets>=2) & passMETCut & (dilepton.M()>20.) & passMLLCut & (ttbar.M()>0) & (kr_ttbar.M()<1500) & (kr_ttbar.M()>1) & (lkr_ttbar.M() > 1) & (lkr_ttbar.M() < 1500)):
 
-			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
-			bjets    = [jets[j] for j in range(len(btag)) if btag[j] == 1]
-			nbjets = len(bjets)
-			sortedJets = bjets + nonbjets
-
-			rotation(sortedJets, lep1, lep2, met)	
 			weights.append(totWeight)
-
 				
-
-			append4vector(evFeatures,lkr_ttbar)
 			lKinRecoOut.append(lkr_ttbar.M())   # 2	Output of the LooseKinReco
-			append4vector(evFeatures, kr_ttbar)
 			kinRecoOut.append(kr_ttbar.M())     # 
-			append4vector(evFeatures, dilepton)
 
-			met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
+			#evFeatures.append(pt.fit_transform(lkr_ttbar.M().reshape(-1, 1)))
+			#evFeatures.append(pt.fit_transform(kr_ttbar.M().reshape(-1, 1)))
+			#evFeatures.append(quantile_transformer.fit_transform(dilepton.M().reshape(-1, 1)))
+			evFeatures.append(lkr_ttbar.M())
+			evFeatures.append(kr_ttbar.M())
+			evFeatures.append(dilepton.M())
 			
-			if (len(bjets) >= 2):
-				append4vector(evFeatures, dilepton+bjets[0]+bjets[1])
-				append4vector(evFeatures, dilepton+bjets[0]+bjets[1]+met)
-				
-			elif (len(bjets) == 1):
-				
-				append4vector(evFeatures, dilepton+ bjets[0]+ nonbjets[0])
-				append4vector(evFeatures,dilepton+bjets[0]+ nonbjets[0]+met)
-
-			elif (len(bjets) == 0):
-				append4vector(evFeatures, dilepton+ jets[0] + jets[1])
-				append4vector(evFeatures, dilepton+ jets[0] + jets[1] + met)
-
-
-			evFeatures.append(numJets)									 		# 6
-			evFeatures.append(nbjets)
-			
-			
-			if(numJets>2):		# if therea are extrajet
-				if (len(bjets) >= 3):
-					for jetTemp in bjets[2:]:
-						extraJet = extraJet + jetTemp	# only from the third bjet
-					for jetTemp in nonbjets:			# plus oall the non bjet
-						extraJet = extraJet + jetTemp	
-			
-				elif (len(bjets) <= 2):
-					for jetTemp in nonbjets[2-len(bjets):]:
-						extraJet = extraJet + jetTemp
-				append4vector(evFeatures, extraJet)
-
-			else:
-				append4vector(evFeatures, zero)
-		
-			mlb_min = 0
-			whichLep = -3
-			leptons = [lep1, lep2]
-			for i in range(nbjets):
-				#bjettemp.SetPtEtaPhiM(bjets[i].Pt(),bjets[i].Eta(),bjets[i].Phi(),bjets[i].M())
-				comb1 = (lep1+bjets[i]).M()	
-				comb2 = (lep2+bjets[i]).M()
-				comb = comb1 if comb1<comb2 else comb2
-				whichLep = 0 if comb1<comb2 else 1
-				if (i==0):
-					mlb_min = comb
-					mlb = bjets[i] + leptons[whichLep]
-				elif(comb < mlb_min):
-					mlb_min = comb
-					mlb = bjets[i] + leptons[whichLep]
-			append4vector(evFeatures, mlb)		
-			#evFeatures.append(mlb_min)											# 9
-
-			append4vector(evFeatures, sortedJets[0])										# 12
-			evFeatures.append(btag[0])											# 13
-
-			append4vector(evFeatures, sortedJets[1])
-			evFeatures.append(btag[1])											# 18
-
-			append4vector(evFeatures, lep1)
-			append4vector(evFeatures, lep2)
-			evFeatures.append(met.Pt())											# 27
-			evFeatures.append(met.Phi())
-			evFeatures.append(ht)
-			
-			dR_lep1_lep2 = lep1.DeltaR(lep2)
-			dR_lepton1_jet1 = lep1.DeltaR(sortedJets[0])
-			dR_lepton1_jet2 = lep1.DeltaR(sortedJets[1])
-			dR_lepton2_jet1 = lep2.DeltaR(sortedJets[0])
-			dR_lepton2_jet2 = lep2.DeltaR(sortedJets[1])
-			dR_jet1_jet2 = sortedJets[0].DeltaR(sortedJets[1])	
-			
-			evFeatures.append(dR_lep1_lep2)
-			evFeatures.append(dR_lepton1_jet1)
-			evFeatures.append(dR_lepton1_jet2)
-			evFeatures.append(dR_lepton2_jet1)
-			evFeatures.append(dR_lepton2_jet2)
-			evFeatures.append(dR_jet1_jet2)
-			evFeatures.append(channelID)
-
 			eventIn.append(evFeatures)
 			eventOut.append([ttbar.M()])
 		tree.SetBranchStatus("*",1)
