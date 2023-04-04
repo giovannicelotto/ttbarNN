@@ -9,44 +9,53 @@ import numpy as np
 from scipy.stats import moment
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from tensorflow import keras
+from fractions import Fraction
+from decimal import Decimal, getcontext
 ROOT.gROOT.SetBatch(True)
 
-logbins =  np.concatenate((np.linspace(340, 500, 16, endpoint=False), [500, 520, 540, 560, 580, 600, 650, 750])) #]
+logbins =  np.concatenate((np.linspace(320, 500, 16, endpoint=False), [500, 520, 540, 560, 580, 600, 650, 750])) #]
 #logbins = np.concatenate(([335], logbins))
-recoBin = np.array([1, 410, 500, 670, 1500]) #1500
+#recoBin = np.array([1, 410, 500, 670, 1500]) #1500
+recoBin = np.array([1, 380, 450, 550, 625, 812.5,  1200, 5000]) #1200
+#recoBinPlusBin = np.array([1, 380, 450, 500, 625, 812.5,  1200, 5000])
 nRecoBin = len(recoBin)-1
+def GetRecoBin():
+    return recoBin
 
 def FillHisto(mtrue, mpred, histos):
     for i in range(0,4):
         if (mtrue>recoBin[i] and mtrue<recoBin[i+1]):
             histos[i].Fill(mpred-mtrue)
 
-def ResponseMatrix(matrix, matrixName, y, yGen, outFolder, recoBin = recoBin, nRecoBin = nRecoBin):
-    for i in range(nRecoBin):
-        maskGen = (yGen >= recoBin[i]) & (yGen < recoBin[i+1])
-        genFilter = yGen[maskGen]
-        normalization = len(genFilter)
-        
-        for j in range(nRecoBin):
-            print(f"Bin generated #{i}\tBin reconstructed #{j}\r", end="")
-            maskRecoGen = (y >= recoBin[j]) & (y < recoBin[j+1]) & maskGen
-            entries = len(y[maskRecoGen])
-
+def ResponseMatrix(matrixName, y, yGen, outFolder, totGen,recoBinPlusBin = recoBin):
+    '''create a response matrix with an additional bin used to count overflow event'''
+    nRecoBinPlusBin = len(recoBinPlusBin)-1
+    matrix = np.empty((nRecoBinPlusBin, nRecoBinPlusBin))
+    for i in range(nRecoBinPlusBin):
+        maskGen = (yGen >= recoBinPlusBin[i]) & (yGen < recoBinPlusBin[i+1])
+       
+        maskNorm = (totGen >= recoBinPlusBin[i]) & (totGen < recoBinPlusBin[i+1])
+        normalization = len(maskNorm[maskNorm])
+        for j in range(nRecoBinPlusBin):
+            #print(f"Bin generated #{i}\tBin reconstructed #{j}\r", end="")
+            maskRecoGen = (y >= recoBinPlusBin[j]) & (y < recoBinPlusBin[j+1]) & maskGen
+            entries = len(maskRecoGen[maskRecoGen])
+            #print("entries",entries)
             if normalization == 0:
                 matrix[j, i] = 0
             else:
                 matrix[j, i] = entries/normalization
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-    im = ax.matshow(matrix, cmap=plt.cm.jet, alpha=0.7, norm=mpl.colors.LogNorm())
+    im = ax.matshow(matrix[:nRecoBin,:nRecoBin], cmap=plt.cm.jet, alpha=0.7, norm=mpl.colors.LogNorm())
     ax.set_title("Generated (bin number)", fontsize=18)
     #ax.set_xlabel("Generated (bin number)", fontsize=18)
     ax.set_ylabel("Reconstructed (bin number)", fontsize=18)
     ax.tick_params(labelsize=18)
-    ax.xaxis.set_ticks(np.arange(0, nRecoBin, 1.0))
-    ax.yaxis.set_ticks(np.arange(0, nRecoBin, 1.0))
-    for y in range(nRecoBin):
-        for x in range(nRecoBin):
+    ax.xaxis.set_ticks(np.arange(0, nRecoBinPlusBin, 1.0))
+    ax.yaxis.set_ticks(np.arange(0, nRecoBinPlusBin, 1.0))
+    for y in range(nRecoBinPlusBin):
+        for x in range(nRecoBinPlusBin):
             plt.text(x , y , '%.3f' % matrix[y, x],
                     horizontalalignment='center',
                     verticalalignment='center',
@@ -75,7 +84,7 @@ def covarianceMatrix(y, matrix, recoBin = recoBin):
 
 
 
-def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder):
+def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder, totGen):
     if not os.path.exists(outFolder):
         os.makedirs(outFolder)
     
@@ -113,10 +122,11 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder):
     RecoBinith = np.array([])
     GenRecoBinith = np.array([])
     for i in range(len(recoBin)-1):
-        maskGen = np.array((yTest >= recoBin[i]) & (yTest<recoBin[i+1]))
-        maskReco = np.array((yPredicted >= recoBin[i]) & (yPredicted<recoBin[i+1]))
+        maskTotGen = np.array((totGen >= recoBin[i]) & (totGen<recoBin[i+1]))           # all the generated
+        maskGen = np.array((yTest >= recoBin[i]) & (yTest<recoBin[i+1]))                # all the generated that satisfy the cuts
+        maskReco = np.array((yPredicted >= recoBin[i]) & (yPredicted<recoBin[i+1]))     # all the reconstructed in bin
         maskGenReco = maskGen & maskReco
-        GenBinith = np.append(GenBinith, len(maskGen[maskGen==True]))                              # Generated in bin i-th
+        GenBinith = np.append(GenBinith, len(maskTotGen[maskTotGen==True]))                              # Generated in bin i-th
         RecoBinith = np.append(RecoBinith, len(maskReco[maskReco==True]))                           # Reconstructed in bin ith
         GenRecoBinith = np.append(GenRecoBinith,  len(maskGenReco[maskGenReco==True]))                        # Generated and Reconstructed in bin ith
             
@@ -165,8 +175,8 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder):
 
     for i in range(len(logbins_wu)-1):
         mask = (yTest >= logbins_wu[i]) & (yTest < logbins_wu[i+1])
-        kinMask = (krM>1) & (mask) & (krM<1500)
-        LooseMask = (lkrM>1) & (mask) 
+        kinMask =  (mask) 
+        LooseMask =  (mask) 
         regMeanBinned       = np.append( regMeanBinned      ,   np.mean(yPredicted[mask]-yTest[mask]))
         kinMeanBinned       = np.append( kinMeanBinned      ,   np.mean(krM[kinMask]-yTest[kinMask]))
         LooseMeanBinned     = np.append( LooseMeanBinned    ,   np.mean(lkrM[LooseMask]-yTest[LooseMask]))
@@ -216,7 +226,9 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder):
     ax.errorbar(x, np.sqrt(LooseSquaredBinned), None, errX, linestyle='None', label = 'Loose ')
     ax.errorbar(x, np.sqrt(kinSquaredBinned), None, errX, linestyle='None', label = 'Kin ')
     ax.legend(fontsize=18, loc='best')
-    ax.set_ylabel("$\sqrt{<(Pred-True)^2>}$ [GeV]", fontsize=18)
+    ax.set_xlabel("m$_{tt}^{True}$")
+    ax.tick_params(labelsize=18)
+    ax.set_ylabel("$\sqrt{<(m_{tt}^{Reg}-m_{tt}^{True})^2>}$ [GeV]", fontsize=16)
     fig.savefig(outFolder+"/allSquared.pdf", bbox_inches='tight')
     plt.cla()
     
@@ -226,13 +238,17 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder):
 # *                             *
 # ******************************* 
     dnnMatrix = np.empty((nRecoBin, nRecoBin))
-    dnnMatrix = ResponseMatrix(matrix = dnnMatrix, y=yPredicted, yGen = yTest, matrixName = 'dnnMatrix', outFolder = outFolder)
-
+    print("DNN matrix")
+    dnnMatrix = ResponseMatrix(y=yPredicted, yGen = yTest, matrixName = 'dnnMatrix', outFolder = outFolder, totGen=totGen)
+    print("\nCondition Number of the DNN matrix:", np.linalg.cond(dnnMatrix))
+    with open(outFolder+"/../model/Info.txt", "a+") as f:
+        print("\nCondition Number of the DNN matrix:  "+str(np.linalg.cond(dnnMatrix))+"\n", file=f)
+    #print(np.linalg.inv(dnnMatrix).dot(dnnMatrix))
     looseMatrix = np.empty((nRecoBin, nRecoBin))
-    looseMatrix = ResponseMatrix(matrix = looseMatrix, y=lkrM, yGen=yTest, matrixName = 'looseMatrix', outFolder = outFolder)
+    looseMatrix = ResponseMatrix(y=lkrM, yGen=yTest, matrixName = 'looseMatrix', outFolder = outFolder, totGen=totGen)
 
     kinMatrix = np.empty((nRecoBin, nRecoBin))
-    kinMatrix = ResponseMatrix(matrix = kinMatrix, y=krM, yGen=yTest, matrixName = 'kinMatrix', outFolder = outFolder)
+    kinMatrix = ResponseMatrix(y=krM, yGen=yTest, matrixName = 'kinMatrix', outFolder = outFolder, totGen=totGen)
 
 
 # *******************************
@@ -270,36 +286,52 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder):
     
     #fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True, gridspec_kw={'height_ratios': [3, 1]}, figsize=(14, 10))
-    fig.subplots_adjust(hspace=0)
-    dnnCounts, bins_reco, bars_reco= ax1.hist(yPredicted, bins=recoBin, density=False, alpha=0.2, label='DNN mtt', edgecolor='C0')
-    looseCounts, bins_loose, bars_loose= ax1.hist(lkrM, bins=recoBin, density=False, alpha=0.2, label='Loose mtt', edgecolor='C1')
-    kinCounts, bins_kin, bars_kin= ax1.hist(krM, bins=recoBin, density=False, alpha=0.2, label='Kin mtt', edgecolor='C2')
-    genCounts, bins_gen, bars_gen = ax1.hist(yTest, bins=recoBin, density=False, alpha=0.5, label='Gen mtt', edgecolor='C3')
-
-    x_ = recoBin[:len(recoBin)-1]+(recoBin[1:]-recoBin[:len(recoBin)-1])/2
-    ax1.errorbar(x_     , np.linalg.inv(dnnMatrix).dot(dnnCounts)       , yerr=np.sqrt(np.diag(dnnCov)), label='Unfolded DNN', linestyle=' ', marker='o', markersize = 6, color='C0')
-    ax1.errorbar(x_+10  , np.linalg.inv(looseMatrix).dot(looseCounts)   , yerr=np.sqrt(np.diag(looseCov)), label='Unfolded Loose', linestyle=' ', marker='o', markersize = 6, color='C1')
-    ax1.errorbar(x_-10  , np.linalg.inv(kinMatrix).dot(kinCounts)       , yerr=np.sqrt(np.diag(kinCov)), label='Unfolded kin', linestyle=' ', marker='o', markersize = 6, color='C2')
-
+    fig.subplots_adjust(hspace=0.2)
+    dnnCounts, b_ = np.histogram(yPredicted,   bins=recoBin, density=False)
+    looseCounts,b_= np.histogram(lkrM,     bins=recoBin, density=False)
+    kinCounts, b_= np.histogram(krM,            bins=recoBin, density=False)
+    #genCounts, bins_gen, bars_gen = ax1.hist(yTest,         bins=recoBin, density=False, histtype=u'step', alpha=0.5, label='Gen mtt Reco', edgecolor='C3')
+    trueCounts, binsTrue, barsTrue = ax1.hist(totGen,         bins=recoBin, density=False, histtype=u'step', alpha=0.5, label='True', edgecolor='black')
+    ax1.set_xlim(100, recoBin[-1])
+    ax2.set_xlim(100, recoBin[-1])
+    x_ = recoBin[:len(recoBin)-1]
+    dx_= (recoBin[1:]-recoBin[:len(recoBin)-1])/2
+    ax1.errorbar(x_+dx_     , np.linalg.inv(dnnMatrix).dot(dnnCounts)       , yerr=np.sqrt(np.diag(dnnCov)), label='Unfolded DNN',      linestyle=' ', marker='o', markersize = 6, color='C0')
+    ax1.errorbar(x_+4/3*dx_  , np.linalg.inv(looseMatrix).dot(looseCounts)   , yerr=np.sqrt(np.diag(looseCov)), label='Unfolded Loose',  linestyle=' ', marker='o', markersize = 6, color='C1')
+    ax1.errorbar(x_+2/3*dx_  , np.linalg.inv(kinMatrix).dot(kinCounts)       , yerr=np.sqrt(np.diag(kinCov)), label='Unfolded kin',      linestyle=' ', marker='o', markersize = 6, color='C2')
+    ax1.set_xscale('log')
+    ax2.set_xscale('log')
+    ax1.set_ylabel("Events", fontsize=18)
+    ax2.set_ylabel("Relative Uncertainty", fontsize=18)
     #ax1.set_ylabel("Counts per %(first)d or %(second)d GeV/c" %{"first":bins[1]-bins[0], "second":(bins[len(bins)-1]-bins[len(bins)-2])} , fontsize=18)
     ax1.tick_params(labelsize=18)
     ax1.legend(fontsize=18)
 
-    ax2.errorbar(x_     , np.linalg.inv(dnnMatrix).dot(dnnCounts)    - genCounts   , yerr=np.sqrt(np.diag(dnnCov))  , label='Unfolded DNN', linestyle=' ', marker='o', markersize = 6, color='C0')
-    ax2.errorbar(x_+10  , np.linalg.inv(looseMatrix).dot(looseCounts)- genCounts   , yerr=np.sqrt(np.diag(looseCov)), label='Unfolded Loose', linestyle=' ', marker='o', markersize = 6, color='C1')
-    ax2.errorbar(x_-10  , np.linalg.inv(kinMatrix).dot(kinCounts)    - genCounts   , yerr=np.sqrt(np.diag(kinCov))  , label='Unfolded kin', linestyle=' ', marker='o', markersize = 6, color='C2' )
+    ax2.errorbar(x_+dx_     , np.linalg.inv(dnnMatrix).dot(dnnCounts)    - trueCounts   , yerr=np.sqrt(np.diag(dnnCov))/trueCounts  , label='Unfolded DNN', linestyle=' ', marker='o', markersize = 6, color='C0')
+    ax2.errorbar(x_+4/3*dx_ , np.linalg.inv(looseMatrix).dot(looseCounts)- trueCounts   , yerr=np.sqrt(np.diag(looseCov))/(2*trueCounts), label='Unfolded Loose Err/10', linestyle=' ', marker='o', markersize = 6, color='C1')
+    ax2.errorbar(x_+2/3*dx_ , np.linalg.inv(kinMatrix).dot(kinCounts)    - trueCounts   , yerr=np.sqrt(np.diag(kinCov))/trueCounts  , label='Unfolded kin', linestyle=' ', marker='o', markersize = 6, color='C2' )
     ax2.set_xlabel("m$_{tt}$ (GeV/c$^2$)", fontsize=18)
     ax2.tick_params(labelsize=18)
+    ax2.axhline(y=0, color='black', linestyle='-', alpha=0.4)
 
     fig.savefig(outFolder+"/diff_tt.pdf", bbox_inches='tight')
     plt.cla()
+    np.set_printoptions(precision=3)
+    print("sum of true counts", np.array(trueCounts).sum())
+    print("sum of dnn counts", np.array(np.linalg.inv(dnnMatrix).dot(dnnCounts)).sum())
+    #print("sum of kinn counts", np.array(dnnCounts).sum())
+    
+    print("Difference in: A*x - y" ,  dnnMatrix.dot(trueCounts)-dnnCounts)
+    print("Difference in: A-1*y - x" ,np.linalg.inv(dnnMatrix).dot(dnnCounts)  - trueCounts)
     print("Errors in DNN unfolding:",   np.sqrt(np.diag(dnnCov)))
     print("Errors in Loose unfolding:", np.sqrt(np.diag(looseCov)))
     print("Errors in kin unfolding:",   np.sqrt(np.diag(kinCov)))
-    with open(outFolder+"/../model/Info.txt", "w") as f:
-        print("Errors in DNN unfolding:",   np.sqrt(np.diag(dnnCov)), file = f)
+    with open(outFolder+"/../model/Info.txt", "a+") as f:
+        print("Difference in: A*x - y"    , dnnMatrix.dot(trueCounts)-dnnCounts, file=f)
+        print("Difference in: A-1*y - x"  , np.linalg.inv(dnnMatrix).dot(dnnCounts)  - trueCounts, file=f)
+        print("Errors in DNN unfolding:"  , np.sqrt(np.diag(dnnCov)), file = f)
         print("Errors in Loose unfolding:", np.sqrt(np.diag(looseCov)), file=f)
-        print("Errors in kin unfolding:",   np.sqrt(np.diag(kinCov)), file=f)
+        print("Errors in kin unfolding:"  , np.sqrt(np.diag(kinCov)), file=f)
 #except:
   #      print("singular matrix")
 
@@ -410,6 +442,7 @@ def doEvaluationPlots(yTest, yPredicted, weightTest, lkrM, krM, outFolder):
         cbar = fig.colorbar(im, cax=cbar_ax)
         ax.set_xlabel("m$_{tt}^{True}$", fontsize=18)
         ax.set_ylabel(['m$_{tt}^{DNN}$', 'm$_{tt}^{Loose}$', 'm$_{tt}^{Kin}$'][index]+" - True", fontsize=18)
+        ax.tick_params(labelsize=18)
         cbar.set_label('Counts', fontsize=19)
         cbar.ax.tick_params(labelsize=18)
         print(outFolder+"/"+['Reg', 'Loose', 'Kin'][index]+"MinusTrueVsTrue.pdf")

@@ -4,9 +4,11 @@ from sklearn.model_selection import train_test_split
 from utils.helpers import *
 from utils.models import *
 from utils.plot import *
+from npyData.checkFeatures import checkFeatures
 import matplotlib.pyplot as plt
+import matplotlib
 from array import array
-import tensorflow as tf
+from tensorflow import keras
 import shap
 from scipy.stats.stats import pearsonr
 from scipy.spatial.distance import jensenshannon
@@ -15,29 +17,37 @@ from scipy.stats import gaussian_kde
 from scipy.stats import entropy
 from sklearn.preprocessing import PowerTransformer
 from sklearn.preprocessing import QuantileTransformer
-
-
+matplotlib.use('agg')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
-nFiles_             = 3
-maxEvents_          = 100001
+# controlla
+# Nomi file (additional e input)
+# nFiles e maxEvents
+# minbjets
+# helpers taglio dei dati
+
+
+nFiles_             = 2
+maxEvents_          = 100000
 testFraction_       = 0.3
 validation_split_   = 0.3
-epochs_             = 100       # 5000
-learningRate_       = 0.01     # 10^-3
-batchSize_          = 128        
-nDense_             = 2   
-nNodes_             = 64   
-regRate_            = 0.01
+epochs_             = 1500       # 5000
+learningRate_       = 0.001     # 10^-3
+batchSize_          = 128  
+nDense_             = 2
+nNodes_             = 32 
+regRate_            = 0.005
 activation_         = 'relu'
 outputActivation_   = 'linear'
-patienceeS_         = 15
+patienceeS_         = 100
 #patiencelR_         = 30
 reduceLR_factor     = 0.
-dropout_            = 0.     
+dropout_            = 0.
 doEvaluate          = False
-additionalName_     = "_complex"
 exp_tau             = 150
+minbjets_           = 1
+inputName           = "AtLeast"+str(minbjets_)+"BjetL&RhasS"+str(nFiles_)+"Files+ttbarProp"
+additionalName_     = str(nDense_)+"*"+str(nNodes_)+"_reg_"+str(regRate_)+"_batch_"+str(batchSize_)+"AtLeast"+str(minbjets_)+"BjetL&RhasS+ttbarProp"
 
 
 def KLdiv(p, q):
@@ -57,12 +67,12 @@ def JSdist(p, q):
     return [np.sqrt(entropy(kde_p, m)/2 + entropy(kde_q, m)/2), jensenshannon(kde_p, kde_q)]
 
 
-def loadData(dataPathFolder , additionalName, testFraction, withBTag, pTEtaPhiMode, maxEvents):
+def loadData(dataPathFolder , testFraction, maxEvents):
     '''
     Load data from saved numpy arrays or create them if not available (using loadRegressionData)
     '''
     
-    print ("LoadData from "+dataPathFolder+"/flat_[..]"+additionalName+".npy")
+    print ("LoadData from "+dataPathFolder+"/flat_[..].npy")
     print ("\t nFiles       = "+str(nFiles_))
     print ("\t maxEvents    = "+str(maxEvents))
     print ("\t testFraction = "+str(testFraction))
@@ -81,23 +91,21 @@ def loadData(dataPathFolder , additionalName, testFraction, withBTag, pTEtaPhiMo
 
 
     createNewData = False
-    if not os.path.exists(dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy"):
+    if not os.path.exists(dataPathFolder+ "/flat_inX.npy"):
         createNewData = True
-        print("*** Not found the data in the directory "+dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy")
-        print("***           Producing new data              ***")
+        print("*** Not found the data in the directory "+dataPathFolder+ "/flat_inX.npy")
     else:
         print("\nData found in the directory :" + dataPathFolder)
         createNewData = False
 
     if createNewData:
-        minJets=2
-        print ("\nNew data will be loaded with settings: nJets >= "+str(minJets)+"; max Events = "+str(maxEvents))
-        inX, outY, weights, lkrM, krM = loadRegressionData("/nfs/dust/cms/user/celottog/ttbarSignalFromDilepton", "miniTree", nFiles=nFiles_,  withBTag=withBTag, pTEtaPhiMode=pTEtaPhiMode)
+        inX, outY, weights, lkrM, krM, totGen = loadRegressionData("/nfs/dust/cms/user/celottog/ttbarSignalFromDilepton", "miniTree", nFiles=nFiles_, minbjets=minbjets_, maxEvents=maxEvents)
         inX     = np.array(inX)
         outY    = np.array(outY)
         weights = np.array(weights)
         lkrM    = np.array(lkrM)
         krM     = np.array(krM)
+        totGen = np.array(totGen)
         #pt = PowerTransformer(method='box-cox', standardize=True)
         #quantile_transformer = QuantileTransformer(output_distribution='normal', random_state=0)
         #inX[:,0] = np.ndarray.flatten(pt.fit_transform(inX[:,0].reshape(-1, 1)))
@@ -106,65 +114,70 @@ def loadData(dataPathFolder , additionalName, testFraction, withBTag, pTEtaPhiMo
 
         inX, outY, weights, lkrM, krM = shuffle(inX, outY, weights, lkrM, krM, random_state = 1999)
         print("Number training events before [:maxEvents]:", inX.shape[0], len(inX))
-        if not os.path.exists(dataPathFolder+"/"+additionalName):
-            os.makedirs(dataPathFolder+"/"+additionalName)
-        np.save(dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy", inX)
-        np.save(dataPathFolder+"/"+additionalName+ "/flat_outY"+additionalName+".npy", outY)
-        np.save(dataPathFolder+"/"+additionalName+ "/flat_weights"+additionalName+".npy", weights)
-        np.save(dataPathFolder+"/"+additionalName+ "/flat_lkrM"+additionalName+".npy", lkrM)
-        np.save(dataPathFolder+"/"+additionalName+ "/flat_krM"+additionalName+".npy", krM)
+        if not os.path.exists(dataPathFolder):
+            os.makedirs(dataPathFolder)
+        np.save(dataPathFolder+ "/flat_inX.npy", inX)
+        np.save(dataPathFolder+ "/flat_outY.npy", outY)
+        np.save(dataPathFolder+ "/flat_weights.npy", weights)
+        np.save(dataPathFolder+ "/flat_lkrM.npy", lkrM)
+        np.save(dataPathFolder+ "/flat_krM.npy", krM)
+        np.save(dataPathFolder+ "/flat_totGen.npy", totGen)
+        checkFeatures(dataPathFolder)
 
-    print("*** inX, outY, weights, lkrM, krM loading")
-    inX     = np.load(dataPathFolder+"/"+additionalName+ "/flat_inX"+additionalName+".npy")
-    outY    = np.load(dataPathFolder+"/"+additionalName+ "/flat_outY"+additionalName+".npy")
-    weights = np.load(dataPathFolder+"/"+additionalName+ "/flat_weights"+additionalName+".npy")
-    lkrM    = np.load(dataPathFolder+"/"+additionalName+ "/flat_lkrM"+additionalName+".npy")
-    krM     = np.load(dataPathFolder+"/"+additionalName+ "/flat_krM"+additionalName+".npy")
+    
+    print("Control plots")
+    inX     = np.load(dataPathFolder+ "/flat_inX.npy")
+    outY    = np.load(dataPathFolder+ "/flat_outY.npy")
+    weights = np.load(dataPathFolder+ "/flat_weights.npy")
+    lkrM    = np.load(dataPathFolder+ "/flat_lkrM.npy")
+    krM     = np.load(dataPathFolder+ "/flat_krM.npy")
+    totGen  = np.load(dataPathFolder+ "/flat_totGen.npy")
+    print("Maximum of totGen:\t", totGen.max())
     print("*** inX, outY, weights, lkrM, krM loaded")
 
-    if maxEvents is not None:
-        inX     = inX[:maxEvents]
-        outY    = outY[:maxEvents]
-        weights = weights[:maxEvents]
-        lkrM    = lkrM[:maxEvents]
-        krM     = krM[:maxEvents]
+    #if maxEvents is not None:
+    #    inX     = inX[:maxEvents]
+    #    outY    = outY[:maxEvents]
+    #    weights = weights[:maxEvents]
+    #    lkrM    = lkrM[:maxEvents]
+    #    krM     = krM[:maxEvents]
 
-    print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape)
+    print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape, '\ntotGen\t', totGen.shape)
     
     #pt = PowerTransformer(method='box-cox', standardize=True)
     #qt = QuantileTransformer(output_distribution='normal', random_state=0)
     #inX[:,] = qt.fit_transform(inX)
 
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state = 1999)
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state = 1998)
 
     print ("\tData splitted succesfully")
-    print("Number training events :", inX_train.shape[0], len(inX_train))
+    print("Number train+valid events :", inX_train.shape[0], len(inX_train))
+    print("Number test events :", inX_test.shape[0], len(inX_test))
     print("Number of features     :", inX_train.shape[1])
     print("loadData ended returning inX_train and so on...")
-    if not os.path.exists(dataPathFolder+"/"+additionalName+ "/testing"):
-        os.makedirs(dataPathFolder+"/"+additionalName+ "/testing")
+    if not os.path.exists(dataPathFolder+ "/testing"):
+        os.makedirs(dataPathFolder+ "/testing")
     
     if createNewData:
-        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_inX"    + additionalName+"_test.npy", inX_test)
-        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_outY"   + additionalName+"_test.npy", outY_test)
-        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_weights"+ additionalName+"_test.npy", weights_test)
-        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_lkrM"   + additionalName+"_test.npy", lkrM_test)
-        np.save(dataPathFolder+"/"+additionalName+ "/testing/flat_krM"    + additionalName+"_test.npy", krM_test)
+        np.save(dataPathFolder+ "/testing/flat_inX"    + "_test.npy", inX_test)
+        np.save(dataPathFolder+ "/testing/flat_outY"   + "_test.npy", outY_test)
+        np.save(dataPathFolder+ "/testing/flat_weights"+ "_test.npy", weights_test)
+        np.save(dataPathFolder+ "/testing/flat_lkrM"   + "_test.npy", lkrM_test)
+        np.save(dataPathFolder+ "/testing/flat_krM"    + "_test.npy", krM_test)
 
-    return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test
+    return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, totGen
 
-def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData"):
+def doTrainingAndEvaluation(modelName, outFolder, dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData"):
     
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = loadData(
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen = loadData(
                                     dataPathFolder = dataPathFolder, 
-                                    additionalName = additionalName, testFraction = testFraction_,
-                                    withBTag = True, pTEtaPhiMode=True,
+                                    testFraction = testFraction_,
                                     maxEvents = maxEvents_)
     # Create the output folder if it does not exist
     if not os.path.exists(outFolder):
         os.makedirs(outFolder)
 
-    print(" Check element number 89 of inX_test", inX_test[89,0],"\n")      
+    print("Check element number 89 of inX_test", inX_test[89,0],"\n")      
 
 
     #feature_names, inX_train, inX_test = helpers.getReducedFeatureNamesAndInputs(inX_train, inX_test, tokeep=tokeep)
@@ -260,7 +273,7 @@ def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder
                                       nNodes = nNodes_, inputDim = inX_train.shape[1], outputActivation = outputActivation_)
 
 
-    optimizer = tf.keras.optimizers.Adam(   lr = learningRate_,
+    optimizer = keras.optimizers.Adam(   learning_rate = learningRate_,
                                             beta_1=0.9, beta_2=0.999,   # memory lifetime of the first and second moment
                                             epsilon=1e-07,              # regularization constant to avoid divergences
                                             #weight_decay=None,
@@ -269,14 +282,14 @@ def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder
                                             )
 
     print ("compiling model")
-    #model.compile(optimizer=optimizer, loss = tf.keras.losses.MeanSquaredError(), metrics=['mean_absolute_error','mean_absolute_percentage_error'])
-    model.compile(optimizer=optimizer, loss = tf.keras.losses.MeanSquaredError())
+    #model.compile(optimizer=optimizer, loss = keras.losses.MeanSquaredError(), metrics=['mean_absolute_error','mean_absolute_percentage_error'])
+    model.compile(optimizer=optimizer, loss = keras.losses.MeanSquaredError())
 
 
     callbacks=[]
-    #reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=patiencelR_, factor=reduceLR_factor)
-    earlyStop = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=patienceeS_, verbose = 1, restore_best_weights=True)
-    #modelCheckpoint = tf.keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
+    #reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor = 'val_loss', patience=patiencelR_, factor=reduceLR_factor)
+    earlyStop = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience=patienceeS_, verbose = 1, restore_best_weights=True)
+    #modelCheckpoint = keras.callbacks.ModelCheckpoint(outFolder + '/model_best.h5', monitor='val_loss', save_best_only=True)
     callbacks.append(earlyStop)
     #callbacks.append(modelCheckpoint)
     
@@ -287,16 +300,16 @@ def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder
     inX_train       = inX_train[:divisor]
     outY_train      = outY_train[:divisor]
     weights_train   = weights_train[:divisor]
+    print("Number train events :", inX_train.shape[0], len(inX_train))
+    print("Number valid events :", inX_valid.shape[0], len(inX_valid))
+ 
+    #jsTV = JSdist(outY_train[:len(outY_valid)-1,0], outY_valid[:len(outY_valid)-1,0])
+    #print ("JS between KinR training and validation", str(jsTV[0])[:6], str(jsTV[1])[:6])       
 
-    jsTV = JSdist(inX_train[:len(outY_valid)-1,0], inX_valid[:len(outY_valid)-1,0])
-    print ("JS between LooseR training and validation", str(jsTV[0])[:6], str(jsTV[1])[:6])    
-    jsTV = JSdist(inX_train[:len(outY_valid)-1,1], inX_valid[:len(outY_valid)-1,1])
-    print ("JS between KinR training and validation", str(jsTV[0])[:6], str(jsTV[1])[:6])       
-
-    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_inX"    + additionalName+"_train.npy", inX_train)
-    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_outY"   + additionalName+"_train.npy", outY_train)
-    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_inX"    + additionalName+"_valid.npy", inX_valid)
-    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_outY"   + additionalName+"_valid.npy", outY_valid)
+    np.save(dataPathFolder+"/testing/flat_inX"    + "_train.npy", inX_train)
+    np.save(dataPathFolder+"/testing/flat_outY"   + "_train.npy", outY_train)
+    np.save(dataPathFolder+"/testing/flat_inX"    + "_valid.npy", inX_valid)
+    np.save(dataPathFolder+"/testing/flat_outY"   + "_valid.npy", outY_valid)
         
 
     print ("fitting model")
@@ -317,9 +330,9 @@ def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder
     saveModel = not doEvaluate
     if saveModel:
         model.save(outFolder+"/model/"+modelName+".h5")
-        tf.keras.backend.clear_session()
-        tf.keras.backend.set_learning_phase(0)
-        model = tf.keras.models.load_model(outFolder+"/model/"+modelName+".h5")
+        keras.backend.clear_session()
+        keras.backend.set_learning_phase(0)
+        model = keras.models.load_model(outFolder+"/model/"+modelName+".h5")
         print('inputs: ', [input.op.name for input in model.inputs])
         print('outputs: ', [output.op.name for output in model.outputs])
 
@@ -329,9 +342,9 @@ def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder
     y_predicted_train = model.predict(inX_train)
     y_predicted_valid = model.predict(inX_valid)
     
-    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_regY"   + additionalName+"_test.npy", y_predicted)
-    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_regY"   + additionalName+"_train.npy", y_predicted_train)
-    np.save(dataPathFolder+"/"+additionalName+"/testing/flat_regY"   + additionalName+"_valid.npy", y_predicted_valid)
+    np.save(dataPathFolder+"/testing/flat_regY"   + "_test.npy", y_predicted)
+    np.save(dataPathFolder+"/testing/flat_regY"   + "_train.npy", y_predicted_train)
+    np.save(dataPathFolder+"/testing/flat_regY"   + "_valid.npy", y_predicted_valid)
 
     doPlotLoss(fit = fit, outFolder=outFolder+"/model")
     
@@ -343,15 +356,17 @@ def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder
     print ("KL", kl)
     js = JSdist(y_predicted[:,0], outY_test[:,0])
     print ("JS", str(js[0])[:6], str(js[1])[:6])
-    with open(outFolder+"/model/Info.txt", "w") as f:
-        f.write("JS\t"+ str(js[0])[:6]+"\n"+"KL\t"+ str(kl)[:6])
-        print(model.summary(), file=f)
+    with open(outFolder+"/model/Info.txt", "a+") as f:
+        f.write("JS\t"+ str(js[0])[:6]+"\n"+"KL\t"+ str(kl)[:6]+"\ncorrelation:\t"+str(corr[0])+"\n")
+        model.summary(print_fn=lambda x: f.write(x + '\n'))
+        f.write("\n")
+        #print(model.summary(), file=f)
 
         
 
-    doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train[:divisor], krM_train[:divisor], outFolder = outFolder+"/train")
+    doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train[:divisor], krM_train[:divisor], outFolder = outFolder+"/train", totGen=totGen[:int((1-testFraction_)*len(totGen))])
     print("Plots for testing")
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test")
+    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen=totGen[:int(testFraction_*len(totGen))])
 
 
     max_display = inX_test.shape[1]
@@ -375,18 +390,17 @@ def doTrainingAndEvaluation(modelName, additionalName, outFolder, dataPathFolder
 
 
 
-def justEvaluate(dataPathFolder, additionalName, modelDir, modelName, outFolder):
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = loadData(
+def justEvaluate(dataPathFolder, modelDir, modelName, outFolder):
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen = loadData(
                                     dataPathFolder = dataPathFolder,
-                                    additionalName = additionalName, testFraction = testFraction_,
-                                    withBTag = True, pTEtaPhiMode=True,
+                                    testFraction = testFraction_,
                                     maxEvents = maxEvents_)
 
 
-    model = tf.keras.models.load_model(modelDir+"/"+modelName+".h5")
+    model = keras.models.load_model(modelDir+"/"+modelName+".h5")
     y_predicted = model.predict(inX_test)
 
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test")
+    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen=totGen[:int(testFraction_*len(totGen))])
 
 def main():
     print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
@@ -394,12 +408,12 @@ def main():
     
     if (doEvaluate):
         print("Calling justEvaluate ...")
-        justEvaluate(dataPathFolder="/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName = additionalName_, 
+        justEvaluate(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData/"+inputName, 
         	         modelDir = "/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_+"/model", modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_)
     
     else:
        print("Calling doTrainingAndEvaluation ...")
-       doTrainingAndEvaluation(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData", additionalName = additionalName_, 
+       doTrainingAndEvaluation(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData/"+inputName, 
 				modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_)
 if __name__ == "__main__":
 	main()
