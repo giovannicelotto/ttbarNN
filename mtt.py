@@ -4,67 +4,50 @@ from sklearn.model_selection import train_test_split
 from utils.helpers import *
 from utils.models import *
 from utils.plot import *
+from utils.stat import *
 from npyData.checkFeatures import checkFeatures
 import matplotlib.pyplot as plt
 import matplotlib
 from array import array
 from tensorflow import keras
-import shap
+
 from scipy.stats.stats import pearsonr
 from scipy.spatial.distance import jensenshannon
 from sklearn.utils import shuffle
 from scipy.stats import gaussian_kde
 from scipy.stats import entropy
-from sklearn.preprocessing import PowerTransformer
-from sklearn.preprocessing import QuantileTransformer
+
 matplotlib.use('agg')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
 
-# controlla
-# Nomi file (additional e input)
-# nFiles e maxEvents
-# minbjets
-# helpers taglio dei dati
 
-
-nFiles_             = 2
+nFiles_             = 1
 maxEvents_          = 100000
 testFraction_       = 0.3
 validation_split_   = 0.3
-epochs_             = 1500       # 5000
-learningRate_       = 0.001     # 10^-3
-batchSize_          = 128  
-nDense_             = 2
-nNodes_             = 32 
-regRate_            = 0.005
+epochs_             = 50
+learningRate_       = 0.01  #tb0
+batchSize_          = 128    #tbo
+validBatchSize_     = 512    #tbo
+nNodes_             = [12, 6] # tbo
+nDense_             = len(nNodes_)
+regRate_            = 0.005     #tbo
 activation_         = 'relu'
 outputActivation_   = 'linear'
-patienceeS_         = 100
-#patiencelR_         = 30
+patienceeS_         = 200
 reduceLR_factor     = 0.
 dropout_            = 0.
 doEvaluate          = False
-exp_tau             = 150
+exp_tau_             = 150
 minbjets_           = 1
-inputName           = "AtLeast"+str(minbjets_)+"BjetL&RhasS"+str(nFiles_)+"Files+ttbarProp"
-additionalName_     = str(nDense_)+"*"+str(nNodes_)+"_reg_"+str(regRate_)+"_batch_"+str(batchSize_)+"AtLeast"+str(minbjets_)+"BjetL&RhasS+ttbarProp"
+#inputName           = str(nFiles_)+"*"+((str(int(maxEvents_/1000))+"k") if maxEvents_ is not None else 'None')
+#additionalName_     = str(nFiles_)+"*"+((str(int(maxEvents_/1000))+"k") if maxEvents_ is not None else 'None')+"_"+str(nDense_)+"*"+str(nNodes_).replace(", ", "_")
+inputName           = "1*None"
+additionalName_     = "new"
+#inputName           = "emu_AtLeast"+str(minbjets_)+"Bj"+str(nFiles_)+"*"+((str(int(maxEvents_/1000))+"k") if maxEvents_ is not None else 'None')+"Ev"
+#additionalName_     = str(nDense_)+"*"+str(nNodes_)+"_Reg"+str(regRate_)+"_Batch"+str(batchSize_)+"Ev"+((str(int(maxEvents_/1000))+"k") if maxEvents_ is not None else 'None')
 
 
-def KLdiv(p, q):
-    xs_ = np.linspace(340, 800, 50)
-    kde_p = gaussian_kde(p)(xs_) 
-    kde_q = gaussian_kde(q)(xs_) 
-    kl_divergence = entropy(kde_p, kde_q)
-    return kl_divergence
-
-def JSdist(p, q):
-    xs_ = np.linspace(340, 800, 50)
-    kde_p = gaussian_kde(p)(xs_) 
-    kde_q = gaussian_kde(q)(xs_) 
-    
-    m = (kde_p + kde_q) / 2
-
-    return [np.sqrt(entropy(kde_p, m)/2 + entropy(kde_q, m)/2), jensenshannon(kde_p, kde_q)]
 
 
 def loadData(dataPathFolder , testFraction, maxEvents):
@@ -87,7 +70,7 @@ def loadData(dataPathFolder , testFraction, maxEvents):
     #print ("\t patiencelR   = "+str(patiencelR_))
     print ("\t patienceeS   = "+str(patienceeS_))
     print ("\t dropout      = "+str(dropout_))
-    print ("\t expTau       = "+str(exp_tau))
+    print ("\t expTau       = "+str(exp_tau_))
 
 
     createNewData = False
@@ -105,15 +88,10 @@ def loadData(dataPathFolder , testFraction, maxEvents):
         weights = np.array(weights)
         lkrM    = np.array(lkrM)
         krM     = np.array(krM)
-        totGen = np.array(totGen)
-        #pt = PowerTransformer(method='box-cox', standardize=True)
-        #quantile_transformer = QuantileTransformer(output_distribution='normal', random_state=0)
-        #inX[:,0] = np.ndarray.flatten(pt.fit_transform(inX[:,0].reshape(-1, 1)))
-        #inX[:,1] = np.ndarray.flatten(pt.fit_transform(inX[:,1].reshape(-1, 1)))
-        #inX[:,2] = np.ndarray.flatten(quantile_transformer.fit_transform(inX[:,2].reshape(-1, 1)))
-
+        totGen  = np.array(totGen)
+        
         inX, outY, weights, lkrM, krM = shuffle(inX, outY, weights, lkrM, krM, random_state = 1999)
-        print("Number training events before [:maxEvents]:", inX.shape[0], len(inX))
+        print("Number training events :", inX.shape[0], len(inX))
         if not os.path.exists(dataPathFolder):
             os.makedirs(dataPathFolder)
         np.save(dataPathFolder+ "/flat_inX.npy", inX)
@@ -122,39 +100,51 @@ def loadData(dataPathFolder , testFraction, maxEvents):
         np.save(dataPathFolder+ "/flat_lkrM.npy", lkrM)
         np.save(dataPathFolder+ "/flat_krM.npy", krM)
         np.save(dataPathFolder+ "/flat_totGen.npy", totGen)
-        checkFeatures(dataPathFolder)
+        print("Control plots")
+        checkFeatures(inX, dataPathFolder)
 
     
-    print("Control plots")
     inX     = np.load(dataPathFolder+ "/flat_inX.npy")
     outY    = np.load(dataPathFolder+ "/flat_outY.npy")
     weights = np.load(dataPathFolder+ "/flat_weights.npy")
     lkrM    = np.load(dataPathFolder+ "/flat_lkrM.npy")
     krM     = np.load(dataPathFolder+ "/flat_krM.npy")
     totGen  = np.load(dataPathFolder+ "/flat_totGen.npy")
-    print("Maximum of totGen:\t", totGen.max())
-    print("*** inX, outY, weights, lkrM, krM loaded")
+    print("\nMaximum of totGen:\t", totGen.max())
+    print("Minimum of totGen:\t", totGen.min())
 
-    #if maxEvents is not None:
-    #    inX     = inX[:maxEvents]
-    #    outY    = outY[:maxEvents]
-    #    weights = weights[:maxEvents]
-    #    lkrM    = lkrM[:maxEvents]
-    #    krM     = krM[:maxEvents]
+    
+    if ((maxEvents is not None) & (createNewData == False)):
+        ratio   = maxEvents/len(inX)
+        print("maxev", maxEvents)
+        #print("inX  ", inX)
+        print("ratio",ratio)
+        inX     = inX[:maxEvents]
+        outY    = outY[:maxEvents]
+        weights = weights[:maxEvents]
+        lkrM    = lkrM[:maxEvents]
+        krM     = krM[:maxEvents]
+        totGen  = totGen[:int(round(ratio*(len(totGen)-1)))]
+
+    
+    print("scaling data")
+    featureNames = getFeatureNames()
+    inXs = multiScale(featureNames, inX)
+    checkFeatures(inXs, dataPathFolder, name="scaledPlot")
 
     print('\n\nShapes of all the data at my disposal:\nInput  \t',inX.shape,'\nOutput\t', outY.shape,'\nWeights\t', weights.shape,'\nLoose M\t', lkrM.shape,'\nFull M\t', krM.shape, '\ntotGen\t', totGen.shape)
     
-    #pt = PowerTransformer(method='box-cox', standardize=True)
+    #
     #qt = QuantileTransformer(output_distribution='normal', random_state=0)
-    #inX[:,] = qt.fit_transform(inX)
+    #
 
-    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inX, outY, weights, lkrM, krM, test_size = testFraction, random_state = 1998)
+    inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test = train_test_split(inXs, outY, weights, lkrM, krM, test_size = testFraction, random_state = 1998)
 
     print ("\tData splitted succesfully")
     print("Number train+valid events :", inX_train.shape[0], len(inX_train))
-    print("Number test events :", inX_test.shape[0], len(inX_test))
-    print("Number of features     :", inX_train.shape[1])
-    print("loadData ended returning inX_train and so on...")
+    print("Number test events        :", inX_test.shape[0], len(inX_test))
+    print("Number of features        :", inX_train.shape[1])
+    
     if not os.path.exists(dataPathFolder+ "/testing"):
         os.makedirs(dataPathFolder+ "/testing")
     
@@ -168,7 +158,7 @@ def loadData(dataPathFolder , testFraction, maxEvents):
     return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, totGen
 
 def doTrainingAndEvaluation(modelName, outFolder, dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData"):
-    
+    print("Calling doTrainingAndEvaluation ...")
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen = loadData(
                                     dataPathFolder = dataPathFolder, 
                                     testFraction = testFraction_,
@@ -176,6 +166,26 @@ def doTrainingAndEvaluation(modelName, outFolder, dataPathFolder = "/nfs/dust/cm
     # Create the output folder if it does not exist
     if not os.path.exists(outFolder):
         os.makedirs(outFolder)
+    if not os.path.exists(outFolder+ "/model"):
+        os.makedirs(outFolder+ "/model")
+    with open(outFolder+"/model/Info.txt", "w") as f:
+        print ("LoadData from "+dataPathFolder+"/flat_[..].npy")
+        print ("\t nFiles       = "+str(nFiles_), file=f)
+        print ("\t maxEvents    = "+str(maxEvents_), file=f)
+        print ("\t testFraction = "+str(testFraction_), file=f)
+        print ("\t valid split  = "+str(validation_split_), file=f)
+        print ("\t Epochs       = "+str(epochs_), file=f)
+        print ("\t learningRate = "+str(learningRate_), file=f)  
+        print ("\t batchSize    = "+str(batchSize_), file=f)
+        print ("\t nDense       = "+str(nDense_), file=f)
+        print ("\t nNodes       = "+str(nNodes_), file=f)
+        print ("\t regRate      = "+str(regRate_), file=f)
+        print ("\t activation   = "+str(activation_), file=f)
+        #print ("\t patiencelR   = "+str(patiencelR_), file=f)
+        print ("\t patienceeS   = "+str(patienceeS_), file=f)
+        print ("\t dropout      = "+str(dropout_), file=f)
+        print ("\t expTau       = "+str(exp_tau_), file=f)
+
 
     print("Check element number 89 of inX_test", inX_test[89,0],"\n")      
 
@@ -191,76 +201,10 @@ def doTrainingAndEvaluation(modelName, outFolder, dataPathFolder = "/nfs/dust/cm
 # *        Weight part          *
 # *                             *
 # *******************************
-
-    weightBins = array('d', [340, 342.5, 345, 347.5, 350, 355, 360, 370, 380, 390, 400, 410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
-    wegihtNBin = len(weightBins)-1
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
-
-    print("Filling histo with m_tt")
-    for m, weight in zip(outY_train, weights_train):
-        weightHisto.Fill(m,abs(weight))
-    weightHisto = NormalizeBinWidth1d(weightHisto)
-
-    
-    '''xs_ = np.linspace(340, 800, 1000)
-    kde = gaussian_kde(outY_train[:,0])(xs_)        
-    kde = kde/np.max(kde)                           # set the max od the kde to 1
-    xsmax = xs_[np.argmax(kde)]
-    myexp = np.piecewise(xs_, [xs_<xsmax, xs_>=xsmax], [1, np.exp(-(xs_-xsmax)[xs_>=xsmax]/200)])
-    #kde_prime = np.abs(kde[2:]-kde[:len(kde)-2]/(2*(xs_[1]-xs_[0])))
-    #kde_sec = np.abs(kde[2:]-2*kde[1:len(kde)-1]+kde[:len(kde)-2]/(xs_[1]-xs_[0])**2)
-
-    fig, ax = plt.subplots(1, 1)
-    #ax.plot(xs_, myexp)
-    ax.plot(xs_, (1/kde)*myexp)
-    #ax.plot(xs_, (1/kde)*myexp)
-    #ax.plot(xs_[1:len(xs_)-1], kde_prime)
-    #ax.plot(xs_[1:len(xs_)-1], kde_sec)
-    #ax.plot(xs_, 0.004*0.004*1/(0.004+kde), linewidth=0.5, marker='o', markersize=1)
-    fig.savefig(outFolder+"/model/kde.pdf")
-    plt.cla()'''
     if not os.path.exists(outFolder+ "/model"):
         os.makedirs(outFolder+ "/model")
-    canvas = ROOT.TCanvas()
-    weightHisto.Draw("hist")
-    weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
-    weightHisto.SetYTitle('Normalized Counts')
-    canvas.SaveAs(outFolder + "/model/mttOriginalWeight.pdf")
 
-    weightHisto.Scale(1./weightHisto.Integral())
-    maximumBin = weightHisto.GetMaximumBin()
-    maximumBinContent = weightHisto.GetBinContent(maximumBin)
-
-    firstMidpoint = (weightHisto.GetXaxis().GetBinLowEdge(1)+weightHisto.GetXaxis().GetBinUpEdge(1))/2
-    #print("firstMidpoint: ", firstMidpoint)
-    for binX in range(1,weightHisto.GetNbinsX()+1):
-        midpoint = (weightHisto.GetXaxis().GetBinLowEdge(binX) + weightHisto.GetXaxis().GetBinUpEdge(binX))/2
-        #print("Current midpoint:\t", midpoint)
-        c = weightHisto.GetBinContent(binX)
-        if (c>0):
-            weightHisto.SetBinContent(binX, maximumBinContent/(c)*np.exp(-(midpoint-firstMidpoint)/exp_tau))#
-        #if ((binX >= maximumBin+10) & (c>0)):
-        #    weightHisto.SetBinContent(binX, 1)
-        #elif (c>0):
-        #    weightHisto.SetBinContent(binX, maximumBinContent/c)
-        else:
-            weightHisto.SetBinContent(binX, 1.)     
-    weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
-    weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
-    weightHisto.SetTitle("Weights distributions")
-    canvas.SetLogy(1)
-    canvas.SaveAs(outFolder+"/model/weights.pdf")
-    weights_train_original = weights_train
-    weights_train_=[]
-    for w,m in zip(weights_train, outY_train):
-        weightBin = weightHisto.FindBin(m)
-        addW = weightHisto.GetBinContent(weightBin)	    # weights for importance
-        weights_train_.append(abs(w)*addW)           	# weights of the training are the product of the original weights and the weights used to give more importance to regions with few events
-    weights_train = np.array(weights_train_)		    # final weights_train is np array
-
-    weights_train = 1./np.mean(weights_train)*weights_train
-
-
+    weights_train, weights_train_original = getWeightsTrain(outY_train, weights_train, outFolder, exp_tau = exp_tau_)
 
 # *******************************
 # *                             *
@@ -323,6 +267,7 @@ def doTrainingAndEvaluation(modelName, outFolder, dataPathFolder = "/nfs/dust/cm
             #validation_split = validation_split_,                   # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
             validation_data = (inX_valid, outY_valid, weights_valid),
             #validation_data = (inX_valid, outY_valid),#, weights_valid),
+            validation_batch_size = validBatchSize_,
             shuffle = False,
             sample_weight = weights_train
             )
@@ -363,23 +308,15 @@ def doTrainingAndEvaluation(modelName, outFolder, dataPathFolder = "/nfs/dust/cm
         #print(model.summary(), file=f)
 
         
-
-    doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train[:divisor], krM_train[:divisor], outFolder = outFolder+"/train", totGen=totGen[:int((1-testFraction_)*len(totGen))])
+    totGen_train = totGen[ :int((1-testFraction_)*len(totGen))]
+    totGen_test  = totGen[ :int(testFraction_*len(totGen))]
+    
+    doEvaluationPlots(outY_train, y_predicted_train, weights_train_original, lkrM_train[:divisor], krM_train[:divisor], outFolder = outFolder+"/train", totGen = totGen_train, write=False)
     print("Plots for testing")
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen=totGen[:int(testFraction_*len(totGen))])
+    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test, write = True)
+    doPlotShap(featureNames, model, inX_test, outFolder = outFolder)
 
 
-    max_display = inX_test.shape[1]
-    for explainer, name  in [(shap.GradientExplainer(model,inX_test[:1000]),"GradientExplainer"),]:
-        shap.initjs()
-        print("... {0}: explainer.shap_values(X)".format(name))
-        shap_values = explainer.shap_values(inX_test[:1000])
-        print("... shap.summary_plot")
-        plt.clf()
-        shap.summary_plot(	shap_values, inX_test[:1000], plot_type="bar",
-			            feature_names=featureNames,
-            			max_display=max_display, plot_size=[15.0,0.4*max_display+1.5], show=False)
-        plt.savefig(outFolder+"/model/"+"shap_summary_{0}.pdf".format(name))
 
 
     
@@ -391,6 +328,7 @@ def doTrainingAndEvaluation(modelName, outFolder, dataPathFolder = "/nfs/dust/cm
 
 
 def justEvaluate(dataPathFolder, modelDir, modelName, outFolder):
+    print("Calling justEvaluate ...")
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen = loadData(
                                     dataPathFolder = dataPathFolder,
                                     testFraction = testFraction_,
@@ -400,19 +338,17 @@ def justEvaluate(dataPathFolder, modelDir, modelName, outFolder):
     model = keras.models.load_model(modelDir+"/"+modelName+".h5")
     y_predicted = model.predict(inX_test)
 
-    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen=totGen[:int(testFraction_*len(totGen))])
+    doEvaluationPlots(outY_test, y_predicted, weights_test, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen=totGen[:int(testFraction_*len(totGen))], write=True)
 
 def main():
+    doEvaluate=False
     print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
-    keep = None 
     
     if (doEvaluate):
-        print("Calling justEvaluate ...")
         justEvaluate(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData/"+inputName, 
         	         modelDir = "/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_+"/model", modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_)
     
     else:
-       print("Calling doTrainingAndEvaluation ...")
        doTrainingAndEvaluation(dataPathFolder = "/nfs/dust/cms/user/celottog/mttNN/npyData/"+inputName, 
 				modelName = "mttRegModel", outFolder="/nfs/dust/cms/user/celottog/mttNN/outputs/"+additionalName_)
 if __name__ == "__main__":

@@ -9,12 +9,12 @@ import random
 #definisci un append function che aggiunge il nome della variabile se non già presente
 def getFeatureNames():
 	feature_names =[
-				'lkr_ttbar_pt', 'lkr_ttbar_eta', 'lkr_ttbar_phi',
-				'lkr_ttbar_m',
-				'kr_ttbar_pt', 'kr_ttbar_eta', 'kr_ttbar_phi',
-				'kr_ttbar_m',
-				'kr_top_pt', 'kr_top_eta', 'kr_top_phi', 'kr_top_m',
-				'kr_antitop_pt', 'kr_antitop_eta', 'kr_antitop_phi', 'kr_antitop_m',
+				'lkr_ttbar_pt', 'lkr_ttbar_eta', 'lkr_ttbar_phi', 'lkr_ttbar_m',
+				'kr_ttbar_pt', 'kr_ttbar_eta', 'kr_ttbar_phi','kr_ttbar_m',
+				'kr_top_pt', 'kr_top_eta', 'kr_top_phi',
+				#'kr_top_m',
+				'kr_antitop_pt', 'kr_antitop_eta', 'kr_antitop_phi',
+				#'kr_antitop_m',
 				'dilepton_pt', 'dilepton_eta', 'dilepton_phi', 'dilepton_m',
 				'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi', 'llj1j2_m',
 				'llj1j2MET_pt','llj1j2MET_eta', 'llj1j2MET_phi', 'llj1j2MET_m',
@@ -25,7 +25,9 @@ def getFeatureNames():
 				'lb2_pt', 'lb2_eta', 'lb2_phi', 'lb2_m',
 				'jet1_pt', 'jet1_eta', 'jet1_phi', 'jet1_m', 'jet1btag', 'j1_bscore',
 				'jet2_pt', 'jet2_eta', 'jet2_phi', 'jet2_m', 'jet2btag', 'j2_bscore',
-				'lep1_pt', 'lep1_eta', 'lep1_phi', 'lep1_m',
+				'lep1_pt', 'lep1_eta',
+				#'lep1_phi',
+				'lep1_m',
 				'lep2_pt', 'lep2_eta', 'lep2_phi', 'lep2_m',
 				'met_pt', 'met_phi', 'ht', 
 				'dR_l1l2','dR_l1j1', 'dR_l1j2', 'dR_l2j1', 'dR_l2j2', 'dR_j1j2','channelID'
@@ -98,7 +100,6 @@ def loadMDataFlat(path, filename, treeName, minbjets, maxEvents):
 	lKinRecoOut=[]	# loosekinRecoM (to be compared with NN output)
 	weights=[]		# weights to be used in the NN
 	totGen = []
-	
 
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
@@ -224,30 +225,32 @@ def loadMDataFlat(path, filename, treeName, minbjets, maxEvents):
 		jetAntiTopMatched = np.array([0]*20, dtype='f')
 		tree.SetBranchAddress("jets_antitopMatched", (jetAntiTopMatched))
 
-
-	maxEntries = tree.GetEntries() if maxEvents is None else maxEvents
-	    
+	#maxEntries = tree.GetEntries()
+	maxEntries = tree.GetEntries() if maxEvents is None else min(maxEvents, tree.GetEntries())
+	if(maxEvents is not None):
+		if (maxEvents>tree.GetEntries()):
+			print("maxEvents < tree.GetEntries =", tree.GetEntries(), "    Replaced maxEntries = ", tree.GetEntries())
 	bigNumber = 20000
 	maxForBar = int(maxEntries/bigNumber)
 
 # Tlorentz vectors
 	if (True):
-		lep1=ROOT.TLorentzVector(0.,0.,0.,0.)
-		lep2=ROOT.TLorentzVector(0.,0.,0.,0.)
-		met=ROOT.TLorentzVector(0.,0.,0.,0.)
-		kr_top=ROOT.TLorentzVector(0.,0.,0.,0.)
-		kr_antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
-		lkr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-		kr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
-		lkr_nonbjet=ROOT.TLorentzVector(0.,0.,0.,0.)
-		kr_ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-		bjettemp=ROOT.TLorentzVector(0.,0.,0.,0.)
-		top=ROOT.TLorentzVector(0.,0.,0.,0.)
-		antitop=ROOT.TLorentzVector(0.,0.,0.,0.)
-		ttbar=ROOT.TLorentzVector(0.,0.,0.,0.)
-		dilepton=ROOT.TLorentzVector(0.,0.,0.,0.)
-		zero=ROOT.TLorentzVector(0., 0., 0., 0.)
-		extraJet = ROOT.TLorentzVector(0.,0.,0.,0.)
+		lep1		= ROOT.TLorentzVector(0.,0.,0.,0.)
+		lep2		= ROOT.TLorentzVector(0.,0.,0.,0.)
+		met			= ROOT.TLorentzVector(0.,0.,0.,0.)
+		kr_top		= ROOT.TLorentzVector(0.,0.,0.,0.)
+		kr_antitop	= ROOT.TLorentzVector(0.,0.,0.,0.)
+		lkr_ttbar	= ROOT.TLorentzVector(0.,0.,0.,0.)
+		kr_nonbjet	= ROOT.TLorentzVector(0.,0.,0.,0.)
+		lkr_nonbjet	= ROOT.TLorentzVector(0.,0.,0.,0.)
+		kr_ttbar	= ROOT.TLorentzVector(0.,0.,0.,0.)
+		bjettemp	= ROOT.TLorentzVector(0.,0.,0.,0.)
+		top			= ROOT.TLorentzVector(0.,0.,0.,0.)
+		antitop		= ROOT.TLorentzVector(0.,0.,0.,0.)
+		ttbar		= ROOT.TLorentzVector(0.,0.,0.,0.)
+		dilepton	= ROOT.TLorentzVector(0.,0.,0.,0.)
+		zero		= ROOT.TLorentzVector(0., 0., 0., 0.)
+		extraJet 	= ROOT.TLorentzVector(0.,0.,0.,0.)
 
 
 	bar = IncrementalBar('Processing', max=maxForBar, suffix='%(percent).1f%% - %(eta)ds')
@@ -322,7 +325,7 @@ def loadMDataFlat(path, filename, treeName, minbjets, maxEvents):
 
 		# conditions fro building an input events (training or testing)
 		#if (pass3 & (numJets>=2) & passMETCut & (dilepton.M()>20.) & passMLLCut & (ttbar.M()>0) & (kr_ttbar.M()<1500) & (lkr_ttbar.M() < 1500)  ):# & (kr_ttbar.M()>1) & (lkr_ttbar.M() > 1)  & 
-		if ( (numJets>=2) & (passMETCut) & passMLLCut & (haslkrs) & (looseKinReco_ttbar_m[0] < 1500) & (haskrs)& (kr_ttbar.M()<1500) ):
+		if ( (numJets>=2) & (passMETCut) & passMLLCut & (haslkrs) & (looseKinReco_ttbar_m[0] < 1500) & (haskrs)& (kr_ttbar.M()<1500)):
 			if ((ttbar.M()<0)):
 				print("Negative ttbar generated!")
 			if not pass3:
@@ -353,29 +356,32 @@ def loadMDataFlat(path, filename, treeName, minbjets, maxEvents):
 				continue
 			rotation(sortedJets, lep1, lep2, met)	
 
-			if (haslkrs & (lkr_ttbar.M()>0)):
+			#if (haslkrs & (lkr_ttbar.M()>0)):
 				#evFeatures.append(lkr_ttbar.M())
 				#append4vector(evFeatures, lkr_ttbar)
-				evFeatures.append(looseKinReco_ttbar_pt[0])
-				evFeatures.append(looseKinReco_ttbar_eta[0])
-				evFeatures.append(looseKinReco_ttbar_phi[0])
-				evFeatures.append(looseKinReco_ttbar_m[0])
-			else:
+			evFeatures.append(looseKinReco_ttbar_pt[0])
+			evFeatures.append(looseKinReco_ttbar_eta[0])
+			evFeatures.append(looseKinReco_ttbar_phi[0])
+			evFeatures.append(looseKinReco_ttbar_m[0])
+			append4vector(evFeatures, kr_ttbar)
+			#else:
 				#evFeatures.append(0)				
-				append4vector(evFeatures, zero)
-			if (haskrs & (kr_ttbar.M()>0)):
+			#	append4vector(evFeatures, zero)
+			#if (haskrs & (kr_ttbar.M()>0)):
 				#evFeatures.append(kr_ttbar.M())
-				append4vector(evFeatures, kr_ttbar)
-				evFeatures.append(kinReco_antitop_pt[0])
-				evFeatures.append(kinReco_antitop_eta[0])
-				evFeatures.append(kinReco_antitop_phi[0])
-				evFeatures.append(kinReco_antitop_m[0])
-				append4vector(evFeatures, kr_antitop)
-			else:
+			evFeatures.append(kinReco_top_pt[0])
+			evFeatures.append(kinReco_top_eta[0])
+			evFeatures.append(kinReco_top_phi[0])
+			evFeatures.append(kinReco_antitop_pt[0])
+			evFeatures.append(kinReco_antitop_eta[0])
+			evFeatures.append(kinReco_antitop_phi[0])
+				#evFeatures.append(kinReco_antitop_m[0])
+			#append4vector(evFeatures, kr_antitop)
+			#else:
 				#evFeatures.append(0)
-				append4vector(evFeatures, zero)
-				append4vector(evFeatures, zero)
-				append4vector(evFeatures, zero)
+			#append4vector(evFeatures, zero)
+			#append4vector(evFeatures, zero)
+			#append4vector(evFeatures, zero)
 
 			append4vector(evFeatures, dilepton)
 			append4vector(evFeatures, dilepton+sortedJets[0]+sortedJets[1])
@@ -411,7 +417,10 @@ def loadMDataFlat(path, filename, treeName, minbjets, maxEvents):
 			evFeatures.append(btag[1])	
 			evFeatures.append(bscore[1])		
 
-			append4vector(evFeatures, lep1)
+			#append4vector(evFeatures, lep1)
+			evFeatures.append(lep1.Pt())
+			evFeatures.append(lep1.Eta())
+			evFeatures.append(lep1.M())
 			append4vector(evFeatures, lep2)
 			evFeatures.append(met.Pt())		
 			evFeatures.append(met.Phi())
@@ -447,10 +456,10 @@ def loadRegressionData(path, treeName,nFiles, minbjets, maxEvents):
     '''
     Pass the list of input output features, weights, and output of the invariant mass from LKR and FKR everything in list of list
     '''
-    print("loadRegressionData called \n\n")
+    #print("loadRegressionData called \n\n")
     print("Searching root files in ", path)	
     fileNames = glob.glob(path+'/*.root')		# List of files.root in the directory
-    fileNames = [i for i in fileNames if "ee" in i][:nFiles] + [i for i in fileNames if "mumu" in i][:nFiles] + [i for i in fileNames if "emu" in i][:nFiles]
+    fileNames =  [i for i in fileNames if "emu" in i][:nFiles] #[i for i in fileNames if "ee" in i][:nFiles] + [i for i in fileNames if "mumu" in i][:nFiles] +
     #fileNames = [i for i in fileNames if "ee" in i][:nFiles]
     print (len(fileNames), " files to be used\n")
     #random.shuffle(fileNames)
@@ -467,7 +476,7 @@ def loadRegressionData(path, treeName,nFiles, minbjets, maxEvents):
         lkrM+=l
         krM+=k
         totGen+=t
-    print("eventIn shape:\t", np.array(eventIn).shape)
+    print("\neventIn shape:\t", np.array(eventIn).shape)
     print("totGen shape:\t",  np.array(totGen).shape)
     return eventIn, eventOut, weights, lkrM, krM, totGen
 

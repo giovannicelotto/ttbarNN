@@ -7,16 +7,16 @@ def getMRegModelFlat(regRate, activation, dropout, nDense, nNodes, inputDim, out
     dense_kwargs = dict(
         kernel_initializer = tf.keras.initializers.glorot_normal( seed=1999),            
         kernel_regularizer = l2_reg,                                           
-        kernel_constraint = tf.keras.constraints.max_norm(2)                    # the max_norm constraint is used to limit the maximum norm of the weight vector to 5,
+        kernel_constraint = tf.keras.constraints.max_norm(1)                    # the max_norm constraint is used to limit the maximum norm of the weight vector to 5,
     )
 
     #inputs = 
     model = tf.keras.Sequential()
     model.add(tf.keras.layers.Input(shape = (inputDim))) 
-    model.add(tf.keras.layers.BatchNormalization())
+    #model.add(tf.keras.layers.BatchNormalization())
     for i in range(nDense):				#never takes place if nDense = 2
-        model.add(tf.keras.layers.Dense(nNodes, **dense_kwargs))
-        model.add(tf.keras.layers.BatchNormalization())
+        model.add(tf.keras.layers.Dense(nNodes[i], **dense_kwargs))
+        #model.add(tf.keras.layers.BatchNormalization())
         model.add(tf.keras.layers.Activation(activation))
         #x=tf.keras.layers.Dropout(dropout)(x)
 
