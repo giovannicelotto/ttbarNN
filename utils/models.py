@@ -1,7 +1,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
 
-def getMRegModelFlat(regRate, activation, dropout, nDense, nNodes, inputDim, outputActivation, printSummary=True):
+def getModel(regRate, activation, nDense, nNodes, inputDim, outputActivation, printSummary=True):
     l2_reg = tf.keras.regularizers.l2(regRate)
     
     dense_kwargs = dict(
@@ -16,7 +16,7 @@ def getMRegModelFlat(regRate, activation, dropout, nDense, nNodes, inputDim, out
     #model.add(tf.keras.layers.BatchNormalization())
     for i in range(nDense):				#never takes place if nDense = 2
         model.add(tf.keras.layers.Dense(nNodes[i], **dense_kwargs))
-        #model.add(tf.keras.layers.BatchNormalization())
+        model.add(tf.keras.layers.BatchNormalization())
         model.add(tf.keras.layers.Activation(activation))
         #x=tf.keras.layers.Dropout(dropout)(x)
 

@@ -7,6 +7,8 @@ from sklearn.preprocessing import QuantileTransformer
 from sklearn import preprocessing
 import ROOT
 from array import array
+import os
+from scipy.stats.stats import pearsonr
 from utils.helpers import NormalizeBinWidth1d
 
 def KLdiv(p, q):
@@ -28,25 +30,33 @@ def JSdist(p, q):
 def multiScale(featureNames, inX ):
     
     maxable   = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_phi', 'njets', 'nbjets']) ]
-    #powerable = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_pt', '_m', 'ht']) and not any(substring in featureNames[i] for substring in ['lep1_m', 'lep2_m'])]
+    powerable = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_pt', '_m', 'ht']) and not any(substring in featureNames[i] for substring in ['lep1_m', 'lep2_m','kr_ttbar_m'])]
+    boxable   = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['kr_ttbar_m'])]
     keepable  = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['tag', 'score', 'channelID'])]
-    scalable  = [i for i in range(len(featureNames)) if ((i not in maxable) & (i not in keepable))]
+    scalable  = [i for i in range(len(featureNames)) if ((i not in maxable) & (i not in keepable) & (i not in powerable) & (i not in boxable))]
     
     inXs = inX
 
     maxer   = preprocessing.MinMaxScaler(feature_range=(-1, 1)).fit(inX[:,maxable])
+    powerer = PowerTransformer(method='yeo-johnson', standardize=True).fit(inX[:,powerable])
+    boxer = PowerTransformer(method='box-cox', standardize=True).fit(inX[:,boxable])
     scaler  = preprocessing.StandardScaler().fit(inX[:,scalable])
     #for i in powerable:
     #    print(np.array(featureNames)[i], "\n")
-    #    powerer = PowerTransformer(method='yeo-johnson', standardize=True).fit(inX[:,[i]])
+    #    
     #    inXs[:, [i]] = powerer.transform(inXs[:, [i]])
-
-    inXs[:,scalable] = scaler.transform(inXs[:,scalable])
     inXs[:, maxable] = maxer.transform(inXs[:,maxable])
+    inXs[:, powerable] = powerer.transform(inXs[:, powerable])
+    inXs[:, boxable] = boxer.transform(inXs[:, boxable])
+    inXs[:, scalable] = scaler.transform(inXs[:,scalable])
     return inXs
 
 
-def getWeightsTrain(outY_train, weights_train, outFolder, exp_tau):
+def getWeightsTrain(outY_train, weights_train, outFolder, exp_tau, output=True):
+    if (output):
+        if not os.path.exists(outFolder+ "/model"):
+            os.makedirs(outFolder+ "/model")
+
     weightBins = array('d', [340, 342.5, 345, 347.5, 350, 355, 360, 370, 380, 390, 400, 410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
     wegihtNBin = len(weightBins)-1
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
@@ -78,7 +88,8 @@ def getWeightsTrain(outY_train, weights_train, outFolder, exp_tau):
     weightHisto.Draw("hist")
     weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
     weightHisto.SetYTitle('Normalized Counts')
-    canvas.SaveAs(outFolder + "/model/mttOriginalWeight.pdf")
+    if (output):
+        canvas.SaveAs(outFolder + "/model/mttOriginalWeight.pdf")
 
     weightHisto.Scale(1./weightHisto.Integral())
     maximumBin = weightHisto.GetMaximumBin()
@@ -102,7 +113,8 @@ def getWeightsTrain(outY_train, weights_train, outFolder, exp_tau):
     weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
     weightHisto.SetTitle("Weights distributions")
     canvas.SetLogy(1)
-    canvas.SaveAs(outFolder+"/model/weights.pdf")
+    if (output):
+        canvas.SaveAs(outFolder+"/model/weights.pdf")
     weights_train_original = weights_train
     weights_train_=[]
     for w,m in zip(weights_train, outY_train):
@@ -113,3 +125,17 @@ def getWeightsTrain(outY_train, weights_train, outFolder, exp_tau):
 
     weights_train = 1./np.mean(weights_train)*weights_train
     return weights_train, weights_train_original
+
+
+def printStat(outY_test, y_predicted, outFolder, model):
+    corr = pearsonr(outY_test.reshape(outY_test.shape[0]), y_predicted.reshape(y_predicted.shape[0]))
+    print("correlation:",corr[0])
+    kl = KLdiv(y_predicted[:,0], outY_test[:,0])
+    print ("KL", kl)
+    js = JSdist(y_predicted[:,0], outY_test[:,0])
+    print ("JS", str(js[0])[:6], str(js[1])[:6])
+    with open(outFolder+"/model/Info.txt", "w") as f:
+        f.write("JS\t"+ str(js[0])[:6]+"\n"+"KL\t"+ str(kl)[:6]+"\ncorrelation:\t"+str(corr[0])+"\n")
+        model.summary(print_fn=lambda x: f.write(x + '\n'))
+        f.write("\n")
+        
