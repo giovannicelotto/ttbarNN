@@ -10,6 +10,7 @@ from array import array
 import os
 from scipy.stats.stats import pearsonr
 from utils.helpers import NormalizeBinWidth1d
+import pickle
 
 def KLdiv(p, q):
     xs_ = np.linspace(340, 800, 50)
@@ -27,11 +28,11 @@ def JSdist(p, q):
 
     return [np.sqrt(entropy(kde_p, m)/2 + entropy(kde_q, m)/2), jensenshannon(kde_p, kde_q)]
 
-def multiScale(featureNames, inX ):
+def multiScale(featureNames, inX, dataPathFolder):
     
-    maxable   = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_phi', 'njets', 'nbjets']) ]
+    maxable   = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_phi', 'njets', 'nbjets', 'kr_ttbar_m']) ]
     powerable = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_pt', '_m', 'ht']) and not any(substring in featureNames[i] for substring in ['lep1_m', 'lep2_m','kr_ttbar_m'])]
-    boxable   = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['kr_ttbar_m'])]
+    boxable   = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['nulla qui'])]
     keepable  = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['tag', 'score', 'channelID'])]
     scalable  = [i for i in range(len(featureNames)) if ((i not in maxable) & (i not in keepable) & (i not in powerable) & (i not in boxable))]
     
@@ -39,20 +40,47 @@ def multiScale(featureNames, inX ):
 
     maxer   = preprocessing.MinMaxScaler(feature_range=(-1, 1)).fit(inX[:,maxable])
     powerer = PowerTransformer(method='yeo-johnson', standardize=True).fit(inX[:,powerable])
-    boxer = PowerTransformer(method='box-cox', standardize=True).fit(inX[:,boxable])
+    #boxer = PowerTransformer(method='box-cox', standardize=True).fit(inX[:,boxable])
     scaler  = preprocessing.StandardScaler().fit(inX[:,scalable])
-    #for i in powerable:
-    #    print(np.array(featureNames)[i], "\n")
-    #    
-    #    inXs[:, [i]] = powerer.transform(inXs[:, [i]])
+    
     inXs[:, maxable] = maxer.transform(inXs[:,maxable])
     inXs[:, powerable] = powerer.transform(inXs[:, powerable])
-    inXs[:, boxable] = boxer.transform(inXs[:, boxable])
+    #inXs[:, boxable] = boxer.transform(inXs[:, boxable])
+    inXs[:, scalable] = scaler.transform(inXs[:,scalable])
+
+
+    print("Saving the scalers...")
+    scalers = {
+    'maxer': maxer,
+    'powerer': powerer,
+    'scaler': scaler,
+    'maxable': maxable,
+    'powerable': powerable,
+    'boxable': boxable,
+    'keepable': keepable,
+    'scalable': scalable
+    }
+
+    with open(dataPathFolder+'/scalers.pkl', 'wb') as file:
+        pickle.dump(scalers, file)
+
+    return inXs
+
+
+def standardScale(featureNames, inX ):
+    
+    keepable  = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['tag', 'score', 'channelID'])]
+    scalable  = [i for i in range(len(featureNames)) if ( i not in keepable )]
+    
+    inXs = inX
+
+    scaler  = preprocessing.StandardScaler().fit(inX[:,scalable])
     inXs[:, scalable] = scaler.transform(inXs[:,scalable])
     return inXs
 
 
 def getWeightsTrain(outY_train, weights_train, outFolder, exp_tau, output=True):
+    print("Producing weights for training...")
     if (output):
         if not os.path.exists(outFolder+ "/model"):
             os.makedirs(outFolder+ "/model")
@@ -134,8 +162,11 @@ def printStat(outY_test, y_predicted, outFolder, model):
     print ("KL", kl)
     js = JSdist(y_predicted[:,0], outY_test[:,0])
     print ("JS", str(js[0])[:6], str(js[1])[:6])
-    with open(outFolder+"/model/Info.txt", "w") as f:
+    mseTest = np.average((outY_test - y_predicted)**2)
+    print ("mse", mseTest)
+    with open(outFolder+"/model/Info.txt", "a+") as f:
         f.write("JS\t"+ str(js[0])[:6]+"\n"+"KL\t"+ str(kl)[:6]+"\ncorrelation:\t"+str(corr[0])+"\n")
+        f.write("Loss:\t%.3f\n"%(mseTest))
         model.summary(print_fn=lambda x: f.write(x + '\n'))
         f.write("\n")
         
