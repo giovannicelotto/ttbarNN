@@ -8,19 +8,10 @@ from utils.stat import *
 from utils.data import loadData
 from utils import defName
 from utils.splitTrainValid import *
-from npyData.checkFeatures import checkFeatures
-import matplotlib.pyplot as plt
 import matplotlib
-from array import array
 from tensorflow import keras
-from scipy.stats import pearsonr
-from scipy.spatial.distance import jensenshannon
-from sklearn.utils import shuffle
-from scipy.stats import gaussian_kde
-from scipy.stats import entropy
 import tensorflow as tf
-from keras.regularizers import l2
-from keras.utils import get_custom_objects
+import shap
 
 matplotlib.use('agg')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
@@ -48,30 +39,35 @@ def justEvaluate(dataPathFolder, modelDir, modelName, outFolder, testFraction , 
         model = keras.models.load_model(modelDir+"/"+modelName+".h5")
         y_predicted = model.predict(inX_test[mask_test,:])
         print("Starting with plots...")
-        linearCorrelation(yPredicted= y_predicted[:,0], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test", mask_test = mask_test)
-        doEvaluationPlots(outY_test[mask_test,:], y_predicted, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test, mask_test=mask_test, write=True)
+
+        explainer = shap.GradientExplainer(model, inX_train[mask_train, :])
+
+
+
+        #linearCorrelation(yPredicted= y_predicted[:,0], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test", mask_test = mask_test)
+        #doEvaluationPlots(outY_test[mask_test,:], y_predicted, lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test, mask_test=mask_test, write=True)
         
 def main():
     print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
-    nFiles_             = 3
+    nFiles_             = 1
     maxEvents_          = None
     testFraction_       = 0.3
     validation_split_   = 0.3
-    epochs_             = 120
+    epochs_             = 10
     patienceeS_         = 50
     scale               = 'multi'
     additionalInput     = ""
-    additionalName      = "1904"
+    additionalName      = "2404afterBayes"
     hp = {
-    'learningRate': 0.002, 
+    'learningRate': 0.01, 
     'batchSize': 128,
     'validBatchSize': 512,
-    'nNodes': [16, 32], #32, 64, 384
-    'regRate': 0.01,
+    'nNodes': [32], #46, 38, 111
+    'regRate': 0.00658,
     'activation': 'elu'
 }
     hp['nDense']= len(hp['nNodes'])
-    doEvaluate = False
+    doEvaluate = True
 
 
 
@@ -147,7 +143,10 @@ def main():
         featureNames = getFeatureNames()
         print('Plotting SHAP:')
         assert (inX_test.shape[1]==len(featureNames)), "Check len featureNames and number of features"
-        doPlotShap(featureNames, model, inX_test[mask_test,:], inX_train[mask_train,:], outFolder = outFolder)
+        
+        print(inX_train.shape)
+        print(len(featureNames))
+        doPlotShap(featureNames, model, inX_test[mask_test,:], outFolder = outFolder)
 
 
 if __name__ == "__main__":

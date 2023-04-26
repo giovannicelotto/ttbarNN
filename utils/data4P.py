@@ -8,10 +8,16 @@ from sklearn.utils import shuffle
 from utils.helpers import getFeatureNames
 import pickle
 
-def loadData4P(dataPathFolder, minbjets, scalerPath, output=True, nFiles = None, signal=True):
+def loadData4P(dataPathFolder, minbjets, scalerPath, output=True, nFiles = None):
     print("loadData called")
     '''
-    Load data from saved numpy arrays or create them if not available (using loadRegressionData4P)
+    Load SIGNAL data from saved numpy arrays or create them if not available (using loadRegressionData4P)
+    dataPathFolder = folder where npy data are searched. If not found, create npydata from the folder above it where from root files. npy files are saved in datapathFolder
+    minbjets = min number bjets required in the creation of data
+    scalerPath = path where to take the scalers (saved during the training of NN)
+    output = decide id producing a plot of scaled quantities.
+    nFiles = not used here leave it None
+    
     '''
 # check for already existing data    
     print ("LoadData from "+dataPathFolder+"/inX.npy")
@@ -24,7 +30,7 @@ def loadData4P(dataPathFolder, minbjets, scalerPath, output=True, nFiles = None,
         createNewData = False
 # otherwise create tehm
     if createNewData:
-        inX, weights, lkrM, krM = loadRegressionData4P(path = dataPathFolder+"/..", treeName = "miniTree", minbjets=minbjets, nFiles = nFiles, signal = signal)
+        inX, weights, lkrM, krM = loadRegressionData4P(path = dataPathFolder+"/..", treeName = "miniTree", minbjets=minbjets, nFiles = nFiles)
         inX     = np.array(inX)
         weights = np.array(weights)
         lkrM    = np.array(lkrM)

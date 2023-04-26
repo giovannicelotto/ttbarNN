@@ -224,7 +224,7 @@ def createRealData(path, treeName, minbjets):
 
 		# conditions fro building an input events (training or testing)
 		#if (pass3 & (numJets>=2) & passMETCut & (dilepton.M()>20.) & passMLLCut & (ttbar.M()>0) & (kr_ttbar.M()<1500) & (lkr_ttbar.M() < 1500)  ):# & (kr_ttbar.M()>1) & (lkr_ttbar.M() > 1)  & 
-		if ( (numJets>=2) & (passMETCut) & passMLLCut ):
+		if ( (numJets>=2) & (passMETCut) & (passMLLCut) & (pass3) & (weight[0]>0)):
 			
 			# jets identification
 			jets = []

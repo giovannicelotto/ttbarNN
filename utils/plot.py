@@ -19,10 +19,17 @@ logbins =  np.concatenate((np.linspace(320, 500, 16, endpoint=False), [500, 520,
 #logbins = np.concatenate(([335], logbins))
 #recoBin = np.array([1, 410, 500, 670, 1500]) #1500
 recoBin = np.array([1, 380, 450, 550, 625, 812.5,  1200, 5000]) #1200
+diffBin = np.arange(300, 2050, 50) #1200
 #recoBinPlusBin = np.array([1, 380, 450, 500, 625, 812.5,  1200, 5000])
 nRecoBin = len(recoBin)-1
 def getRecoBin():
     return recoBin
+
+def getDiffBin(extrabins=False):
+    if (extrabins):
+        diffBin[0] = 1
+        diffBin[len(diffBin)-1] = 5000
+    return diffBin
 
 def FillHisto(mtrue, mpred, histos):
     for i in range(0,4):
@@ -31,6 +38,8 @@ def FillHisto(mtrue, mpred, histos):
 
 
 def linearCorrelation(yPredicted, lkrM, krM, totGen, outFolder, mask_test):
+    if not os.path.exists(outFolder):
+        os.makedirs(outFolder)
     index = 0    
 
     myMasks = [mask_test, (lkrM>-998), (krM>-998)]  
@@ -59,6 +68,7 @@ def linearCorrelation(yPredicted, lkrM, krM, totGen, outFolder, mask_test):
         ax[i].set_xlabel("m$_{tt}^{True}$ [GeV]", fontsize=18)
         ax[i].set_title(['Regression Neural Network', 'Loose kinematic reconstruction', 'Full kinematic reconstruction'][i], fontsize=18)
         ax[i].tick_params(labelsize=18)
+        ax[i].add_patch(plt.Rectangle((0.75, 0.05), 0.2, 0.05, facecolor='white',  linewidth=2, edgecolor='black', alpha=0.3, transform=ax[i].transAxes))
         ax[i].text(0.75, 0.05, r'$\rho$ = %.3f'%(corr[i]), transform=ax[i].transAxes, fontsize=18, fontweight='bold')
         #cbar.set_label('Counts', fontsize=19)
         #cbar.ax.tick_params(labelsize=18)
@@ -510,20 +520,24 @@ def doPlotLoss(fit, outFolder):
 # *           SHAP              *
 # *                             *
 # *******************************
-def doPlotShap(featureNames, model, inX_test, inX_train, outFolder):
+def doPlotShap(featureNames, model, inX_test, outFolder):
     assert (inX_test.shape[1]==len(featureNames)), "Check the shapes"
+    print("new shapes to be checked", model.layers[0].input_shape[1:])
     #assert (inX_test.shape[1]==len(featureNames)), "Check the shapes"
     print(model.layers[0].input_shape)
+    print(inX_test.shape)
     plt.figure()
     max_display = inX_test.shape[1]
+    
+    explainer = shap.GradientExplainer(model, inX_test)
 
-    explainer = shap.GradientExplainer(model, inX_train[:1000])
+    # Compute Shapley values for inX_test[:1000,:]
+    shap_values = explainer.shap_values(inX_test[:1000,:])
 
-    # Compute Shapley values for inX_test[:1000]
-    shap_values = explainer.shap_values(inX_test[:1000])
+    print("arrive till here")
     # Generate summary plot
     shap.initjs()
-    shap.summary_plot(shap_values, inX_test[:1000], plot_type="bar",
+    shap.summary_plot(shap_values, inX_test[:1000,:], plot_type="bar",
                     feature_names=featureNames,
                     max_display=max_display,
                     plot_size=[15.0,0.4*max_display+1.5],
