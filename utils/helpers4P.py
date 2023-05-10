@@ -185,6 +185,7 @@ def createRealData(path, treeName, minbjets):
 		haskrs = bool(hasKinRecoSolution[0])
 		haslkrs = bool(hasLooseKinRecoSolution[0])
 		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+		
 # Pass3: correct reconstruction of leptons
 		if (pass3==True):
 			lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
@@ -224,13 +225,13 @@ def createRealData(path, treeName, minbjets):
 
 		# conditions fro building an input events (training or testing)
 		#if (pass3 & (numJets>=2) & passMETCut & (dilepton.M()>20.) & passMLLCut & (ttbar.M()>0) & (kr_ttbar.M()<1500) & (lkr_ttbar.M() < 1500)  ):# & (kr_ttbar.M()>1) & (lkr_ttbar.M() > 1)  & 
-		if ( (numJets>=2) & (passMETCut) & (passMLLCut) & (pass3) & (weight[0]>0)):
+		if ( (numJets>=2) & (passMETCut) & (passMLLCut) & (pass3) ):
 			
 			# jets identification
-			jets = []
-			bjets = []
-			btag = []
-			bscore =[]
+			jets 	= []
+			bjets 	= []
+			btag 	= []
+			bscore 	= []
 			for idx in range(numJets):
 				jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
 				jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
@@ -247,7 +248,7 @@ def createRealData(path, treeName, minbjets):
 				continue
 			else:
 				pass
-
+			weights.append(totWeight)
 			if (haslkrs):
 				lKinRecoOut.append(lkr_ttbar.M())
 				assert (math.isclose(lkr_ttbar.M(), looseKinReco_ttbar_m[0])), "Loose mass value from the tree not the same from the root computation"
@@ -262,7 +263,7 @@ def createRealData(path, treeName, minbjets):
 			if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
 				pass
 			else:
-				weights.append(-999)
+				
 				eventIn.append([-999] * 72)
 				continue
 				
@@ -351,7 +352,7 @@ def createRealData(path, treeName, minbjets):
 			evFeatures.append(dR_jet1_jet2)
 
 
-			weights.append(totWeight)
+			
 			eventIn.append(evFeatures)
 		tree.SetBranchStatus("*",1)
 

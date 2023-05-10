@@ -320,6 +320,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 		antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
 		ttbar = top+antitop
 		totGen.append(ttbar.M())
+		weights.append(totWeight)
 		assert ttbar.M()>0, "Generated mass lower than 0"
 # kinReco
 		kr_top.SetPtEtaPhiM(kinReco_top_pt[0],kinReco_top_eta[0],kinReco_top_phi[0],kinReco_top_m[0])
@@ -331,13 +332,13 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 
 		# conditions fro building an input events (training or testing)
 		#if (pass3 & (numJets>=2) & passMETCut & (dilepton.M()>20.) & passMLLCut & (ttbar.M()>0) & (kr_ttbar.M()<1500) & (lkr_ttbar.M() < 1500)  ):# & (kr_ttbar.M()>1) & (lkr_ttbar.M() > 1)  & 
-		if ( (numJets>=2) & (passMETCut) & (passMLLCut) & (pass3) & (weight[0]>0)):
+		if ( (numJets>=2) & (passMETCut) & (passMLLCut) & (pass3) ):
 			
 			# jets identification
-			jets = []
-			bjets = []
-			btag = []
-			bscore =[]
+			jets   = []
+			bjets  = []
+			btag   = []
+			bscore = []
 			for idx in range(numJets):
 				jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
 				jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
@@ -354,12 +355,11 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				mask.append(False)
 				eventOut.append([-999])
 				eventIn.append([-999] * 72)
-				weights.append(-999)
 				lKinRecoOut.append(-999)
 				kinRecoOut.append(-999)
 				continue
 			else:
-				pass
+				mask.append(True)
 
 			if (haslkrs):
 				lKinRecoOut.append(lkr_ttbar.M())
@@ -374,10 +374,9 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
 				pass
 			else:
-				weights.append(-999)
 				eventIn.append([-999] * 72)
 				eventOut.append([-999])
-				mask.append(False)
+				
 				continue
 				
 
@@ -394,6 +393,27 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			evFeatures.append(looseKinReco_ttbar_phi[0])
 			evFeatures.append(looseKinReco_ttbar_m[0])
 			append4vector(evFeatures, kr_ttbar)
+			'''if (haslkrs):
+				evFeatures.append(looseKinReco_ttbar_pt[0])
+				evFeatures.append(looseKinReco_ttbar_eta[0])
+				evFeatures.append(looseKinReco_ttbar_phi[0])
+				evFeatures.append(looseKinReco_ttbar_m[0])
+			else:
+				evFeatures.append(np.nan)
+				evFeatures.append(np.nan)
+				evFeatures.append(np.nan)
+				evFeatures.append(np.nan)
+			if (haskrs & kinReco_top_pt[0]<50000):
+				append4vector(evFeatures, kr_ttbar)			# 4-7
+				evFeatures.append(kinReco_top_pt[0])		
+				evFeatures.append(kinReco_top_eta[0])
+				evFeatures.append(kinReco_top_phi[0])		# 10
+				evFeatures.append(kinReco_antitop_pt[0])
+				evFeatures.append(kinReco_antitop_eta[0])
+				evFeatures.append(kinReco_antitop_phi[0])	# 13
+			else:
+				for i in range(10):
+					evFeatures.append(np.nan)'''
 
 
 			evFeatures.append(kinReco_top_pt[0])
@@ -464,15 +484,15 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 
 			
 			     # 
-			weights.append(totWeight)
+			
 			eventIn.append(evFeatures)
 			eventOut.append([ttbar.M()])
-			mask.append(True)
+			
 		else:
 			mask.append(False)
 			eventOut.append([-999])
 			eventIn.append([-999] * 72)
-			weights.append(-999)
+			
 			lKinRecoOut.append(-999)
 			kinRecoOut.append(-999)
 		tree.SetBranchStatus("*",1)
