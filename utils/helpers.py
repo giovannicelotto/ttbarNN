@@ -371,13 +371,13 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			else:
 				kinRecoOut.append(-999)
 			
-			if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
-				pass
-			else:
-				eventIn.append([-999] * 72)
-				eventOut.append([-999])
+			#if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
+		#		pass
+		#	else:
+		#		eventIn.append([-999] * 72)
+		#		eventOut.append([-999])
 				
-				continue
+		#		continue
 				
 
 			nbjets = len(bjets)
@@ -388,22 +388,17 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			assert (lep1.Eta()>0), "Rotation didn't work"
 			assert (lep2.Phi()>0), "Rotation didn't work"
 
-			evFeatures.append(looseKinReco_ttbar_pt[0])
-			evFeatures.append(looseKinReco_ttbar_eta[0])
-			evFeatures.append(looseKinReco_ttbar_phi[0])
-			evFeatures.append(looseKinReco_ttbar_m[0])
-			append4vector(evFeatures, kr_ttbar)
-			'''if (haslkrs):
+			#evFeatures.append(looseKinReco_ttbar_pt[0])
+			#evFeatures.append(looseKinReco_ttbar_eta[0])
+			#evFeatures.append(looseKinReco_ttbar_phi[0])
+			#evFeatures.append(looseKinReco_ttbar_m[0])
+			#append4vector(evFeatures, kr_ttbar)
+			ttPt = kinReco_top_pt[0] + kinReco_antitop_pt[0]
+			if (haslkrs & haskrs & (ttPt<13000) & (kr_ttbar.M()<13000)):
 				evFeatures.append(looseKinReco_ttbar_pt[0])
 				evFeatures.append(looseKinReco_ttbar_eta[0])
 				evFeatures.append(looseKinReco_ttbar_phi[0])
 				evFeatures.append(looseKinReco_ttbar_m[0])
-			else:
-				evFeatures.append(np.nan)
-				evFeatures.append(np.nan)
-				evFeatures.append(np.nan)
-				evFeatures.append(np.nan)
-			if (haskrs & kinReco_top_pt[0]<50000):
 				append4vector(evFeatures, kr_ttbar)			# 4-7
 				evFeatures.append(kinReco_top_pt[0])		
 				evFeatures.append(kinReco_top_eta[0])
@@ -412,16 +407,16 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				evFeatures.append(kinReco_antitop_eta[0])
 				evFeatures.append(kinReco_antitop_phi[0])	# 13
 			else:
-				for i in range(10):
-					evFeatures.append(np.nan)'''
+				for i in range(14):
+					evFeatures.append(np.nan)
+				
 
-
-			evFeatures.append(kinReco_top_pt[0])
-			evFeatures.append(kinReco_top_eta[0])
-			evFeatures.append(kinReco_top_phi[0])
-			evFeatures.append(kinReco_antitop_pt[0])
-			evFeatures.append(kinReco_antitop_eta[0])
-			evFeatures.append(kinReco_antitop_phi[0])
+			#evFeatures.append(kinReco_top_pt[0])
+			#evFeatures.append(kinReco_top_eta[0])
+			#evFeatures.append(kinReco_top_phi[0])
+			#evFeatures.append(kinReco_antitop_pt[0])
+			#evFeatures.append(kinReco_antitop_eta[0])
+			#evFeatures.append(kinReco_antitop_phi[0])
 
 			append4vector(evFeatures, dilepton)
 			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1])

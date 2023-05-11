@@ -11,6 +11,7 @@ from sklearn.utils import shuffle
 from tabulate import tabulate
 from sklearn.impute import KNNImputer
 import time
+import pickle
 
 
 def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolder, output=True, scale = 'multi'):
@@ -59,7 +60,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
         print("Check after shuffle data...")
         #assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask"
         
-        print("Number of events passing cuts {}/{} = {}".format( len(mask[mask==True]), len(mask), len(mask[mask==True])/len(mask)))
+        
         if not os.path.exists(npyDataFolder):
             os.makedirs(npyDataFolder)
             print("Creating ", npyDataFolder)
@@ -80,9 +81,13 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     krM     = np.load(npyDataFolder+ "/krM.npy")
     totGen  = np.load(npyDataFolder+ "/totGen.npy")
     mask    = np.load(npyDataFolder+ "/mask.npy")
-
-    #print("  Replacing Inf with Nan...")
-    #inX = np.where(np.isinf(inX), np.nan, inX)
+    print("Number of events passing cuts   {}/{} = {}".format( len(mask[mask==True]), len(mask), len(mask[mask==True])/len(mask)))
+    print("Number of events w/ Loose & Kin {}/{} = {}".format( (inX[:,0]>-998).sum(), len(inX), len(inX[inX[:,0]>-998])/len(inX)))
+    print("Number of recovered events      {}/{} = {}".format( np.isnan(inX[:,0]).sum(), len(inX), np.isnan(inX[:,0]).sum()*1./len(inX)))
+    print("Number of events + recovered    {}/{} = {}".format( ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum(), len(inX), ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum()/len(inX)))
+    print("  Replacing Inf with Nan...")
+    inX = np.where(np.isinf(inX), np.nan, inX)
+    inX = np.where(np.isnan(inX), -4999, inX)
     #print("  Iterative Imputation...")
     #startTime = time.time()
     #imputer = KNNImputer(n_neighbors = 5, weights="uniform")
@@ -92,7 +97,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     #elapsed_time = endTime - startTime
     #print("Elapsed time: {:.2f} seconds".format(elapsed_time))
     print("Control plots...")
-    dnnMask = (inX[:,0]>-998)
+    dnnMask = (inX[:,0]>-998)  # exclude nan (kinReco or loose fail) and out of acceptance
     checkFeatures(inX[dnnMask,:], npyDataFolder)
 
     featureNames = getFeatureNames()
@@ -105,7 +110,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     print(tabulate(data, headers=['Feature Name', 'Min', 'Max', 'Abs Min'], tablefmt='grid'))
 
 
-    print("2. Shuffling after loading...")
+    print("3. Shuffling after loading...")
     inX, outY, weights, lkrM, krM, totGen, mask, dnnMask = shuffle(inX, outY, weights, lkrM, krM, totGen, mask, dnnMask, random_state = 42)
     print("\n   Maximum of totGen:\t", totGen.max())
     print("   Minimum of totGen:\t", totGen.min())
@@ -124,20 +129,11 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
         totGen  = totGen[:int(round(ratio*(len(totGen)-1)))]'''
 
     
-    print("3. Scaling data...")
-    featureNames = getFeatureNames()
-    if (scale == 'standard'):
-        inXs = standardScale(featureNames, inX[dnnMask,:])
-    elif (scale == 'multi'):
-        inXs = multiScale(featureNames, inX[dnnMask,:], npyDataFolder, outFolder)
-    if (output):
-        checkFeatures(inXs[:,:], npyDataFolder, name="scaledPlot")
-    inX[dnnMask,:] = inXs
-    mean = np.mean(outY[:,0])
-    sigma = np.std(outY[:,0])
+    
 # Separation training and testing with a seed for random searches
     print("4. Splitting training and testing...")
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test = train_test_split(inX, outY, weights, lkrM, krM, totGen, mask, test_size = testFraction, random_state = 1998) #, 
+    dnnMask_train = (inX_train[:,0]>-998)
     #assert (outY_train[mask_train, 0] == totGen_train[mask_train]).all(), "Mask does not match after splitting training and testing"
     print(" Element 90 test", outY_test[90])
     print(" Data splitted succesfully")
@@ -145,6 +141,51 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     print(" Number test events        (masked) :", len(inX_test[inX_test[:,0]>-998, :]))
     print(" Number of features        :", inX_train.shape[1])
     
+
+    print("4. Scaling training data...")
+    featureNames = getFeatureNames()
+    if (scale == 'standard'):
+        inXs_train = standardScale(featureNames, inX_train[dnnMask_train,:], outFolder+'/scalers.pkl')
+    elif (scale == 'multi'):
+        inXs_train = multiScale(featureNames, inX_train[dnnMask_train,:], outFolder+'/scalers.pkl')
+    if (output):
+        checkFeatures(inXs_train[:,:], npyDataFolder, name="scaledPlot")
+    inX_train[dnnMask_train,:] = inXs_train
+    mean = np.mean(outY_train[dnnMask_train,0])
+    sigma = np.std(outY_train[dnnMask_train,0])
+
+    print("   Loading scalers and scaling the testing")
+
+    dnnMask_test = (inX_test[:,0]>-998)
+    with open(outFolder+"/scalers.pkl", 'rb') as file:
+        scalers = pickle.load(file)
+
+        if (scalers['type']=='multi'):
+            maxer = scalers['maxer']
+            powerer = scalers['powerer']
+            scaler = scalers['scaler']
+            maxable = scalers['maxable']
+            powerable = scalers['powerable']
+            scalable = scalers['scalable']
+
+            inXs_test = inX_test[dnnMask_test, :]
+
+            inXs_test[:, maxable]   = maxer.transform( inXs_test  [:, maxable])
+            inXs_test[:, powerable] = powerer.transform( inXs_test[:, powerable])
+            inXs_test[:, scalable]  = scaler.transform( inXs_test [:, scalable])
+            inX_test[dnnMask_test, :] = inXs_test
+
+        if (scalers['type']=='standard'):
+            scaler = scalers['scaler']
+            scalable = scalers['scalable']
+
+            inXs_test = inX_test[dnnMask_test, :]
+
+            inXs_test[:, scalable]  = scaler.transform( inXs_test [:, scalable])
+            inX_test[dnnMask_test, :] = inXs_test
+
+
+
     if not os.path.exists(npyDataFolder+ "/testing"):
         print(" Creating "+npyDataFolder+ "/testing")
         os.makedirs(npyDataFolder+ "/testing")

@@ -573,7 +573,7 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
 # *                             *
 # *******************************
 
-def doPlotLoss(fit, outFolder):
+def doPlotLoss(fit, outName):
 
     # "Loss"
     plt.close('all')
@@ -586,7 +586,7 @@ def doPlotLoss(fit, outFolder):
     # plt.yscale('log')
     plt.ylim(ymax = max(min(fit.history['loss']), min(fit.history['val_loss']))*1.4, ymin = min(min(fit.history['loss']),min(fit.history['val_loss']))*0.9)
     plt.legend(['train', 'validation'], loc='upper right')
-    plt.savefig(outFolder+"/loss.pdf")
+    plt.savefig(outName)
     plt.cla()
 
 
@@ -595,7 +595,7 @@ def doPlotLoss(fit, outFolder):
 # *           SHAP              *
 # *                             *
 # *******************************
-def doPlotShap(featureNames, model, inX_test, outFolder):
+def doPlotShap(featureNames, model, inX_test, outName):
 
     plt.figure()
     max_display = inX_test[0].shape[1]
@@ -612,7 +612,7 @@ def doPlotShap(featureNames, model, inX_test, outFolder):
                     max_display=max_display,
                     plot_size=[15.0,0.4*max_display+1.5],
                     show=False)
-    plt.savefig(outFolder+"/model/"+"shap_summary_GradientExplainer.pdf")
+    plt.savefig(outName)
     '''for explainer, name  in [(shap.GradientExplainer(model,inX_test[:1000]),"GradientExplainer"),]:
         *shap.initjs()
         *print("... {0}: explainer.shap_values(X)".format(name))

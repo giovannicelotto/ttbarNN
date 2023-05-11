@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from utils.helpers import *
 from utils.models import *
 from utils.plot import linearCorrelation, invariantMass, diffCrossSec, doEvaluationPlots, doPlotLoss, doPlotShap
-from utils.stat import multiScale, standardScale, getWeightsTrain, printStat, computePredicted, getWeightsTrainNew
+from utils.stat import multiScale, standardScale, getWeightsTrain, printStat, computePredicted, getWeightsTrainNew, scaleNonAnalytical
 from utils.data import loadData
 from utils import defName
 from utils.splitTrainValid import *
@@ -90,7 +90,7 @@ def main():
     'alpha':            150
 }
     additionalInputName = ""
-    additionalOutputName= "SingleNN"
+    additionalOutputName= "DoubleNN"
     doEvaluate = False
 
     hp['nDense']= len(hp['nNodes'])
@@ -121,20 +121,31 @@ def main():
                                                                                                                                                 minbjets = 1,
                                                                                                                                                 nFiles = hp['nFiles'], scale=hp['scale'], outFolder = outFolder+"/model")
 
-        assert(np.array_equal((inX_train[:,0]<-4998), (inX_train[:,1]<-4998)))
-        assert(np.array_equal((inX_train[:,2]<-4998), (inX_train[:,13]<-4998)))
-        print("Recoverable elements:", (inX_train[:,0]<-4998).sum() )
+
 
 # Create weights for training I want only modify the real weights
         #weights_train[mask_train] = getWeightsTrainNew(outY_train[mask_train], weights_train[mask_train], alpha=hp['alpha'], outFolder=outFolder, output=True)
-
+# 1NN
         dnnMask_train = inX_train[:,0]>-998
         dnnMask_test  = inX_test[:,0]>-998
         weights_train[dnnMask_train], weights_train_original = getWeightsTrain(outY_train[dnnMask_train], weights_train[dnnMask_train], outFolder=outFolder, alpha = hp['alpha'], output=True)
 
-
+# 2NN SCALING and weighting
+        # scale data without analytical solutions and fill the corresponding vectors        
+        dnn2Mask_train = inX_train[:,0]<-4998
+        dnn2Mask_test  = inX_test[:,0]<-4998
+        inX_train[dnn2Mask_train, 14:], weights_train[dnn2Mask_train], inX_test[dnn2Mask_test, 14:] = scaleNonAnalytical(getFeatureNames()[14:], inX_train, weights_train, inX_test, outY_train, npyDataFolder, outFolder, hp)
+# End Of 2NN
+# Now where inX_train[:,0] has a value >-4999 the two approaches worked. This dataset is scaled in one way. The corresponding testing dataset is scaled with the same functions
+# Where it is <-4999, the two approaches did not work (one or both) and this subset is scaled in another way
+# Now the whole training sample is splitted in training and validation. Since vents are randomly distributed the validation may have more events of the second NN or viceversa 
+# but this is not relevant in large number limit for the training. Like setting 0.18 of validation instead of 0.2
+        
+        
+        
 # Split train and validation
         inX_train, outY_train, weights_train, lkrM_train, krM_train, mask_train, inX_valid, outY_valid, weights_valid, lkrM_valid, krM_valid, mask_valid = splitTrainvalid(inX_train, outY_train, weights_train, lkrM_train, krM_train, totGen_train, dnnMask_train, hp['validation_split'], npyDataFolder)
+
 # FIRST NN        
         dnnMask_train = inX_train[:,0]>-998
         dnnMask_valid = inX_valid[:,0]>-998
@@ -163,7 +174,52 @@ def main():
         y_predicted = np.ones(len(inX_test))*-999
         y_predicted[dnnMask_test] = y_predicted__[:,0]
 
+
         #y_predicted_train, y_predicted_valid, y_predicted = computePredicted(inX_train[mask_train, :], inX_valid[mask_valid, :], inX_test[mask_test, :], npyDataFolder, model)
+        
+# SECOND NN
+        dnn2Mask_train = inX_train[:,0]<-4998
+        dnn2Mask_valid = inX_valid[:,0]<-4998
+        dnn2Mask_test  = inX_test[:,0]<-4998
+
+# Select only events that satisfy kinematic cuts (Njets, nbjets, passCuts) but for which the analytical solutions do not exist (or are not adequate)
+        SinX_train       = inX_train[dnn2Mask_train,14:]
+        Sweights_train   = weights_train[dnn2Mask_train]
+        SinX_valid       = inX_valid[dnn2Mask_valid,14:]
+        Sweights_valid   = weights_valid[dnn2Mask_valid]
+        SinX_test        = inX_test[dnn2Mask_test, 14:]
+        
+# Get the model, optmizer, 
+        nNodes  = [128, 128 ]        
+        lR      = 0.0001
+        epochs  = 3500
+        simpleModel = getSimpleModel(regRate = 0.01, activation = 'elu',
+                            nDense = len(nNodes),  nNodes = nNodes,
+                            inputDim = SinX_train.shape[1], outputActivation = 'linear')
+        optimizer = keras.optimizers.Adam(   learning_rate = lR, beta_1=0.9, beta_2=0.999, epsilon=1e-01, name="Adam") 
+        simpleModel.compile(optimizer=optimizer, loss = keras.losses.MeanSquaredError(), weighted_metrics=[])
+        callbacks=[]
+        earlyStop = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = hp['patienceeS'], verbose = 1, restore_best_weights=True)
+        callbacks.append(earlyStop)
+        
+# Fit the model
+        simpleFit = simpleModel.fit(    x = SinX_train[:, :], y = outY_train[dnn2Mask_train, :], batch_size = hp['batchSize'], epochs = epochs, verbose = 2,
+                            callbacks = callbacks, validation_batch_size = hp['validBatchSize'],
+                            validation_data = (SinX_valid[:, :], outY_valid[dnn2Mask_valid, :], np.abs(Sweights_valid[:])),
+                            shuffle = False, sample_weight = np.abs(Sweights_train[:]), initial_epoch=2)
+
+        simpleModel.save(outFolder+"/model/"+modelName+"_simple.h5")
+        keras.backend.clear_session()
+        simpleModel = keras.models.load_model(outFolder+"/model/"+modelName+"_simple.h5")
+        
+
+# predict the valid samples and produce plots    
+        y_predicted__ = simpleModel.predict(SinX_test[:,:])
+        doPlotLoss(fit = simpleFit, outName=outFolder+"/model"+"/simpleLoss.pdf")
+        featureNames = getFeatureNames()
+        doPlotShap(featureNames[14:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
+        y_predicted[dnn2Mask_test] = y_predicted__[:,0]
+        
 
         #y_predicted = y_predicted*sigmaOutY + meanOutY
         print("8. Plots")
