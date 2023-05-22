@@ -31,39 +31,23 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
                                                                                                                                                 maxEvents = maxEvents,
                                                                                                                                                 minbjets = 1,
                                                                                                                                                 nFiles = nFiles, scale=scale, outFolder = outFolder+"/model")
-    #inX_test     = np.load(npyDataFolder + "/testing/flat_inX_test.npy")
-    #outY_test    = np.load(npyDataFolder + "/testing/flat_outY_test.npy")
-    #weights_test = np.load(npyDataFolder + "/testing/flat_weights_test.npy")
-    #lkrM_test    = np.load(npyDataFolder + "/testing/flat_lkrM_test.npy")
-    #krM_test     = np.load(npyDataFolder + "/testing/flat_krM_test.npy")
-    #totGen       = np.load(npyDataFolder + "/flat_totGen.npy")
-        # def my_l2_regularizer(weight_matrix):
-            # Define your custom L2 regularization logic here
-         #       return l2(weight_matrix, l=0.01)
+        dnn2Mask_train = inX_train[:,0]<-4998
+        dnn2Mask_test = inX_test[:,0]<-4998
+        inX_train[dnn2Mask_train, 14:], inX_test[dnn2Mask_test, 14:] = scaleNonAnalytical(getFeatureNames()[14:], inX_train, inX_test, npyDataFolder, outFolder)
+        model       = keras.models.load_model(modelDir+"/"+modelName+".h5")
+        simpleModel = keras.models.load_model(modelDir+"/"+modelName+"_simple.h5")
 
-        # Register the custom L2 regularizer
-        #get_custom_objects().update({'my_l2_regularizer': my_l2_regularizer})
-        model = keras.models.load_model(modelDir+"/"+modelName+".h5")
-        y_predicted__ = model.predict(inX_test[inX_test[:,0]>-998,:])
+
+        dnnMask_test = inX_test[:,0]>-998
         y_predicted = np.ones(len(inX_test))*-999
-        y_predicted[inX_test[:,0]>-998] = y_predicted__[:,0]
-        
-
-
-        print("Checking the shapes")
-        print(y_predicted.shape)
-        print(len(weights_test))
-
-
+        y_predicted[dnnMask_test] = model.predict(inX_test[dnnMask_test,:])[:,0]
+        y_predicted[dnn2Mask_test] = simpleModel.predict(inX_test[dnn2Mask_test,14:])[:,0]
 
         print("Starting with plots...")
-        #print(list(inX_test[mask_test,:][0]))
-        inX_test = inX_test[inX_test[:,0]>-998,:]
+        
 
-        doPlotShap(getFeatureNames(), model, [inX_test[:1000,:]], outFolder = outFolder)
-        #explainer = shap.GradientExplainer(model, inX_train[mask_train, :])
-
-        #weights_test = weights_test/np.max(weights_test)
+        #inX_test = inX_test[inX_test[:,0]>-998,:]
+        #doPlotShap(getFeatureNames(), model, [inX_test[:1000,:]], outFolder = outFolder)
 
         linearCorrelation(yPredicted = y_predicted[:], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test",  weights = weights_test)
         doEvaluationPlots(outY_test[mask_test,:], y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test,    mask_test = mask_test,    weights = weights_test, write=True)
@@ -75,19 +59,24 @@ def main():
 
     maxEvents_          = None
     hp = {
-    'learningRate':     0.0001, 
-    'batchSize':        128,
-    'validBatchSize':   256,
-    'nNodes':           [32, 64, 256], #32, 64, 256 ,  21, 428, 276 -- 
+    'learningRate':     0.001, 
+    'batchSize':        1024,
+    'validBatchSize':   2056,
+    'nNodes':           [32, 16], #32, 64, 256 ,  21, 428, 276 -- 
     'regRate':          0.01,
     'activation':       'elu',
     'scale' :           'standard',
-    'nFiles':           10,
-    'testFraction':     0.2,
+    'nFiles':           1,
+    'testFraction':     0.3,
     'validation_split': 0.2,
-    'epochs':           3500,
+    'epochs':           500,
     'patienceeS':       150,
-    'alpha':            150
+    'alpha':            174.3,
+    'nNodes2':          [16, 16 ],
+    'learningRate2':    0.001,
+    'epochs2':          300,
+    'regRate2':         0.02,
+    'numTrainings':     2
 }
     additionalInputName = ""
     additionalOutputName= "DoubleNN"
@@ -97,7 +86,7 @@ def main():
     npyDataFolder, outFolder =  defName.getNames(hp['nFiles'], maxEvents_, hp['nDense'], hp['nNodes'])
     npyDataFolder = npyDataFolder + additionalInputName         # npyFolder
     outFolder = outFolder + additionalOutputName                # output of the model
-    print("Input Folder: ",npyDataFolder)
+    print("Input Folder: ", npyDataFolder)
     print("Outpot Folder:", outFolder)
     
     if not os.path.exists(outFolder+ "/model"):
@@ -134,7 +123,8 @@ def main():
         # scale data without analytical solutions and fill the corresponding vectors        
         dnn2Mask_train = inX_train[:,0]<-4998
         dnn2Mask_test  = inX_test[:,0]<-4998
-        inX_train[dnn2Mask_train, 14:], weights_train[dnn2Mask_train], inX_test[dnn2Mask_test, 14:] = scaleNonAnalytical(getFeatureNames()[14:], inX_train, weights_train, inX_test, outY_train, npyDataFolder, outFolder, hp)
+        inX_train[dnn2Mask_train, 14:], inX_test[dnn2Mask_test, 14:] = scaleNonAnalytical(getFeatureNames()[14:], inX_train, inX_test, npyDataFolder, outFolder)
+        weights_train[dnn2Mask_train], Sweights_train_original = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
 # End Of 2NN
 # Now where inX_train[:,0] has a value >-4999 the two approaches worked. This dataset is scaled in one way. The corresponding testing dataset is scaled with the same functions
 # Where it is <-4999, the two approaches did not work (one or both) and this subset is scaled in another way
@@ -169,10 +159,28 @@ def main():
         model.save(outFolder+"/model/"+modelName+".h5")
         keras.backend.clear_session()
         model = keras.models.load_model(outFolder+"/model/"+modelName+".h5")
-        
         y_predicted__ = model.predict(inX_test[dnnMask_test,:])
         y_predicted = np.ones(len(inX_test))*-999
         y_predicted[dnnMask_test] = y_predicted__[:,0]
+        if (hp['numTrainings'] > 1):
+                print(y_predicted[dnnMask_test][:10])
+                for i in range(hp['numTrainings']-1):
+                        print("Training number %d"%(i+2))
+                        fit = model.fit(    x = inX_train[dnnMask_train, :], y = outY_train[dnnMask_train, :], batch_size = hp['batchSize'], epochs = hp['epochs'], verbose = 0,
+                                callbacks = callbacks, #validation_split = validation_split_, # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
+                                validation_data = (inX_valid[dnnMask_valid, :], outY_valid[dnnMask_valid, :], np.abs(weights_valid[dnnMask_valid])), validation_batch_size = hp['validBatchSize'],
+                                shuffle = False, sample_weight = np.abs(weights_train[dnnMask_train]), initial_epoch=2)
+
+                        model.save(outFolder+"/model/"+modelName+"%d.h5"%(i+1))
+                        keras.backend.clear_session()
+                        model = keras.models.load_model(outFolder+"/model/"+modelName+"%d.h5"%(i+1))
+                        y_predicted__ = model.predict(inX_test[dnnMask_test,:])
+                        print(y_predicted__[:10, 0])
+                        y_predicted[dnnMask_test] = y_predicted[dnnMask_test] + y_predicted__[:,0]
+                y_predicted[dnnMask_test] = y_predicted[dnnMask_test]/hp['numTrainings']
+                print(y_predicted[dnnMask_test][:10])
+        #assert ((y_predicted[dnnMask_test]>0).all()), "Predicted negative values in the first NN"
+
 
 
         #y_predicted_train, y_predicted_valid, y_predicted = computePredicted(inX_train[mask_train, :], inX_valid[mask_valid, :], inX_test[mask_test, :], npyDataFolder, model)
@@ -181,7 +189,7 @@ def main():
         dnn2Mask_train = inX_train[:,0]<-4998
         dnn2Mask_valid = inX_valid[:,0]<-4998
         dnn2Mask_test  = inX_test[:,0]<-4998
-
+        assert ((outY_train[dnn2Mask_train, :]>0).all()), "outY_train used for the second training is wrong"
 # Select only events that satisfy kinematic cuts (Njets, nbjets, passCuts) but for which the analytical solutions do not exist (or are not adequate)
         SinX_train       = inX_train[dnn2Mask_train,14:]
         Sweights_train   = weights_train[dnn2Mask_train]
@@ -190,24 +198,22 @@ def main():
         SinX_test        = inX_test[dnn2Mask_test, 14:]
         
 # Get the model, optmizer, 
-        nNodes  = [128, 128 ]        
-        lR      = 0.0001
-        epochs  = 3500
-        simpleModel = getSimpleModel(regRate = 0.01, activation = 'elu',
-                            nDense = len(nNodes),  nNodes = nNodes,
+        
+        simpleModel = getSimpleModel(regRate = hp['regRate2'], activation = 'elu',
+                            nDense = len(hp['nNodes2']),  nNodes = hp['nNodes2'],
                             inputDim = SinX_train.shape[1], outputActivation = 'linear')
-        optimizer = keras.optimizers.Adam(   learning_rate = lR, beta_1=0.9, beta_2=0.999, epsilon=1e-01, name="Adam") 
+        optimizer = keras.optimizers.Adam(   learning_rate = hp['learningRate2'], beta_1=0.9, beta_2=0.999, epsilon=1e-01, name="Adam") 
         simpleModel.compile(optimizer=optimizer, loss = keras.losses.MeanSquaredError(), weighted_metrics=[])
         callbacks=[]
         earlyStop = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = hp['patienceeS'], verbose = 1, restore_best_weights=True)
         callbacks.append(earlyStop)
         
 # Fit the model
-        simpleFit = simpleModel.fit(    x = SinX_train[:, :], y = outY_train[dnn2Mask_train, :], batch_size = hp['batchSize'], epochs = epochs, verbose = 2,
+        simpleFit = simpleModel.fit(    x = SinX_train[:, :], y = outY_train[dnn2Mask_train, :], batch_size = hp['batchSize'], epochs = hp['epochs2'], verbose = 2,
                             callbacks = callbacks, validation_batch_size = hp['validBatchSize'],
                             validation_data = (SinX_valid[:, :], outY_valid[dnn2Mask_valid, :], np.abs(Sweights_valid[:])),
                             shuffle = False, sample_weight = np.abs(Sweights_train[:]), initial_epoch=2)
-
+        
         simpleModel.save(outFolder+"/model/"+modelName+"_simple.h5")
         keras.backend.clear_session()
         simpleModel = keras.models.load_model(outFolder+"/model/"+modelName+"_simple.h5")
@@ -219,9 +225,10 @@ def main():
         featureNames = getFeatureNames()
         doPlotShap(featureNames[14:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
         y_predicted[dnn2Mask_test] = y_predicted__[:,0]
-        
 
-        #y_predicted = y_predicted*sigmaOutY + meanOutY
+
+        
+        
         print("8. Plots")
         doPlotLoss(fit = fit, outName=outFolder+"/model"+"/loss.pdf")
     
