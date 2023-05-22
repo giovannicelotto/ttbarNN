@@ -67,6 +67,8 @@ def createRealData(path, treeName, minbjets):
 		tree.SetBranchAddress("weight", weight)
 		leptonSF = np.array([0], dtype='f')
 		tree.SetBranchAddress("leptonSF", leptonSF)
+		triggerSF = np.array([0], dtype='f')
+		tree.SetBranchAddress("triggerSF", triggerSF)
 		btagSF = np.array([0], dtype='f')
 		tree.SetBranchAddress("btagSF", btagSF)
 		pileupSF = np.array([0], dtype='f')
@@ -184,7 +186,7 @@ def createRealData(path, treeName, minbjets):
 		pass3= bool(passStep3[0])
 		haskrs = bool(hasKinRecoSolution[0])
 		haslkrs = bool(hasLooseKinRecoSolution[0])
-		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+		totWeight = weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]*triggerSF[0]
 		
 # Pass3: correct reconstruction of leptons
 		if (pass3==True):
@@ -244,6 +246,11 @@ def createRealData(path, treeName, minbjets):
 
 			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
 			bjets    = [jets[j] for j in range(len(btag)) if btag[j] == 1]
+			# reorder btag and bscore
+			bscore  = [bscore[j] for j in range(numJets) if btag[j] == 1] + [bscore[j] for j in range(numJets) if btag[j] == 0]
+			btag    = [btag[j] for j in range(numJets) if btag[j] == 1] + [btag[j] for j in range(numJets) if btag[j] == 0]
+
+
 			if len(bjets) < minbjets:  # another cut
 				continue
 			else:
@@ -260,12 +267,11 @@ def createRealData(path, treeName, minbjets):
 			else:
 				kinRecoOut.append(-999)
 			
-			if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
-				pass
-			else:
-				
-				eventIn.append([-999] * 72)
-				continue
+			#if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
+			#	pass
+			#else:	
+			#	eventIn.append([-999] * 72)
+			#	continue
 				
 
 			nbjets = len(bjets)
@@ -276,22 +282,37 @@ def createRealData(path, treeName, minbjets):
 			assert (lep1.Eta()>0), "Rotation didn't work"
 			assert (lep2.Phi()>0), "Rotation didn't work"
 
+			ttPt = kinReco_top_pt[0] + kinReco_antitop_pt[0]
+			if (haslkrs & haskrs & (ttPt<13000) & (kr_ttbar.M()<13000)):
+				evFeatures.append(looseKinReco_ttbar_pt[0])
+				evFeatures.append(looseKinReco_ttbar_eta[0])
+				evFeatures.append(looseKinReco_ttbar_phi[0])
+				evFeatures.append(looseKinReco_ttbar_m[0])
+				append4vector(evFeatures, kr_ttbar)			# 4-7
+				evFeatures.append(kinReco_top_pt[0])		
+				evFeatures.append(kinReco_top_eta[0])
+				evFeatures.append(kinReco_top_phi[0])		# 10
+				evFeatures.append(kinReco_antitop_pt[0])
+				evFeatures.append(kinReco_antitop_eta[0])
+				evFeatures.append(kinReco_antitop_phi[0])	# 13
+			else:
+				for i in range(14):
+					evFeatures.append(-4999)
 
 
+			#evFeatures.append(looseKinReco_ttbar_pt[0])
+			#evFeatures.append(looseKinReco_ttbar_eta[0])
+			#evFeatures.append(looseKinReco_ttbar_phi[0])
+			#evFeatures.append(looseKinReco_ttbar_m[0])
+			#append4vector(evFeatures, kr_ttbar)
+			#evFeatures.append(kinReco_top_pt[0])
+			#evFeatures.append(kinReco_top_eta[0])
+			#evFeatures.append(kinReco_top_phi[0])
+			#evFeatures.append(kinReco_antitop_pt[0])
+			#evFeatures.append(kinReco_antitop_eta[0])
+			#evFeatures.append(kinReco_antitop_phi[0])
 
-			evFeatures.append(looseKinReco_ttbar_pt[0])
-			evFeatures.append(looseKinReco_ttbar_eta[0])
-			evFeatures.append(looseKinReco_ttbar_phi[0])
-			evFeatures.append(looseKinReco_ttbar_m[0])
-			append4vector(evFeatures, kr_ttbar)
 
-
-			evFeatures.append(kinReco_top_pt[0])
-			evFeatures.append(kinReco_top_eta[0])
-			evFeatures.append(kinReco_top_phi[0])
-			evFeatures.append(kinReco_antitop_pt[0])
-			evFeatures.append(kinReco_antitop_eta[0])
-			evFeatures.append(kinReco_antitop_phi[0])
 
 
 			append4vector(evFeatures, dilepton)
@@ -366,7 +387,7 @@ def loadRegressionData4P(path, treeName, minbjets, nFiles):
     print("Searching root files in ", path)	
     fileNames = glob.glob(path+'/*.root')		# List of files.root in the directory
     nFiles = len(fileNames) if nFiles == None else nFiles
-    fileNames =  [i for i in fileNames if "emu" in i][:nFiles]
+    fileNames =  [i for i in fileNames if "run" in i][:nFiles]
     print (len(fileNames), " files to be used\n")
 
     eventIn, weights,lkrM,krM = [],[],[],[]	# Empty lists for input, output, weights, outputs of analytical results
@@ -383,3 +404,30 @@ def loadRegressionData4P(path, treeName, minbjets, nFiles):
 
     return eventIn, weights, lkrM, krM
 
+def getXSections():
+	xsections = {
+        #diboson
+            'wwtoall':              118.7,
+            'wztoall':              47.13,
+            'zztoall':              16.523,
+        #other channels
+            'ttbarbg_fromDilepton': 831.76*0.10706,
+            'ttbarbg_fromLjets':    831.76*0.44113,
+            'ttbarbg_fromHadronic': 831.76*0.45441,
+        #ttbar+boson
+            'ttbarWjetstoqq':       0.4062,
+            'ttbarWjetstolnu':      0.2043,
+            'ttbarZtollnunu':       0.2529,
+            'ttbarZtoqq':           0.5297,
+        # single TOP
+            'singletop_s_leptonic': 10.32,
+            'singletop_t':          136.02,
+            'singletop_tw':         35.85*0.54559,
+            'singleantitop_t':      80.95,
+            'singleantitop_tw':     35.85*0.54559,
+        # Wjets and Zjets
+            'wtolnu':               61526.7,
+            'dy1050':               22635.1,
+            'dy50inf':              6225.4
+        }	
+	return xsections

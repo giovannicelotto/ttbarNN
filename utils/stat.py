@@ -13,6 +13,9 @@ from scipy.stats.stats import pearsonr
 from utils.helpers import NormalizeBinWidth1d
 import pickle
 from sklearn.metrics import mean_squared_error
+import sys
+sys.path.insert(1, '/nfs/dust/cms/user/celottog/mttNN')
+from npyData.checkFeatures import checkFeatures
 
 def KLdiv(p, q):
     xs = np.linspace(300, 1500, 100)
@@ -30,7 +33,7 @@ def JSdist(p, q):
 
     return [np.sqrt(entropy(kde_p, m)/2 + entropy(kde_q, m)/2), jensenshannon(kde_p, kde_q)]
 
-def multiScale(featureNames, inX, dataPathFolder, outFolder):
+def multiScale(featureNames, inX, outName):
     
     maxable   = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_phi', 'njets', 'nbjets', 'kr_ttbar_m']) ]
     powerable = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['_pt', '_m', 'ht']) and not any(substring in featureNames[i] for substring in ['lep1_m', 'lep2_m','kr_ttbar_m'])]
@@ -53,6 +56,7 @@ def multiScale(featureNames, inX, dataPathFolder, outFolder):
 
     print("Saving the scalers...")
     scalers = {
+    'type'  : 'multi',
     'maxer': maxer,
     'powerer': powerer,
     'scaler': scaler,
@@ -63,14 +67,14 @@ def multiScale(featureNames, inX, dataPathFolder, outFolder):
     'scalable': scalable
     }
 
-    with open(outFolder+'/scalers.pkl', 'wb') as file:
+    with open(outName, 'wb') as file:
         pickle.dump(scalers, file)
 
     return inXs
 
 
-def standardScale(featureNames, inX ):
-    
+def standardScale(featureNames, inX, outName):
+
     keepable  = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['tag', 'score'])]
     scalable  = [i for i in range(len(featureNames)) if ( i not in keepable )]
     
@@ -78,9 +82,23 @@ def standardScale(featureNames, inX ):
 
     scaler  = preprocessing.StandardScaler().fit(inX[:,scalable])
     inXs[:, scalable] = scaler.transform(inXs[:,scalable])
+
+
+    print("Saving the scalers...")
+    scalers = {
+    'type'  : 'standard',
+    'scaler': scaler,
+    'keepable': keepable,
+    'scalable': scalable
+    }
+
+    with open(outName, 'wb') as file:
+        pickle.dump(scalers, file)
     return inXs
 
-def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True):
+
+
+def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, outFix = None):
     print("Producing weights for training...")
     weights_train_original = weights_train
     if (output):
@@ -116,6 +134,7 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True):
         c = weightHisto.GetBinContent(binX)
         if (c>0):
             weightHisto.SetBinContent(binX, maximumBinContent/(c)*np.exp(-(midpoint-firstMidpoint)/alpha))
+            #weightHisto.SetBinContent(binX, maximumBinContent/(c))
 
         #if ((binX >= maximumBin+10) & (c>0)):
         #    weightHisto.SetBinContent(binX, 1)
@@ -128,7 +147,11 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True):
     weightHisto.SetTitle("Weights distributions")
     canvas.SetLogy(1)
     if (output):
-        canvas.SaveAs(outFolder+"/model/weights.pdf")
+        if outFix is None:
+            canvas.SaveAs(outFolder+"/model/weights.pdf")
+        else:
+            outFix = "_" + outFix
+            canvas.SaveAs(outFolder+"/model/weights"+outFix+".pdf")
     
     weights_train_=[]
     for w,m in zip(weights_train, outY_train):
@@ -138,20 +161,103 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True):
     weights_train = np.array(weights_train_)		    # final weights_train is np array
 
     weights_train = 1./np.mean(weights_train)*weights_train # to have mean = 1
-
-    fig, ax = plt.subplots(1, 2, figsize=(16, 8))
-    ax[0].hist(weights_train, label='Training', bins = 100)
-    ax[0].set_yscale('log')
-    ax[0].legend(fontsize=18)
-    ax[1].hist(weights_train_original, label='Original', bins=100)
-    ax[1].set_yscale('log')
-    ax[1].legend(fontsize=18)
-    
-    fig.savefig(outFolder+"/model/weightsBeforeAndAfter.png")
+    if (output):
+        fig, ax = plt.subplots(1, 2, figsize=(16, 8))
+        ax[0].hist(weights_train, label='Training', bins = 100)
+        ax[0].set_yscale('log')
+        ax[0].legend(fontsize=18)
+        ax[1].hist(weights_train_original, label='Original', bins=100)
+        ax[1].set_yscale('log')
+        ax[1].legend(fontsize=18)
+        
+        fig.savefig(outFolder+"/model/weightsBeforeAndAfter.png")
     
     return weights_train, weights_train_original
 
+def scaleNonAnalytical(featureNames, inX_train,  inX_test,npyDataFolder, outFolder):
+# Do the sacling on training, save it and apply it to the testing
+    dnn2Mask_train = inX_train[:,0]<-4998
+    dnn2Mask_test  = inX_test[:,0]<-4998
+    SinX_train       = inX_train[dnn2Mask_train,14:]
+    #Sweights_train   = weights_train[dnn2Mask_train]
+    SinX_test        = inX_test[dnn2Mask_test, 14:]
+    #Sweights_train, Sweights_train_original = getWeightsTrain(outY_train[dnn2Mask_train], Sweights_train, outFolder=outFolder, alpha = hp['alpha'], output=False)
+    
+    print(" Scaling the events without K&L")
+    
+    SinX_train = standardScale(featureNames, SinX_train[:,:], outFolder+"/model/Sscalers.pkl")
+    checkFeatures(SinX_train[:,:], npyDataFolder, name="SscaledPlot", featureNames = featureNames)
+    
+    with open(outFolder+"/model/Sscalers.pkl", 'rb') as file:
+            scalers = pickle.load(file)
+            scaler = scalers['scaler']
+            scalable = scalers['scalable']
+            SinX_test[:, scalable]  = scaler.transform( SinX_test [:, scalable])
+    checkFeatures(SinX_train[:,:], npyDataFolder, name="SscaledPlotTest", featureNames = featureNames)
+    return SinX_train, SinX_test
 
+
+def scalerMC(modelDir, MCInX):
+# modelDir = the folder where two scalers are present
+# MCInX    = data features to be scaled
+# return scaled data only
+            with open(modelDir + "/scalers.pkl", 'rb') as file:
+                scalers = pickle.load(file)
+    # Getting the scalers od the first NN
+                if (scalers['type']=='multi'):
+                    scalerType = scalers['type']
+                    maxer = scalers['maxer']
+                    powerer = scalers['powerer']
+                    scaler = scalers['scaler']
+                    maxable = scalers['maxable']
+                    powerable = scalers['powerable']
+                    scalable = scalers['scalable']
+
+                if (scalers['type']=='standard'):
+                    scalerType = scalers['type']
+                    scaler = scalers['scaler']
+                    scalable = scalers['scalable']
+    # Getting scalers of the second NN
+            with open(modelDir + "/Sscalers.pkl", 'rb') as file:
+                scalers = pickle.load(file)
+
+                if (scalers['type']=='multi'):
+                    scalerType2 = scalers['type']
+                    maxer2 = scalers['maxer']
+                    powerer2 = scalers['powerer']
+                    scaler2 = scalers['scaler']
+                    maxable2 = scalers['maxable']
+                    powerable2 = scalers['powerable']
+                    scalable2 = scalers['scalable']
+
+                if (scalers['type']=='standard'):
+                    scalerType2 = scalers['type']
+                    scaler2 = scalers['scaler']
+                    scalable2 = scalers['scalable']
+            
+            dnnMaskMC = (MCInX[:,0]>-998)
+            MCInXscaled = MCInX[dnnMaskMC, :]
+
+            if (scalerType == 'standard'):
+                MCInXscaled[:, scalable]  = scaler.transform( MCInXscaled [:, scalable])
+            elif (scalerType == 'multi'):
+                MCInXscaled[:, maxable]   = maxer.transform( MCInXscaled  [:, maxable])
+                MCInXscaled[:, powerable] = powerer.transform( MCInXscaled[:, powerable])
+                MCInXscaled[:, scalable]  = scaler.transform( MCInXscaled [:, scalable])
+            MCInX[dnnMaskMC, :] = MCInXscaled            
+
+            dnn2MaskMC = (MCInX[:,0]<-4998)
+            MCInXscaled = MCInX[dnn2MaskMC, 14:]
+
+            if (scalerType2 == 'standard'):
+                MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
+            elif (scalerType2 == 'multi'):
+                MCInXscaled[:, maxable2]   = maxer2.transform( MCInXscaled  [:, maxable2])
+                MCInXscaled[:, powerable2] = powerer2.transform( MCInXscaled[:, powerable2])
+                MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
+            MCInX[dnn2MaskMC, 14:] = MCInXscaled
+
+            return MCInX
 
 def getWeightsTrainNew(outY_train, weights_train, outFolder, alpha=0.8, epsilon=1e-4, output=True):
     print("Producing weights for training...")
@@ -173,7 +279,7 @@ def getWeightsTrainNew(outY_train, weights_train, outFolder, alpha=0.8, epsilon=
     kde  = kdeF(outY_train[:,0])
     kde = (kde-kde.min())/(kde.max()-kde.min())  # normalize kde distribution: now i s [0, 1]\
     massScale = (outY_train[:,0] -outY_train.min())/(outY_train.max()-outY_train.min())
-    kde_n = 0.5*kde + 0.5*np.sqrt(massScale)
+    kde_n = 0.5*kde + (1-0.5)*(np.exp(massScale*0.693)-1)
     kde_n = (kde_n - kde_n.min())/(kde_n.max()-kde_n.min())
 
     print(kde.shape, massScale.shape)
@@ -181,9 +287,10 @@ def getWeightsTrainNew(outY_train, weights_train, outFolder, alpha=0.8, epsilon=
     #kde_n = np.where(outY_train[:,0]<450, kde_n, racc)
     #kde_n = kde_n * np.exp((outY_train[:,0]-420)/250)
     print("kde norm done")
-    fprime = 1-alpha*kde_n
+    fprime = 1-kde_n
     fsec = np.where(fprime > epsilon, fprime, epsilon)
-    weights_train = fsec/np.mean(fsec)
+    weights_train = np.abs(weights_train_original)*fsec
+    weights_train = weights_train/np.mean(weights_train)
 
     fig, ax = plt.subplots(2, 2, figsize= (7, 7))
     

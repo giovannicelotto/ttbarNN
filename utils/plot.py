@@ -15,7 +15,7 @@ ROOT.gROOT.SetBatch(True)
 logbins =  np.concatenate((np.linspace(320, 500, 16, endpoint=False), [500, 520, 540, 560, 580, 600, 650, 750])) #]
 #logbins = np.concatenate(([335], logbins))
 #recoBin = np.array([1, 410, 500, 670, 1500]) #1500
-recoBin = np.array([1, 380, 470, 620, 820,  1100, 1500, 25000]) #1200
+recoBin = np.array([1,  380, 470, 620, 820,  1100, 1500, 250000]) #
 diffBin = np.arange(300, 2050, 50) #1200
 #recoBinPlusBin = np.array([1, 380, 450, 500, 625, 812.5,  1200, 5000])
 nRecoBin = len(recoBin)-1
@@ -99,13 +99,14 @@ def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
         myMasks = [(yPredicted>-998), (lkrM>-998), (krM>-998)]  
         print("Invariant Mass plot...")
         yPredicted = yPredicted[myMasks[0]]
+        print("******************************\n\n*******************************\n\n", yPredicted.max(), yPredicted.min())
         lkrM = lkrM[myMasks[1]]
         krM  = krM[myMasks[2]]
         f, ax = plt.subplots(1, 1)
         if (totGen is not None):
-            ax.hist(yPredicted, bins = 80, range=(200,1500), label="DNN   R = %.3f"%(len(yPredicted)/len(totGen)),  histtype=u'step', alpha=0.8, density=True, weights=weights[myMasks[0]]) 
-            ax.hist(lkrM,       bins = 80, range=(200,1500), label="Loose R = %.3f"%(len(lkrM)/len(totGen)),        histtype=u'step', alpha=0.5, density=True, weights=weights[myMasks[1]])
-            ax.hist(krM,        bins = 80, range=(200,1500), label="Full  R = %.3f"%(len(krM)/len(totGen)),         histtype=u'step', alpha=0.5, density=True, weights=weights[myMasks[2]])
+            ax.hist(yPredicted, bins = 80, range=(200,1500), label="DNN   R = %.7f"%(len(yPredicted)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),  histtype=u'step', alpha=0.8, density=True, weights=weights[myMasks[0]]) 
+            ax.hist(lkrM,       bins = 80, range=(200,1500), label="Loose R = %.3f"%(len(lkrM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),        histtype=u'step', alpha=0.5, density=True, weights=weights[myMasks[1]])
+            ax.hist(krM,        bins = 80, range=(200,1500), label="Full  R = %.3f"%(len(krM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),         histtype=u'step', alpha=0.5, density=True, weights=weights[myMasks[2]])
             ax.hist(totGen[mask],     bins = 80, range=(200,1500), label="True  I = %dk"%(len(totGen)*0.001),       histtype=u'step', alpha=0.8, density=True, weights=weights[mask])
         else:
             print("Error")
@@ -138,26 +139,34 @@ def diffCrossSec(yPredicted, lkrM, krM, totGen, dnnMatrix, looseMatrix, kinMatri
 
         myMasks = [yPredicted>-998, lkrM>-998, krM>-998]
 
-        dnnCov      = covarianceMatrix(yPredicted, dnnMatrix)
-        looseCov    = covarianceMatrix(lkrM, looseMatrix)
-        kinCov      = covarianceMatrix(krM, kinMatrix)
+        dnnCov      = covarianceMatrix(yPredicted[myMasks[0]], dnnMatrix)
+        looseCov    = covarianceMatrix(lkrM[myMasks[1]], looseMatrix)
+        kinCov      = covarianceMatrix(krM[myMasks[2]], kinMatrix)
 
         fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True, gridspec_kw={'height_ratios': [3, 1]}, figsize=(14, 10))
         fig.subplots_adjust(hspace=0.00)
         fig.align_ylabels([ax1,ax2])
-        dnnCounts, b_ = np.histogram(yPredicted[myMasks[0]] , bins=recoBin, weights=weights[myMasks[0]], density=False)
-        looseCounts,b_= np.histogram(lkrM[myMasks[1]]       , bins=recoBin, weights=weights[myMasks[1]], density=False)
-        kinCounts, b_ = np.histogram(krM[myMasks[2]]        , bins=recoBin, weights=weights[myMasks[2]], density=False)
-        #genCounts, bins_gen, bars_gen = ax1.hist(yTrue,         bins=recoBin, density=False, histtype=u'step', alpha=0.5, label='Gen mtt Reco', edgecolor='C3')
+        
+
+#        assert ((yPredicted[myMasks[0]] > 1)).all(), "yPredicted out of range"
+
+
+
+
+        dnnCounts, b_ = np.histogram(yPredicted[myMasks[0]] , bins=getRecoBin(), weights=weights[myMasks[0]], density=False)
+        looseCounts,b_= np.histogram(lkrM[myMasks[1]]       , bins=getRecoBin(), weights=weights[myMasks[1]], density=False)
+        kinCounts, b_ = np.histogram(krM[myMasks[2]]        , bins=getRecoBin(), weights=weights[myMasks[2]], density=False)
+        #genCounts, bins_gen, bars_gen = ax1.hist(yTrue,      bins=getRecoBin(), density=False, histtype=u'step', alpha=0.5, label='Gen mtt Reco', edgecolor='C3')
         if (totGen is not None):
             #trueCounts, binsTrue, barsTrue = ax1.hist(totGen,         bins=recoBin, density=False, histtype=u'step', alpha=0.5, label='True', edgecolor='black')
-            trueCounts, b_ = np.histogram(totGen,   bins=recoBin, density=False, weights=weights)
+            trueCounts, b_ = np.histogram(totGen,   bins=getRecoBin(), density=False, weights=weights)
             ax1.hist(recoBin[:-1], bins=recoBin, weights = trueCounts/np.diff(recoBin), histtype=u'step', alpha=0.5, label='True', edgecolor='black')
         # I did the unfolding with first bin equal to 1 and last bin equal to 5000
         # To visualize it I put x[0] = 300 and x[-1] = 2500
         x = getRecoBin()
         x[0]  = 300
         x[-1] = 2500
+        assert x[0]!=recoBin[0]
         ax1.set_xlim(x[0], x[-1])
         ax2.set_xlim(x[0], x[-1])
 
@@ -183,8 +192,18 @@ def diffCrossSec(yPredicted, lkrM, krM, totGen, dnnMatrix, looseMatrix, kinMatri
         ax2.plot(x[:-1]+dx , np.sqrt(np.diag(kinCov))/kinUnfolded     , label='Unfolded kin', linestyle='-', marker='o', markersize = 6, color='C2' )
         ax2.tick_params(labelsize=18)
         ax2.axhline(y=0, color='black', linestyle='-', alpha=0.4)
-        #for i in range(len(x_)):
-        #    ax2.text(x_[i]+dx_[i], np.sqrt(np.diag(dnnCov)[i])/trueCounts[i], "%d%%"%(np.sqrt(np.diag(dnnCov)[i])*100/trueCounts[i]), ha='center', va='bottom')
+        
+        axins = ax2.inset_axes([0.06, 0.5, 0.3, 0.3])
+        axins.plot(x[:-1]+dx , np.sqrt(np.diag(dnnCov))/dnnUnfolded      ,   label='Unfolded DNN', linestyle='-', marker='o', markersize = 6, color='C0')
+        axins.plot(x[:-1]+dx , np.sqrt(np.diag(looseCov))/(looseUnfolded), label='Unfolded Loose Err', linestyle='-', marker='o', markersize = 6, color='C1')
+        axins.plot(x[:-1]+dx , np.sqrt(np.diag(kinCov))/kinUnfolded     , label='Unfolded kin', linestyle='-', marker='o', markersize = 6, color='C2' )
+        axins.yaxis.tick_left()
+        axins.set_xticklabels([])
+        x1, x2, y1, y2 = 330, 750, 0, 0.0004 
+        axins.set_xlim(x1, x2)
+        axins.set_ylim(y1, y2)
+        
+        ax2.indicate_inset_zoom(axins, edgecolor="black")
         fig.savefig(outFolder+"/diff_tt.pdf", bbox_inches='tight')
         plt.cla()
         np.set_printoptions(precision=3)
@@ -197,6 +216,10 @@ def diffCrossSec(yPredicted, lkrM, krM, totGen, dnnMatrix, looseMatrix, kinMatri
             print("Difference in: A*x - y" ,  dnnMatrix.dot(trueCounts)-dnnCounts)
             print("Difference in: A-1*y - x" ,np.linalg.inv(dnnMatrix).dot(dnnCounts)  - trueCounts)
             print("Determinant Cov Matrix    :", np.linalg.det(dnnCov))
+            print("True Counts               :", trueCounts, weights.sum())
+            print("dnnMatrix                 :", dnnMatrix)
+            print("Fiducial weighted events  :", dnnCounts, weights[myMasks[0]].sum())
+            print("number of generated events:", len(totGen))
             print("Errors in DNN unfolding   :",   np.sqrt(np.diag(dnnCov)))
             print("Errors in Loose unfolding :", np.sqrt(np.diag(looseCov)))
             print("Errors in kin unfolding   :",   np.sqrt(np.diag(kinCov)))
@@ -208,9 +231,12 @@ def diffCrossSec(yPredicted, lkrM, krM, totGen, dnnMatrix, looseMatrix, kinMatri
                     print("Errors in DNN unfolding   :", np.sqrt(np.diag(dnnCov))   , file = f)
                     print("Errors in Loose unfolding :", np.sqrt(np.diag(looseCov)) , file=f)
                     print("Errors in kin unfolding   :", np.sqrt(np.diag(kinCov))   , file=f)
+                    print("Counts in dnnUnfolded     :", dnnUnfolded/np.diff(recoBin), file=f )
+                    print("Sum of DNNunfolded events:" , dnnUnfolded.sum(), file=f )
+                    print()
         plt.close('all')
 
-def ResponseMatrix(matrixName, y, yGen, outFolder, totGen, weights, recoBin = getRecoBin()):
+def ResponseMatrix(matrixName, y, outFolder, totGen, weights, recoBin = getRecoBin()):
     '''create a response matrix with an additional bin used to count overflow event'''
     nRecoBin = len(recoBin)-1
     matrix = np.empty((nRecoBin, nRecoBin))
@@ -415,17 +441,17 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
 # ******************************* 
     dnnMatrix = np.empty((nRecoBin, nRecoBin))
     print("DNN matrix")
-    dnnMatrix = ResponseMatrix(y=yPredicted, yGen = yTrue, matrixName = 'dnnMatrix', outFolder = outFolder, totGen=totGen, weights=weights)
+    dnnMatrix = ResponseMatrix(y=yPredicted, matrixName = 'dnnMatrix', outFolder = outFolder, totGen=totGen, weights=weights)
     print("\nCondition Number of the DNN matrix:", np.linalg.cond(dnnMatrix))
     if (write):
         with open(outFolder+"/../model/Info.txt", "a+") as f:
             print("\nCondition Number of the DNN matrix:  "+str(np.linalg.cond(dnnMatrix))+"\n", file=f)
     #print(np.linalg.inv(dnnMatrix).dot(dnnMatrix))
     looseMatrix = np.empty((nRecoBin, nRecoBin))
-    looseMatrix = ResponseMatrix(y=lkrM, yGen=totGen[lkrM>-998], matrixName = 'looseMatrix', outFolder = outFolder, totGen=totGen, weights=weights)
+    looseMatrix = ResponseMatrix(y=lkrM, matrixName = 'looseMatrix', outFolder = outFolder, totGen=totGen, weights=weights)
 
     kinMatrix = np.empty((nRecoBin, nRecoBin))
-    kinMatrix = ResponseMatrix(y=krM, yGen=totGen[krM>-998], matrixName = 'kinMatrix', outFolder = outFolder, totGen=totGen, weights=weights)
+    kinMatrix = ResponseMatrix(y=krM, matrixName = 'kinMatrix', outFolder = outFolder, totGen=totGen, weights=weights)
     np.save(outFolder+'/../model/dnnM.npy', dnnMatrix)
     np.save(outFolder+'/../model/looseM.npy', looseMatrix)
     np.save(outFolder+'/../model/kinM.npy', kinMatrix)
@@ -523,6 +549,12 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
                         #'weightsLoose': weights[(myMasks[1]) & mask],
                         #'weightsKin': weights[(myMasks[2]) & mask]
                         })
+    df.loc[df['yPredicted'] > 500, 'yPredicted'] = 499
+    df.loc[df['lkrM'] > 500, 'lkrM'] = 499
+    df.loc[df['krM'] > 500, 'krM'] = 499
+    df.loc[df['yPredicted'] < -500, 'yPredicted'] = -499
+    df.loc[df['lkrM'] < -500, 'lkrM'] = -499
+    df.loc[df['krM'] < -500, 'krM'] = -499
     for i, ax in enumerate(axes):
         if i < 7:
             mask = (totGen>x[i]) & (totGen<x[i+1])
@@ -537,6 +569,11 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
             ax.hist(df['yPredicted'][(mask & myMasks[0])], bins = bins, range=(-500, 500), label="DNN "  ,  weights=weights[(mask & myMasks[0] )], **kwargs) 
             ax.hist(df['lkrM'][mask & myMasks[1]] ,        bins = bins, range=(-500, 500), label="Loose" ,  weights=weights[(mask & myMasks[1] )], **kwargs)
             ax.hist(df['krM'][mask & myMasks[2]] ,         bins = bins, range=(-500, 500), label="Full " ,  weights=weights[(mask & myMasks[2] )], **kwargs)
+
+            kwargs = dict(histtype='step', alpha=1., density=True)
+            ax.hist(df['yPredicted'][(mask & myMasks[0])], bins = bins, range=(-500, 500), label="DNN "  ,  weights=weights[(mask & myMasks[0] )], **kwargs, ec='C0') 
+            ax.hist(df['lkrM'][mask & myMasks[1]] ,        bins = bins, range=(-500, 500), label="Loose" ,  weights=weights[(mask & myMasks[1] )], **kwargs, ec='C1')
+            ax.hist(df['krM'][mask & myMasks[2]] ,         bins = bins, range=(-500, 500), label="Full " ,  weights=weights[(mask & myMasks[2] )], **kwargs, ec='C2')
             
             #g=sns.kdeplot(data = data , weights=weights[(myMasks[0]) & mask], common_norm=False, fill=True, alpha=.5, linewidth=0, ax=ax, label='DNN', gridsize=5000)
             #sns.kdeplot(data=df[(myMasks[0]) & mask], x='yPredicted', weights='weights',   fill=True, alpha=.5, linewidth=0, ax=ax, label='DNN', gridsize=5000)

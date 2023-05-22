@@ -31,7 +31,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
 
     if createNewData:
         
-        path = "/nfs/dust/cms/user/celottog/ttbarSignalFromDilepton/first10files/"
+        path = "/nfs/dust/cms/user/celottog/CMSSW_10_6_32/src/TopAnalysis/Configuration/analysis/diLeptonic/miniTree_2018/Nominal/emu"
         inX, outY, weights, lkrM, krM, totGen, mask = loadRegressionData(path, "miniTree", nFiles=nFiles, minbjets=minbjets, maxEvents=maxEvents)
 
         inX     = np.array(inX)
@@ -192,6 +192,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     print(" Saving data for training and testing")
     if createNewData:
         np.save(npyDataFolder+ "/testing/inX"    + "_test.npy", inX_test)
+        np.save(npyDataFolder+ "/testing/totGen" + "_test.npy", totGen_test)
         np.save(npyDataFolder+ "/testing/outY"   + "_test.npy", outY_test)
         np.save(npyDataFolder+ "/testing/weights"+ "_test.npy", weights_test)
         np.save(npyDataFolder+ "/testing/lkrM"   + "_test.npy", lkrM_test)

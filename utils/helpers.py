@@ -145,6 +145,8 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	tree.SetBranchAddress("weight", weight)
 	leptonSF = np.array([0], dtype='f')
 	tree.SetBranchAddress("leptonSF", leptonSF)
+	triggerSF = np.array([0], dtype='f')
+	tree.SetBranchAddress("triggerSF", triggerSF)
 	btagSF = np.array([0], dtype='f')
 	tree.SetBranchAddress("btagSF", btagSF)
 	pileupSF = np.array([0], dtype='f')
@@ -286,7 +288,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 		assert (pass3) ,"passStep3 not True"
 		haskrs = bool(hasKinRecoSolution[0])
 		haslkrs = bool(hasLooseKinRecoSolution[0])
-		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]
+		totWeight=weight[0]*btagSF[0]*leptonSF[0]*pileupSF[0]*prefiringWeight[0]*triggerSF[0]
 # Pass3: correct reconstruction of leptons
 		if (pass3==True):
 			lep1.SetPtEtaPhiM(lepton1_pt[0],lepton1_eta[0],lepton1_phi[0],lepton1_m[0])
@@ -351,6 +353,11 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 
 			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
 			bjets    = [jets[j] for j in range(len(btag)) if btag[j] == 1]
+			# new ordering of bscore and btag to be consistent with sorted jets
+			bscore  = [bscore[j] for j in range(numJets) if btag[j] == 1] + [bscore[j] for j in range(numJets) if btag[j] == 0]
+			btag    = [btag[j] for j in range(numJets) if btag[j] == 1] + [btag[j] for j in range(numJets) if btag[j] == 0]
+
+
 			if len(bjets) < minbjets:  # another cut
 				mask.append(False)
 				eventOut.append([-999])
@@ -500,11 +507,12 @@ def loadRegressionData(path, treeName,nFiles, minbjets, maxEvents):
     Pass the list of input output features, weights, and output of the invariant mass from LKR and FKR everything in list of list
     '''
     print("Searching root files in ", path)	
-    fileNames = glob.glob(path+'/*.root')
+    fileNames = glob.glob(path+'/emu_ttbarsignalplustau*.root')
     fileNames =  [i for i in fileNames if "emu" in i][:nFiles]
     print (len(fileNames), " files to be used\n")
     eventIn, eventOut, weights,lkrM,krM, totGen, mask = [],[],[],[],[], [], []
     n=0
+    print(fileNames)
     for filename in fileNames:					# Looping over the file names
         n = n+1
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
