@@ -131,13 +131,13 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 
 
 # Jets
-	jetBTagged = np.array([0]*20, dtype='f')
+	jetBTagged = np.array([0]*20, dtype='b')
 	tree.SetBranchAddress("jets_btag", (jetBTagged))
 	jetBTagScore = np.array([0]*20, dtype='f')
 	tree.SetBranchAddress("jets_btag_score", (jetBTagScore))
-	jetTopMatched = np.array([0]*20, dtype='f')
+	jetTopMatched = np.array([0]*20, dtype='b')
 	tree.SetBranchAddress("jets_topMatched", (jetTopMatched))
-	jetAntiTopMatched = np.array([0]*20, dtype='f')
+	jetAntiTopMatched = np.array([0]*20, dtype='b')
 	tree.SetBranchAddress("jets_antitopMatched", (jetAntiTopMatched))
 	njets = np.array([0]*20, dtype='uint')
 	tree.SetBranchAddress("n_jets", njets)
@@ -348,6 +348,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				ht = ht+jet4.Pt()
 				btag.append(int(bool(jetBTagged[idx])))
 				bscore.append(jetBTagScore[idx])
+
 				
 
 			nbjets = sum(btag)
@@ -473,6 +474,11 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 					#print("max_index \t%d\nfirst \t%d\nsecond \t%d" %(max_index, first, second))
 					sortedJets.append(bjets[first])
 					sortedJets.append(bjets[second])
+					for jetInd in range(nbjets):
+						if jetInd not in [first, second]:
+							extraJet = extraJet + bjets[jetInd]
+					for jetInd in range(len(nonbjets)):
+						extraJet = extraJet + nonbjets[jetInd]
 					assert first is not second
 					bscore[0], bscore[1]	= sortedBscore[first], sortedBscore[second]
 					btag[0], btag[1]	= sortedBtag[first], sortedBtag[second]
@@ -521,6 +527,9 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 						#print("max_index \t%d\nfirst \t%d\nsecond \t%d" %(max_index, first, second))
 						sortedJets.append(jets[first])
 						sortedJets.append(jets[second])
+						for jetInd in range(numJets):
+							if jetInd not in [first, second]:
+								extraJet = extraJet + jets[jetInd]
 						assert first is not second
 						bscore[0], bscore[1] 	= bscore[first], bscore[second]
 						btag[0], btag[1]			= btag[first], btag[second]
@@ -546,6 +555,9 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 						second = int (max_index%numJets)
 						sortedJets.append(jets[first])
 						sortedJets.append(jets[second])
+						for jetInd in range(numJets):
+							if jetInd not in [first, second]:
+								extraJet = extraJet + jets[jetInd]
 						assert first is not second
 						bscore[0] 	= bscore[first]
 						bscore[1] 	= bscore[second]
@@ -565,6 +577,9 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 					second = 1 if first==0 else 0
 					sortedJets.append(jets[first])
 					sortedJets.append(jets[second])
+					for jetInd in range(numJets):
+						if jetInd not in [first, second]:
+							extraJet = extraJet + jets[jetInd]
 					assert first is not second
 					bscore[0] 	= bscore[first]
 					bscore[1] 	= bscore[second]
@@ -583,28 +598,11 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 
 			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1])
 			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1] + met)
-			for jetTemp in sortedJets[2:]:
-				extraJet = extraJet + jetTemp
 			append4vector(evFeatures, extraJet)
 			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1] + met + extraJet)
 			append4vector(evFeatures, leptons[0] + sortedJets[0])
 			append4vector(evFeatures, leptons[1] + sortedJets[1])
 
-			'''for j in range(len(jets)):
-				ml1b_array.append((lep1+jets[j]).M())
-				ml2b_array.append((lep2+jets[j]).M())
-				mlb_array.append((lep2+jets[j]).M())
-				mlb_array.append((lep2+jets[j]).M())
-			sorted_indices = np.argsort(mlb_array)
-			if (i<100):
-				pass
-				#print("event number %d"%i)
-				#print(ml1b_array)
-				#print(ml2b_array)
-				#print(bscoreNotOrdered)
-				#print([jets[z].Pt() for z in range(numJets)])
-				# jet0'''
-		
 
 			append4vector(evFeatures, sortedJets[0])	
 			evFeatures.append(btag[0])
