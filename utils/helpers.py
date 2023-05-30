@@ -3,34 +3,37 @@ import ROOT
 import numpy as np
 from progress.bar import IncrementalBar
 import tensorflow as tf
-import random
 import math
+import sys
+sys.path.append('/nfs/dust/cms/user/celottog/mlb_studies/')
+from mlb_distribution import loadBinsCounts, checkProbability
 
 
 #definisci un append function che aggiunge il nome della variabile se non già presente
 def getFeatureNames():
 	feature_names =[
+		# analytical solutions
 				'lkr_ttbar_pt', 'lkr_ttbar_eta', 'lkr_ttbar_phi', 'lkr_ttbar_m',
 				'kr_ttbar_pt', 'kr_ttbar_eta', 'kr_ttbar_phi','kr_ttbar_m',
-				'kr_top_pt', 'kr_top_eta', 'kr_top_phi',
-				#'kr_top_m',
-				'kr_antitop_pt', 'kr_antitop_eta', 'kr_antitop_phi',
-				#'kr_antitop_m',
+				'kr_top_pt', 'kr_top_eta', 'kr_top_phi', #'kr_top_m',
+				'kr_antitop_pt', 'kr_antitop_eta', 'kr_antitop_phi', #'kr_antitop_m',
+		# systems of particles
 				'dilepton_pt', 'dilepton_eta', 'dilepton_phi', 'dilepton_m',
+				'njets', 'nbjets',
 				'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi', 'llj1j2_m',
 				'llj1j2MET_pt','llj1j2MET_eta', 'llj1j2MET_phi', 'llj1j2MET_m',
-				'njets', 'nbjets',
 				'extraJets_pt', 'extraJets_eta', 'extraJets_phi', 'extraJets_m',
 				'lljjMETextraj_pt', 'lljjMETextraj_eta', 'lljjMETextraj_phi', 'lljjMETextraj_m',
 				'lb1_pt', 'lb1_eta', 'lb1_phi', 'lb1_m',
 				'lb2_pt', 'lb2_eta', 'lb2_phi', 'lb2_m',
+		# final state particles
 				'jet1_pt', 'jet1_eta', 'jet1_phi', 'jet1_m', 'jet1btag', 'j1_bscore',
 				'jet2_pt', 'jet2_eta', 'jet2_phi', 'jet2_m', 'jet2btag', 'j2_bscore',
-				'lep1_pt', 'lep1_eta',
-				#'lep1_phi',
+				'lep1_pt', 'lep1_eta', #'lep1_phi',
 				'lep1_m',
 				'lep2_pt', 'lep2_eta', 'lep2_phi', 'lep2_m',
 				'met_pt', 'met_phi', 'ht', 
+		# angles
 				'dR_l1l2','dR_l1j1', 'dR_l1j2', 'dR_l2j1', 'dR_l2j2', 'dR_j1j2'
 				]
 	#feature_names =['lkr_ttbar_M', 'kr_ttbar_M', 'dilepton_M', 'llj1j2_M', 'llj1j2MET_M', 'extraJets_M'] #  'channelID' , 
@@ -55,14 +58,14 @@ def rotation(jets, lep1, lep2, met):
 
 	
 
-	for i in range(len(jets)):
+	for idx in range(len(jets)):
 		# Sign of Eta
-		jets[i].SetPtEtaPhiM(jets[i].Pt(), jets[i].Eta()*signEta, jets[i].Phi(), jets[i].M())
+		jets[idx].SetPtEtaPhiM(jets[idx].Pt(), jets[idx].Eta()*signEta, jets[idx].Phi(), jets[idx].M())
 		# Shift in Phi and bring back to [-pi, pi]
-		jets[i].SetPhi( jets[i].Phi() - phiFirst)
-		jets[i].SetPhi( jets[i].Phi() - 2*np.pi*(jets[i].Phi() > np.pi) + 2*np.pi*(jets[i].Phi() < -np.pi))
+		jets[idx].SetPhi( jets[idx].Phi() - phiFirst)
+		jets[idx].SetPhi( jets[idx].Phi() - 2*np.pi*(jets[idx].Phi() > np.pi) + 2*np.pi*(jets[idx].Phi() < -np.pi))
 		# Sign of Phi
-		jets[i].SetPhi(jets[i].Phi()*signPhi)
+		jets[idx].SetPhi(jets[idx].Phi()*signPhi)
 
 	lep1.SetPtEtaPhiM(lep1.Pt(), lep1.Eta()*signEta, lep1.Phi(),  lep1.M())	
 	lep1.SetPhi( lep1.Phi() - phiFirst)
@@ -105,6 +108,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
+	bins, counts = loadBinsCounts()	 # bins and counts for mlb method
 
 	channelID = None
 	isEMuChannel = False
@@ -125,12 +129,16 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	passStep3 = np.array([0], dtype=bool)
 	tree.SetBranchAddress("passStep3", passStep3)
 
-	hasKinRecoSolution = np.array([0], dtype=bool)
-	tree.SetBranchAddress("hasKinRecoSolution", hasKinRecoSolution)
 
-	hasLooseKinRecoSolution = np.array([0], dtype=bool)
-	tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
-
+# Jets
+	jetBTagged = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_btag", (jetBTagged))
+	jetBTagScore = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_btag_score", (jetBTagScore))
+	jetTopMatched = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_topMatched", (jetTopMatched))
+	jetAntiTopMatched = np.array([0]*20, dtype='f')
+	tree.SetBranchAddress("jets_antitopMatched", (jetAntiTopMatched))
 	njets = np.array([0]*20, dtype='uint')
 	tree.SetBranchAddress("n_jets", njets)
 	jetPt = np.array([0]*20, dtype='f')
@@ -141,6 +149,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	tree.SetBranchAddress("jets_phi", jetPhi)
 	jetM = np.array([0]*20, dtype='f')
 	tree.SetBranchAddress("jets_m", jetM)
+# Weights and SF
 	weight = np.array([0], dtype='d')
 	tree.SetBranchAddress("weight", weight)
 	leptonSF = np.array([0], dtype='f')
@@ -193,7 +202,9 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	met_phi =  np.array([0], dtype='f')
 	tree.SetBranchAddress("met_phi", met_phi)
 
-# kinReco top and antitop
+# kinReco and LooseReco
+	hasKinRecoSolution = np.array([0], dtype=bool)
+	tree.SetBranchAddress("hasKinRecoSolution", hasKinRecoSolution)
 	kinReco_top_pt =  np.array([0], dtype='f')
 	tree.SetBranchAddress("kinReco_top_pt", kinReco_top_pt)
 	kinReco_top_eta =  np.array([0], dtype='f')
@@ -211,7 +222,9 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	tree.SetBranchAddress("kinReco_antitop_phi", kinReco_antitop_phi)
 	kinReco_antitop_m =  np.array([0], dtype='f')
 	tree.SetBranchAddress("kinReco_antitop_m", kinReco_antitop_m)
-# Loose kinreco ttbar
+
+	hasLooseKinRecoSolution = np.array([0], dtype=bool)
+	tree.SetBranchAddress("hasLooseKinRecoSolution", hasLooseKinRecoSolution)
 	looseKinReco_ttbar_pt =  np.array([0], dtype='f')
 	tree.SetBranchAddress("looseKinReco_ttbar_pt", looseKinReco_ttbar_pt)
 	looseKinReco_ttbar_eta =  np.array([0], dtype='f')
@@ -220,15 +233,6 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	tree.SetBranchAddress("looseKinReco_ttbar_phi", looseKinReco_ttbar_phi)
 	looseKinReco_ttbar_m =  np.array([0], dtype='f')
 	tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
-# Jets
-	jetBTagged = np.array([0]*20, dtype='f')
-	tree.SetBranchAddress("jets_btag", (jetBTagged))
-	jetBTagScore = np.array([0]*20, dtype='f')
-	tree.SetBranchAddress("jets_btag_score", (jetBTagScore))
-	jetTopMatched = np.array([0]*20, dtype='f')
-	tree.SetBranchAddress("jets_topMatched", (jetTopMatched))
-	jetAntiTopMatched = np.array([0]*20, dtype='f')
-	tree.SetBranchAddress("jets_antitopMatched", (jetAntiTopMatched))
 
 	#maxEntries = tree.GetEntries()
 	maxEntries = tree.GetEntries() if maxEvents is None else min(maxEvents, tree.GetEntries())
@@ -245,10 +249,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	kr_top		= ROOT.TLorentzVector(0.,0.,0.,0.)
 	kr_antitop	= ROOT.TLorentzVector(0.,0.,0.,0.)
 	lkr_ttbar	= ROOT.TLorentzVector(0.,0.,0.,0.)
-	kr_nonbjet	= ROOT.TLorentzVector(0.,0.,0.,0.)
-	lkr_nonbjet	= ROOT.TLorentzVector(0.,0.,0.,0.)
 	kr_ttbar	= ROOT.TLorentzVector(0.,0.,0.,0.)
-	bjettemp	= ROOT.TLorentzVector(0.,0.,0.,0.)
 	top			= ROOT.TLorentzVector(0.,0.,0.,0.)
 	antitop		= ROOT.TLorentzVector(0.,0.,0.,0.)
 	ttbar		= ROOT.TLorentzVector(0.,0.,0.,0.)
@@ -265,23 +266,20 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 		kr_top.SetPtEtaPhiM(0.,0.,0.,0.)
 		kr_antitop.SetPtEtaPhiM(0.,0.,0.,0.)
 		lkr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
-		kr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
 		kr_ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
-		lkr_nonbjet.SetPtEtaPhiM(0.,0.,0.,0.)
-		bjettemp.SetPtEtaPhiM(0.,0.,0.,0.)
 		dilepton.SetPtEtaPhiM(0.,0.,0.,0.)
 		extraJet.SetPtEtaPhiM(0., 0., 0., 0.)
-		ht = 0
 		top.SetPtEtaPhiM(0.,0.,0.,0.)
 		antitop.SetPtEtaPhiM(0.,0.,0.,0.)
 		ttbar.SetPtEtaPhiM(0.,0.,0.,0.)
 		zero.SetPtEtaPhiM(0., 0., 0., 0.)
+		ht = 0
+		totWeight=1.
 		
 		evFeatures=[]
 		tree.GetEntry(i)
-		totWeight=1.
 
-		if(i%bigNumber==0):
+		if(i % bigNumber==0):
 			bar.next()
 
 		pass3= bool(passStep3[0])
@@ -321,9 +319,10 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 		top.SetPtEtaPhiM(gen_top_pt[0],gen_top_eta[0],gen_top_phi[0],gen_top_m[0])
 		antitop.SetPtEtaPhiM(gen_antitop_pt[0],gen_antitop_eta[0],gen_antitop_phi[0],gen_antitop_m[0])
 		ttbar = top+antitop
-		totGen.append(ttbar.M())
-		weights.append(totWeight)
 		assert ttbar.M()>0, "Generated mass lower than 0"
+# Append for any event generated mass and weight		
+		weights.append(totWeight)
+		totGen.append(ttbar.M())
 # kinReco
 		kr_top.SetPtEtaPhiM(kinReco_top_pt[0],kinReco_top_eta[0],kinReco_top_phi[0],kinReco_top_m[0])
 		kr_antitop.SetPtEtaPhiM(kinReco_antitop_pt[0],kinReco_antitop_eta[0],kinReco_antitop_phi[0],kinReco_antitop_m[0])
@@ -341,24 +340,21 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			bjets  = []
 			btag   = []
 			bscore = []
+			sortedJets = [] 		# used later to decide which jets are the ones coming from top decays
 			for idx in range(numJets):
 				jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
 				jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
 				jets.append(jet4)
 				ht = ht+jet4.Pt()
-				bTagged=int(bool(jetBTagged[idx]))
-				btag.append(bTagged)
+				btag.append(int(bool(jetBTagged[idx])))
 				bscore.append(jetBTagScore[idx])
 				
 
-			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
-			bjets    = [jets[j] for j in range(len(btag)) if btag[j] == 1]
-			# new ordering of bscore and btag to be consistent with sorted jets
-			bscore  = [bscore[j] for j in range(numJets) if btag[j] == 1] + [bscore[j] for j in range(numJets) if btag[j] == 0]
-			btag    = [btag[j] for j in range(numJets) if btag[j] == 1] + [btag[j] for j in range(numJets) if btag[j] == 0]
+			nbjets = sum(btag)
+			
 
 
-			if len(bjets) < minbjets:  # another cut
+			if nbjets < minbjets:  # out of my kin phase space
 				mask.append(False)
 				eventOut.append([-999])
 				eventIn.append([-999] * 72)
@@ -367,6 +363,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				continue
 			else:
 				mask.append(True)
+# From now on I can start filling input features of the NN. This is the phase space I want to work with
 
 			if (haslkrs):
 				lKinRecoOut.append(lkr_ttbar.M())
@@ -378,28 +375,39 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			else:
 				kinRecoOut.append(-999)
 			
+			
 			#if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
 		#		pass
 		#	else:
 		#		eventIn.append([-999] * 72)
 		#		eventOut.append([-999])
-				
-		#		continue
-				
 
-			nbjets = len(bjets)
-			sortedJets = bjets + nonbjets
+			#if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
+		#		pass
+		#	else:
+		#		eventIn.append([-999] * 72)
+		#		eventOut.append([-999])
+
+			#sortedJets = bjets + nonbjets
 			met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
-			rotation(sortedJets, lep1, lep2, met)	
+			rotation(jets, lep1, lep2, met)
+# at this points jets are rotated in a compatible way with leptons and met
+# Now starting from jets I build arrays of bjets
+			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
+			bjets    = [jets[j] for j in range(len(btag)) if btag[j] == 1]
+			# new ordering of bscore and btag
+			sortedBscore  = [bscore[j] for j in range(numJets) if btag[j] == 1] + [bscore[j] for j in range(numJets) if btag[j] == 0]
+			sortedBtag    = [btag[j] for j in range(numJets) if btag[j] == 1] + [btag[j] for j in range(numJets) if btag[j] == 0]
+# At this point 
+# jets is ordered in terms of pt
+# bscore and btag ordered in terms of pt
+# sortedBscore, sortedBtag are ordered in terms of btagged and secondly in terms of pt
+# bjets and nonbjets are ordered in terms of pt
 			assert math.isclose(lep1.Phi(), 0, abs_tol = 1e-09), "Rotation didn't work"
 			assert (lep1.Eta()>0), "Rotation didn't work"
 			assert (lep2.Phi()>0), "Rotation didn't work"
 
-			#evFeatures.append(looseKinReco_ttbar_pt[0])
-			#evFeatures.append(looseKinReco_ttbar_eta[0])
-			#evFeatures.append(looseKinReco_ttbar_phi[0])
-			#evFeatures.append(looseKinReco_ttbar_m[0])
-			#append4vector(evFeatures, kr_ttbar)
+
 			ttPt = kinReco_top_pt[0] + kinReco_antitop_pt[0]
 			if (haslkrs & haskrs & (ttPt<13000) & (kr_ttbar.M()<13000)):
 				evFeatures.append(looseKinReco_ttbar_pt[0])
@@ -414,42 +422,189 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				evFeatures.append(kinReco_antitop_eta[0])
 				evFeatures.append(kinReco_antitop_phi[0])	# 13
 			else:
-				for i in range(14):
+				for z in range(14):
 					evFeatures.append(np.nan)
 				
 
-			#evFeatures.append(kinReco_top_pt[0])
-			#evFeatures.append(kinReco_top_eta[0])
-			#evFeatures.append(kinReco_top_phi[0])
-			#evFeatures.append(kinReco_antitop_pt[0])
-			#evFeatures.append(kinReco_antitop_eta[0])
-			#evFeatures.append(kinReco_antitop_phi[0])
-
 			append4vector(evFeatures, dilepton)
-			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1])
-			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1] + met)
 
 			assert (numJets>=nbjets), "numJets < numbjets {} vs {}".format((numJets, nbjets))
 			evFeatures.append(numJets)
 			evFeatures.append(nbjets)
 			
+			
+			leptons = [lep1, lep2]
+
+# Definition
+# Jet1 = Jet associated with lepton0 (leading)
+# Jet2 = Jet associated with lepton1 (subleading)
+# To find the 2 jets among all the possible combinations, look at the m(lb) and the true spectrum of mlb. Giving priority to b-jettines
+			#input("\nNext") 
+			#print("\nnjets   \t", numJets)
+			#print("nBjets  \t", nbjets)
+			#print("nonBjets\t", len(nonbjets))
+			#for id in range(numJets):
+				#print("%.1f \t %.3f \t %d" %(jets[id].Pt(), bscore[id], btag[id]))
+			maxNotFound = False
+			lookForPriorZero = False
+			takeFirstJets = False
+			if (nbjets>=2):
+# If we have more than 2 jets: first find all the combinations using only b-jets
+				#print("Try with %s bjets" %nbjets)
+				probs = []
+				pairs = []
+
+				for idx in range(nbjets): 		# index of the jet1 among the bjets
+					for jz in range(nbjets):	# index of the jet2 among the bjets
+						if idx == jz: 			# means the same jets associated to both letpons. Set a negative unphysical value
+							pairs.append([-1, -1])
+							probs.append(-1)
+							continue
+						pairs.append(([(leptons[0] + bjets[idx]).M(), (leptons[1] + bjets[jz]).M()]))
+						probs.append(checkProbability(bins, counts, pairs[-1]))
+				probs = np.array(probs)
+				pairs = np.array(pairs)
+				#print("pairs", pairs)
+				#print("probs", probs)
+				if probs.max()>0:
+					max_index = np.argmax(probs)
+					first = int (max_index//nbjets)
+					second = int(max_index%nbjets)
+					#print("max_index \t%d\nfirst \t%d\nsecond \t%d" %(max_index, first, second))
+					sortedJets.append(bjets[first])
+					sortedJets.append(bjets[second])
+					assert first is not second
+					bscore[0], bscore[1]	= sortedBscore[first], sortedBscore[second]
+					btag[0], btag[1]	= sortedBtag[first], sortedBtag[second]
+
+					assert sortedBtag[first]==1, "Cross check"
+					assert sortedBtag[second]==1, "Cross check"
+				elif probs.max()==0: 			# there is the possibility that using only bjets we don't find the real jets
+					#print("Max not Found")
+					maxNotFound = True		# e.g. btag efficiency (mistagging), bjets from gluon splitting
+									# in that case we need to consider also the nonbjets
+									# the same applies if we don't have enough bjets
+			if ((nbjets==1) | maxNotFound):
+				#print("Matrix with njets")
+				probs = []
+				pairs = []
+				priority = []
+				for idx in range(numJets):
+					for jz in range(numJets):
+						if idx == jz:
+							pairs.append([-1, -1])
+							probs.append(-1)
+							priority.append(-1)
+							continue
+						pairs.append([(leptons[0] + jets[idx]).M(), (leptons[1] + jets[jz]).M()])
+						probs.append(checkProbability(bins, counts, pairs[-1]))
+						priority.append(btag[idx] + btag[jz])
+				probs = np.array(probs)
+				pairs = np.array(pairs)
+				priority = np.array(priority)
+				#print("pairs", pairs)
+				#print("probs", probs)
+				#print("priority", priority)
+				# look for all the combinations with at least one bjet
+				if (priority==1).sum()>0:				# if there are cases with priority = 1
+					if probs[priority==1].max()>0:
+						#print("max with pr=1")
+						max_index = -1
+						max_value = -1
+						for w in range(len(priority)):
+							if priority[w] == 1 and probs[w] > max_value:
+								max_value = probs[w]
+								max_index = w
+						
+						first = int (max_index//numJets)
+						second = int (max_index%numJets)
+						#print("max_index \t%d\nfirst \t%d\nsecond \t%d" %(max_index, first, second))
+						sortedJets.append(jets[first])
+						sortedJets.append(jets[second])
+						assert first is not second
+						bscore[0], bscore[1] 	= bscore[first], bscore[second]
+						btag[0], btag[1]			= btag[first], btag[second]
+						#print("btag ", btag)
+						assert btag[0]+ btag[1]  ==1, " instead %d"%(btag[first]+ btag[second])
+					else:
+						lookForPriorZero = True
+				else:
+
+					lookForPriorZero = True
+				if (((priority==0).sum()>0) & lookForPriorZero):		# else look for cases with priority equal to 0
+					if probs[priority==0].max()>0:
+						#print("prior=0")
+						#print("da verificare")
+						max_index = -1
+						max_value = -1
+						for w in range(len(priority)):
+							if priority[w] == 0 and probs[w] > max_value:
+								max_value = probs[w]
+								max_index = w
+						
+						first = int( max_index//numJets)
+						second = int (max_index%numJets)
+						sortedJets.append(jets[first])
+						sortedJets.append(jets[second])
+						assert first is not second
+						bscore[0] 	= bscore[first]
+						bscore[1] 	= bscore[second]
+						btag[0]		= btag[first]
+						btag[1]		= btag[second]	
+					else:
+						takeFirstJets = True
+						#assert False, "1. Hai usato tutti i jet e comunque tutte le combo fanno cagare. Sto evento fa schifo. Ti tocca usare il prodotto di mlb"
+				elif (lookForPriorZero & ((priority==0).sum()==0)):
+					takeFirstJets = True
+				if (takeFirstJets):
+					pairs = []
+					# take the first 2 jets with highest pt and minimize mlb1*mlb2
+					mlbDot1 = ((leptons[0] + jets[0]).M() * (leptons[1] + jets[1]).M())
+					mlbDot2 = ((leptons[0] + jets[1]).M() * (leptons[1] + jets[0]).M())
+					first = 0 if mlbDot1 < mlbDot2 else 1
+					second = 1 if first==0 else 0
+					sortedJets.append(jets[first])
+					sortedJets.append(jets[second])
+					assert first is not second
+					bscore[0] 	= bscore[first]
+					bscore[1] 	= bscore[second]
+					btag[0]		= btag[first]
+					btag[1]		= btag[second]	
+					
+
+				
+						#assert False, "2. Hai usato tutti i jet e comunque tutte le combo fanno cagare. Sto evento fa schifo. Ti tocca usare il prodotto di mlb"
+				
+		
+			#for id in range(len(sortedJets)):
+				#print("%.1f \t %.3f \t %d" %(sortedJets[id].Pt(), bscore[id], btag[id]))
+
+			
+
+			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1])
+			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1] + met)
 			for jetTemp in sortedJets[2:]:
 				extraJet = extraJet + jetTemp
-
 			append4vector(evFeatures, extraJet)
 			append4vector(evFeatures, dilepton + sortedJets[0] + sortedJets[1] + met + extraJet)
-		
-			mlb_array = []
-			leptons = [lep1, lep2]
-			# Find first lb min
-			for j in range(len(sortedJets)):
-				mlb_array.append((lep1+sortedJets[j]).M())
-				mlb_array.append((lep2+sortedJets[j]).M())
+			append4vector(evFeatures, leptons[0] + sortedJets[0])
+			append4vector(evFeatures, leptons[1] + sortedJets[1])
+
+			'''for j in range(len(jets)):
+				ml1b_array.append((lep1+jets[j]).M())
+				ml2b_array.append((lep2+jets[j]).M())
+				mlb_array.append((lep2+jets[j]).M())
+				mlb_array.append((lep2+jets[j]).M())
 			sorted_indices = np.argsort(mlb_array)
-			append4vector(evFeatures, leptons[sorted_indices[0]%2] + sortedJets[sorted_indices[0]//2])
-			append4vector(evFeatures, leptons[sorted_indices[1]%2] + sortedJets[sorted_indices[1]//2])
+			if (i<100):
+				pass
+				#print("event number %d"%i)
+				#print(ml1b_array)
+				#print(ml2b_array)
+				#print(bscoreNotOrdered)
+				#print([jets[z].Pt() for z in range(numJets)])
+				# jet0'''
 		
-			#evFeatures.append(mlb_min)	
 
 			append4vector(evFeatures, sortedJets[0])	
 			evFeatures.append(btag[0])
@@ -460,7 +615,6 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			evFeatures.append(btag[1])	
 			evFeatures.append(bscore[1])		
 
-			#append4vector(evFeatures, lep1)
 			evFeatures.append(lep1.Pt())
 			evFeatures.append(lep1.Eta())
 			evFeatures.append(lep1.M())
@@ -483,10 +637,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			evFeatures.append(dR_lepton2_jet2)
 			evFeatures.append(dR_jet1_jet2)
 			#evFeatures.append(channelID) #always the same in emu channel
-
-			
-			     # 
-			
+			assert len(evFeatures)==72, "ev: %d, len: %d"%(i, len(evFeatures))
 			eventIn.append(evFeatures)
 			eventOut.append([ttbar.M()])
 			
@@ -510,7 +661,7 @@ def loadRegressionData(path, treeName,nFiles, minbjets, maxEvents):
     fileNames = glob.glob(path+'/emu_ttbarsignalplustau*.root')
     fileNames =  [i for i in fileNames if "emu" in i][:nFiles]
     print (len(fileNames), " files to be used\n")
-    eventIn, eventOut, weights,lkrM,krM, totGen, mask = [],[],[],[],[], [], []
+    eventIn, eventOut, weights, lkrM, krM, totGen, mask = [],[],[],[],[], [], []
     n=0
     print(fileNames)
     for filename in fileNames:					# Looping over the file names
