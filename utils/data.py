@@ -14,7 +14,7 @@ import time
 import pickle
 
 
-def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolder, output=True, scale = 'multi'):
+def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolder, output=True, scale = 'standard'):
     '''
     Load data from saved numpy arrays or create them if not available (using loadRegressionData)
     '''
@@ -28,7 +28,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     else:
         print("\nData found in the directory :" + npyDataFolder)
         createNewData = False
-
+    
     if createNewData:
         
         path = "/nfs/dust/cms/user/celottog/CMSSW_10_6_32/src/TopAnalysis/Configuration/analysis/diLeptonic/miniTree_2018/Nominal/emu"
@@ -55,7 +55,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
         assert  (len(totGen)==len(lkrM)),   "same lenght"
         
         print("Shuffling before saving data...")
-        #assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask"
+        assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask. New assert 2505"
         inX, outY, weights, lkrM, krM, totGen, mask = shuffle(inX, outY, weights, lkrM, krM, totGen, mask, random_state = 1999)
         print("Check after shuffle data...")
         #assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask"
@@ -73,7 +73,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
         np.save(npyDataFolder+ "/totGen.npy", totGen)
         np.save(npyDataFolder+ "/mask.npy", mask)
         
-    print("1. Loading files...")
+    print("2. Loading files...")
     inX     = np.load(npyDataFolder+ "/inX.npy")
     outY    = np.load(npyDataFolder+ "/outY.npy")
     weights = np.load(npyDataFolder+ "/weights.npy")
@@ -81,24 +81,19 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     krM     = np.load(npyDataFolder+ "/krM.npy")
     totGen  = np.load(npyDataFolder+ "/totGen.npy")
     mask    = np.load(npyDataFolder+ "/mask.npy")
-    print("Number of events passing cuts   {}/{} = {}".format( len(mask[mask==True]), len(mask), len(mask[mask==True])/len(mask)))
-    print("Number of events w/ Loose & Kin {}/{} = {}".format( (inX[:,0]>-998).sum(), len(inX), len(inX[inX[:,0]>-998])/len(inX)))
-    print("Number of recovered events      {}/{} = {}".format( np.isnan(inX[:,0]).sum(), len(inX), np.isnan(inX[:,0]).sum()*1./len(inX)))
-    print("Number of events + recovered    {}/{} = {}".format( ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum(), len(inX), ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum()/len(inX)))
+    print(" Number of events passing cuts   {}/{} = {}".format( len(mask[mask==True]), len(mask), len(mask[mask==True])/len(mask)))
+    print(" Number of events w/ Loose & Kin {}/{} = {}".format( (inX[:,0]>-998).sum(), len(inX), len(inX[inX[:,0]>-998])/len(inX)))
+    print(" Number of recovered events      {}/{} = {}".format( np.isnan(inX[:,0]).sum(), len(inX), np.isnan(inX[:,0]).sum()*1./len(inX)))
+    print(" Number of events + recovered    {}/{} = {}".format( ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum(), len(inX), ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum()/len(inX)))
     print("  Replacing Inf with Nan...")
     inX = np.where(np.isinf(inX), np.nan, inX)
+    print("  Replacing Nan with -4999...")
     inX = np.where(np.isnan(inX), -4999, inX)
-    #print("  Iterative Imputation...")
-    #startTime = time.time()
-    #imputer = KNNImputer(n_neighbors = 5, weights="uniform")
-    #inX = imputer.fit_transform(inX)
-    #inX = imp.transform(inX)
-    #endTime = time.time()
-    #elapsed_time = endTime - startTime
-    #print("Elapsed time: {:.2f} seconds".format(elapsed_time))
-    print("Control plots...")
+    
     dnnMask = (inX[:,0]>-998)  # exclude nan (kinReco or loose fail) and out of acceptance
-    checkFeatures(inX[dnnMask,:], npyDataFolder)
+    if (createNewData):
+        print(" Control plots of all the data...")
+        checkFeatures(inX[dnnMask,:], npyDataFolder)
 
     featureNames = getFeatureNames()
     data = []
@@ -131,7 +126,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     
     
 # Separation training and testing with a seed for random searches
-    print("4. Splitting training and testing...")
+    print("3. Splitting training and testing...")
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test = train_test_split(inX, outY, weights, lkrM, krM, totGen, mask, test_size = testFraction, random_state = 1998) #, 
     dnnMask_train = (inX_train[:,0]>-998)
     #assert (outY_train[mask_train, 0] == totGen_train[mask_train]).all(), "Mask does not match after splitting training and testing"
@@ -151,8 +146,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     if (output):
         checkFeatures(inXs_train[:,:], npyDataFolder, name="scaledPlot")
     inX_train[dnnMask_train,:] = inXs_train
-    mean = np.mean(outY_train[dnnMask_train,0])
-    sigma = np.std(outY_train[dnnMask_train,0])
+
 
     print("   Loading scalers and scaling the testing")
 
@@ -198,7 +192,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
         np.save(npyDataFolder+ "/testing/lkrM"   + "_test.npy", lkrM_test)
         np.save(npyDataFolder+ "/testing/krM"    + "_test.npy", krM_test)
 
-    return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test, mean, sigma
+    return inX_train, inX_test, outY_train, outY_test, weights_train, weights_test,lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test
 
 
 

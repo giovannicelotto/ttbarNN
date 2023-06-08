@@ -1,7 +1,4 @@
-# Tomorrow fai partire un training a 1 file. senza la doppia NN
-# Se funziona fai 10 files
-# Poi fai lo stesso con la doppia NN
-# ricordati lo scaling
+
 
 import os
 import numpy as np
@@ -33,9 +30,9 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
         model       = keras.models.load_model(modelDir+"/"+modelName+".h5")
         y_predicted = np.ones(len(inX_test))*-999
         if (doubleNN):
-                inX_train[dnn2Mask_train, 14:], inX_test[dnn2Mask_test, 14:] = scaleNonAnalytical(getFeatureNames()[14:], inX_train, inX_test, npyDataFolder, outFolder)
+                inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
                 simpleModel = keras.models.load_model(modelDir+"/"+modelName+"_simple.h5")
-                y_predicted[dnn2Mask_test] = simpleModel.predict(inX_test[dnn2Mask_test,14:])[:,0]
+                y_predicted[dnn2Mask_test] = simpleModel.predict(inX_test[dnn2Mask_test,15:])[:,0]
 
 
         y_predicted[dnnMask_test] = model.predict(inX_test[dnnMask_test,:])[:,0]
@@ -57,32 +54,33 @@ def main():
     maxEvents_          = None
     hp = {
 # Events
-    'nFiles':           1,
+    'nFiles':           3,
     'testFraction':     0.3,
     'validation_split': 0.2,
 # Hyperparameters NN1
-    'learningRate':     0.00027, 
+    'learningRate':     0.000467, 
     'batchSize':        128,
     'validBatchSize':   256,
-    'nNodes':           [24, 36, 63], # [3, 174]      0.05061      
-    'lasso':            0.08015,
-    'ridge':            0.00448,
+    'nNodes':           [23, 26, 60], #[27, 27, 78], #[24, 36, 63], # [3, 174]      0.05061  
+    'lasso':            0.14874,
+    'ridge':            0.00307,
     'activation':       'elu',
     'scale' :           'standard',
     'epochs':           3500,
     'patienceeS':       30,
     'alpha':            174.3,
 # Hyperparameters NN2
-    'nNodes2':          [32, 32],
-    'learningRate2':    0.0001,
+    'nNodes2':          [12, 24],
+    'learningRate2':    0.000467,
     'epochs2':          3500,
-    'regRate2':         0.02,
+    'lasso2':           0.14874,
+    'ridge2':           0.00307,
     'numTrainings':     1
 }
     doubleNN = True
     doEvaluate = False
     additionalInputName = ""
-    additionalOutputName= "doubleNN" if doubleNN else "SingleNN" 
+    additionalOutputName= "DoubleNN" if doubleNN else "SingleNN" 
 
 # Define input folder and output folder
     hp['nDense']= len(hp['nNodes'])
@@ -110,7 +108,7 @@ def main():
         #print("Going to loadData...")
         #input()  
         #print("Script resumed.")
-        inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test, meanOutY, sigmaOutY = loadData(npyDataFolder = npyDataFolder,
+        inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test = loadData(npyDataFolder = npyDataFolder,
                                                                                                                                                 testFraction = hp['testFraction'],
                                                                                                                                                 maxEvents = maxEvents_,
                                                                                                                                                 minbjets = 1,
@@ -130,7 +128,7 @@ def main():
         if (doubleNN):
                 dnn2Mask_train = inX_train[:,0]<-4998
                 dnn2Mask_test  = inX_test[:,0]<-4998
-                inX_train[dnn2Mask_train, 14:], inX_test[dnn2Mask_test, 14:] = scaleNonAnalytical(getFeatureNames()[14:], inX_train, inX_test, npyDataFolder, outFolder)
+                inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
                 weights_train[dnn2Mask_train], Sweights_train_original = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
 # End Of 2NN
 # Now where inX_train[:,0] has a value >-4999 the two approaches worked. This dataset is scaled in one way. The corresponding testing dataset is scaled with the same functions
@@ -199,15 +197,15 @@ def main():
                 dnn2Mask_test  = inX_test[:,0]<-4998
                 assert ((outY_train[dnn2Mask_train, :]>0).all()), "outY_train used for the second training is wrong"
         # Select only events that satisfy kinematic cuts (Njets, nbjets, passCuts) but for which the analytical solutions do not exist (or are not adequate)
-                SinX_train       = inX_train[dnn2Mask_train,14:]
+                SinX_train       = inX_train[dnn2Mask_train,15:]
                 Sweights_train   = weights_train[dnn2Mask_train]
-                SinX_valid       = inX_valid[dnn2Mask_valid,14:]
+                SinX_valid       = inX_valid[dnn2Mask_valid,15:]
                 Sweights_valid   = weights_valid[dnn2Mask_valid]
-                SinX_test        = inX_test[dnn2Mask_test, 14:]
+                SinX_test        = inX_test[dnn2Mask_test, 15:]
                 
         # Get the model, optmizer, 
                 
-                simpleModel = getSimpleModel(regRate = hp['regRate2'], activation = 'elu',
+                simpleModel = getSimpleModel(lasso = hp['lasso2'], ridge=hp['ridge2'], activation = 'elu',
                                 nDense = len(hp['nNodes2']),  nNodes = hp['nNodes2'],
                                 inputDim = SinX_train.shape[1], outputActivation = 'linear')
                 optimizer = keras.optimizers.Adam(   learning_rate = hp['learningRate2'], beta_1=0.9, beta_2=0.999, epsilon=1e-01, name="Adam") 
@@ -231,7 +229,7 @@ def main():
                 y_predicted__ = simpleModel.predict(SinX_test[:,:])
                 doPlotLoss(fit = simpleFit, outName=outFolder+"/model"+"/simpleLoss.pdf")
                 featureNames = getFeatureNames()
-                doPlotShap(featureNames[14:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
+                doPlotShap(featureNames[15:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
                 y_predicted[dnn2Mask_test] = y_predicted__[:,0]
 
 

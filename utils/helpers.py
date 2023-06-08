@@ -17,6 +17,7 @@ def getFeatureNames():
 				'kr_ttbar_pt', 'kr_ttbar_eta', 'kr_ttbar_phi','kr_ttbar_m',
 				'kr_top_pt', 'kr_top_eta', 'kr_top_phi', #'kr_top_m',
 				'kr_antitop_pt', 'kr_antitop_eta', 'kr_antitop_phi', #'kr_antitop_m',
+				'kr_dR_ttbar',
 		# systems of particles
 				'dilepton_pt', 'dilepton_eta', 'dilepton_phi', 'dilepton_m',
 				'njets', 'nbjets',
@@ -36,7 +37,7 @@ def getFeatureNames():
 		# angles
 				'dR_l1l2','dR_l1j1', 'dR_l1j2', 'dR_l2j1', 'dR_l2j2', 'dR_j1j2'
 				]
-	#feature_names =['lkr_ttbar_M', 'kr_ttbar_M', 'dilepton_M', 'llj1j2_M', 'llj1j2MET_M', 'extraJets_M'] #  'channelID' , 
+	# adding dR_topantitop
 	return feature_names
 
 def append4vector(evFeatures, a):
@@ -358,7 +359,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			if nbjets < minbjets:  # out of my kin phase space
 				mask.append(False)
 				eventOut.append([-999])
-				eventIn.append([-999] * 72)
+				eventIn.append([-999] * 73)
 				lKinRecoOut.append(-999)
 				kinRecoOut.append(-999)
 				continue
@@ -371,27 +372,21 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				assert (math.isclose(lkr_ttbar.M(), looseKinReco_ttbar_m[0])), "Loose mass value from the tree not the same from the root computation"
 			else:
 				lKinRecoOut.append(-999)
+			haskrs = True if ((haskrs) & (not math.isnan(kr_ttbar.M()))) else False
 			if (haskrs):
 				kinRecoOut.append(kr_ttbar.M())
 			else:
 				kinRecoOut.append(-999)
 			
-			
-			#if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
-		#		pass
-		#	else:
-		#		eventIn.append([-999] * 72)
-		#		eventOut.append([-999])
 
-			#if ((haslkrs) & (looseKinReco_ttbar_m[0] < 5000) & (haskrs) & (kr_ttbar.M()<5000)):
-		#		pass
-		#	else:
-		#		eventIn.append([-999] * 72)
-		#		eventOut.append([-999])
-
-			#sortedJets = bjets + nonbjets
 			met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
-			rotation(jets, lep1, lep2, met)
+			toBeRotated = jets +[kr_top, kr_antitop, lkr_ttbar]
+			rotation(toBeRotated, lep1, lep2, met)
+			kr_ttbar = kr_top + kr_antitop
+			dilepton = lep1 + lep2
+			if (haskrs):
+				
+				assert math.isclose(kr_ttbar.M(), kinRecoOut[-1] , abs_tol = 1e-09), "Rotation. IsNan %.1f and %.1f" %( kr_ttbar.M(),  kinRecoOut[-1])
 # at this points jets are rotated in a compatible way with leptons and met
 # Now starting from jets I build arrays of bjets
 			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
@@ -411,19 +406,20 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 
 			ttPt = kinReco_top_pt[0] + kinReco_antitop_pt[0]
 			if (haslkrs & haskrs & (ttPt<13000) & (kr_ttbar.M()<13000)):
-				evFeatures.append(looseKinReco_ttbar_pt[0])
-				evFeatures.append(looseKinReco_ttbar_eta[0])
-				evFeatures.append(looseKinReco_ttbar_phi[0])
-				evFeatures.append(looseKinReco_ttbar_m[0])
-				append4vector(evFeatures, kr_ttbar)			# 4-7
-				evFeatures.append(kinReco_top_pt[0])		
-				evFeatures.append(kinReco_top_eta[0])
-				evFeatures.append(kinReco_top_phi[0])		# 10
-				evFeatures.append(kinReco_antitop_pt[0])
-				evFeatures.append(kinReco_antitop_eta[0])
-				evFeatures.append(kinReco_antitop_phi[0])	# 13
+				evFeatures.append(lkr_ttbar.Pt())
+				evFeatures.append(lkr_ttbar.Eta())
+				evFeatures.append(lkr_ttbar.Phi())
+				evFeatures.append(lkr_ttbar.M())
+				append4vector(evFeatures, kr_ttbar)
+				evFeatures.append(kr_top.Pt())		
+				evFeatures.append(kr_top.Eta())
+				evFeatures.append(kr_top.Phi())
+				evFeatures.append(kr_antitop.Pt())
+				evFeatures.append(kr_antitop.Eta())
+				evFeatures.append(kr_antitop.Phi())
+				evFeatures.append(kr_top.DeltaR(kr_antitop))
 			else:
-				for z in range(14):
+				for z in range(15):
 					evFeatures.append(np.nan)
 				
 
@@ -635,14 +631,14 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			evFeatures.append(dR_lepton2_jet2)
 			evFeatures.append(dR_jet1_jet2)
 			#evFeatures.append(channelID) #always the same in emu channel
-			assert len(evFeatures)==72, "ev: %d, len: %d"%(i, len(evFeatures))
+			assert len(evFeatures)==73, "ev: %d, len: %d"%(i, len(evFeatures))
 			eventIn.append(evFeatures)
 			eventOut.append([ttbar.M()])
 			
 		else:
 			mask.append(False)
 			eventOut.append([-999])
-			eventIn.append([-999] * 72)
+			eventIn.append([-999] * 73)
 			
 			lKinRecoOut.append(-999)
 			kinRecoOut.append(-999)

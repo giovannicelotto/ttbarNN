@@ -105,7 +105,9 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         if not os.path.exists(outFolder+ "/model"):
             os.makedirs(outFolder+ "/model")
 
-    weightBins = array('d', [340, 342.5, 345, 347.5, 350, 355, 360, 370, 380, 390, 400, 410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
+
+    #weightBins = array('d', [250 , 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
+    weightBins = array('d', [ 340, 342.5, 345, 347.5, 350, 355, 360, 370, 380, 390, 400, 410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
     wegihtNBin = len(weightBins)-1
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
 
@@ -120,7 +122,12 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
     weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
     weightHisto.SetYTitle('Normalized Counts')
     if (output):
-        canvas.SaveAs(outFolder + "/model/mttOriginalWeight.pdf")
+        if outFix is None:
+            canvas.SaveAs(outFolder + "/model/mttOriginalWeight.pdf")
+        else:
+            outFix = "_" + outFix
+            canvas.SaveAs(outFolder + "/model/mttOriginalWeight" + outFix + ".pdf")
+        
 
     weightHisto.Scale(1./weightHisto.Integral())
     maximumBin = weightHisto.GetMaximumBin()
@@ -134,12 +141,8 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         c = weightHisto.GetBinContent(binX)
         if (c>0):
             weightHisto.SetBinContent(binX, maximumBinContent/(c)*np.exp(-(midpoint-firstMidpoint)/alpha))
-            #weightHisto.SetBinContent(binX, maximumBinContent/(c))
+            #weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent + c))
 
-        #if ((binX >= maximumBin+10) & (c>0)):
-        #    weightHisto.SetBinContent(binX, 1)
-        #elif (c>0):
-        #    weightHisto.SetBinContent(binX, maximumBinContent/c)
         else:
             weightHisto.SetBinContent(binX, 1.)     
     weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
@@ -150,37 +153,36 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         if outFix is None:
             canvas.SaveAs(outFolder+"/model/weights.pdf")
         else:
-            outFix = "_" + outFix
             canvas.SaveAs(outFolder+"/model/weights"+outFix+".pdf")
-    
+    print("A")
     weights_train_=[]
     for w,m in zip(weights_train, outY_train):
         weightBin = weightHisto.FindBin(m)
         addW = weightHisto.GetBinContent(weightBin)	    # weights for importance
         weights_train_.append(abs(w)*addW)           	# weights of the training are the product of the original weights and the weights used to give more importance to regions with few events
     weights_train = np.array(weights_train_)		    # final weights_train is np array
-
+    print("B")
     weights_train = 1./np.mean(weights_train)*weights_train # to have mean = 1
     if (output):
         fig, ax = plt.subplots(1, 2, figsize=(16, 8))
-        ax[0].hist(weights_train, label='Training', bins = 100)
-        ax[0].set_yscale('log')
-        ax[0].legend(fontsize=18)
-        ax[1].hist(weights_train_original, label='Original', bins=100)
+        ax[0].hist2d(outY_train[:,0], weights_train, bins=((50, 50)), range=((250, 1500), (0, 8)), cmap='Blues')
+        ax[1].hist(weights_train, label='Training', bins=100)
         ax[1].set_yscale('log')
         ax[1].legend(fontsize=18)
-        
-        fig.savefig(outFolder+"/model/weightsBeforeAndAfter.png")
-    
+        if outFix is None:
+            fig.savefig(outFolder+"/model/weightsBeforeAndAfter.png")
+        else:
+            fig.savefig(outFolder+"/model/weightsBeforeAndAfter"+outFix+".png")
+    print("C")
     return weights_train, weights_train_original
 
 def scaleNonAnalytical(featureNames, inX_train,  inX_test,npyDataFolder, outFolder):
 # Do the sacling on training, save it and apply it to the testing
     dnn2Mask_train = inX_train[:,0]<-4998
     dnn2Mask_test  = inX_test[:,0]<-4998
-    SinX_train       = inX_train[dnn2Mask_train,14:]
+    SinX_train       = inX_train[dnn2Mask_train,15:]
     #Sweights_train   = weights_train[dnn2Mask_train]
-    SinX_test        = inX_test[dnn2Mask_test, 14:]
+    SinX_test        = inX_test[dnn2Mask_test, 15:]
     #Sweights_train, Sweights_train_original = getWeightsTrain(outY_train[dnn2Mask_train], Sweights_train, outFolder=outFolder, alpha = hp['alpha'], output=False)
     
     print(" Scaling the events without K&L")
@@ -247,7 +249,7 @@ def scalerMC(modelDir, MCInX):
             MCInX[dnnMaskMC, :] = MCInXscaled            
 
             dnn2MaskMC = (MCInX[:,0]<-4998)
-            MCInXscaled = MCInX[dnn2MaskMC, 14:]
+            MCInXscaled = MCInX[dnn2MaskMC, 15:]
 
             if (scalerType2 == 'standard'):
                 MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
@@ -255,7 +257,7 @@ def scalerMC(modelDir, MCInX):
                 MCInXscaled[:, maxable2]   = maxer2.transform( MCInXscaled  [:, maxable2])
                 MCInXscaled[:, powerable2] = powerer2.transform( MCInXscaled[:, powerable2])
                 MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
-            MCInX[dnn2MaskMC, 14:] = MCInXscaled
+            MCInX[dnn2MaskMC, 15:] = MCInXscaled
 
             return MCInX
 
