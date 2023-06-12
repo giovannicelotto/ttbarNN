@@ -19,18 +19,19 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display e
 
 def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , maxEvents, minbjets, nFiles, scale, doubleNN) :
         print("Calling justEvaluate ...")
-        inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test, meanOutY, sigmaOutY = loadData(npyDataFolder = npyDataFolder,
-                                                                                                                                                testFraction = testFraction,
-                                                                                                                                                maxEvents = maxEvents,
-                                                                                                                                                minbjets = 1,
-                                                                                                                                                nFiles = nFiles, scale=scale, outFolder = outFolder+"/model")
+        inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test = loadData(npyDataFolder = npyDataFolder,
+                                                                                                                                                testFraction = testFraction, maxEvents = maxEvents,
+                                                                                                                                                minbjets = 1, nFiles = nFiles, doubleNN=False, output=True,
+                                                                                                                                                scale = 'standard', outFolder = outFolder+"/model")
         dnn2Mask_train = inX_train[:,0]<-4998
         dnn2Mask_test = inX_test[:,0]<-4998
         dnnMask_test = inX_test[:,0]>-998
         model       = keras.models.load_model(modelDir+"/"+modelName+".h5")
         y_predicted = np.ones(len(inX_test))*-999
+        assert (y_predicted==-999).all(), "check je"
         if (doubleNN):
-                inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
+                #inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
+
                 simpleModel = keras.models.load_model(modelDir+"/"+modelName+"_simple.h5")
                 y_predicted[dnn2Mask_test] = simpleModel.predict(inX_test[dnn2Mask_test,15:])[:,0]
 
@@ -38,7 +39,14 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
         y_predicted[dnnMask_test] = model.predict(inX_test[dnnMask_test,:])[:,0]
 
         print("Starting with plots...")
-        
+        '''print("Max : %.1f"%y_predicted.max())
+        print("Min : %.1f"%y_predicted.min())
+        for i in range(len(y_predicted)):
+               if mask_test[i]==True:
+                      a = input("%.1f\t%.1f" %(y_predicted[i], totGen_test[i]))
+                      if (a=='a'):
+                             print(inX_test[i,:])
+                             print()'''
 
         inX_test = inX_test[inX_test[:,0]>-998,:]
         doPlotShap(getFeatureNames(), model, [inX_test[:1000,:]], outName = outFolder+"/model/model_shapGE.pdf")
@@ -54,13 +62,13 @@ def main():
     maxEvents_          = None
     hp = {
 # Events
-    'nFiles':           3,
+    'nFiles':           15,
     'testFraction':     0.3,
     'validation_split': 0.2,
 # Hyperparameters NN1
-    'learningRate':     0.000467, 
-    'batchSize':        128,
-    'validBatchSize':   256,
+    'learningRate':     0.00467, 
+    'batchSize':        512,
+    'validBatchSize':   512,
     'nNodes':           [23, 26, 60], #[27, 27, 78], #[24, 36, 63], # [3, 174]      0.05061  
     'lasso':            0.14874,
     'ridge':            0.00307,
@@ -70,15 +78,15 @@ def main():
     'patienceeS':       30,
     'alpha':            174.3,
 # Hyperparameters NN2
-    'nNodes2':          [12, 24],
-    'learningRate2':    0.000467,
+    'nNodes2':          [14, 46],
+    'learningRate2':    0.001852,
     'epochs2':          3500,
-    'lasso2':           0.14874,
-    'ridge2':           0.00307,
+    'lasso2':           0.03229,
+    'ridge2':           0.00089,
     'numTrainings':     1
 }
     doubleNN = True
-    doEvaluate = False
+    doEvaluate = True
     additionalInputName = ""
     additionalOutputName= "DoubleNN" if doubleNN else "SingleNN" 
 
@@ -112,8 +120,7 @@ def main():
                                                                                                                                                 testFraction = hp['testFraction'],
                                                                                                                                                 maxEvents = maxEvents_,
                                                                                                                                                 minbjets = 1,
-                                                                                                                                                nFiles = hp['nFiles'], scale=hp['scale'], outFolder = outFolder+"/model")
-
+                                                                                                                                                nFiles = hp['nFiles'], scale=hp['scale'], outFolder = outFolder+"/model", doubleNN=doubleNN)
 
 
 # Create weights for training I want only modify the real weights
@@ -128,7 +135,6 @@ def main():
         if (doubleNN):
                 dnn2Mask_train = inX_train[:,0]<-4998
                 dnn2Mask_test  = inX_test[:,0]<-4998
-                inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
                 weights_train[dnn2Mask_train], Sweights_train_original = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
 # End Of 2NN
 # Now where inX_train[:,0] has a value >-4999 the two approaches worked. This dataset is scaled in one way. The corresponding testing dataset is scaled with the same functions
