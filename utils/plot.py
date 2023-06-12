@@ -10,12 +10,14 @@ import shap
 import matplotlib.patches as mpatches
 from scipy.stats.stats import pearsonr
 import pandas as pd
+import matplotlib.ticker as ticker
 ROOT.gROOT.SetBatch(True)
 
+
+
 logbins =  np.concatenate((np.linspace(320, 500, 16, endpoint=False), [500, 520, 540, 560, 580, 600, 650, 750])) #]
-#logbins = np.concatenate(([335], logbins))
-#recoBin = np.array([1, 410, 500, 670, 1500]) #1500
-recoBin = np.array([1,  380, 470, 620, 820,  1100, 1500, 250000]) #
+logbins = np.array([380, 470, 620, 820,  1100, 1500])
+recoBin = np.array([1,   380, 470, 620, 820,  1100, 1500, 250000]) #
 diffBin = np.arange(300, 2050, 50) #1200
 #recoBinPlusBin = np.array([1, 380, 450, 500, 625, 812.5,  1200, 5000])
 nRecoBin = len(recoBin)-1
@@ -102,9 +104,9 @@ def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
         krM  = krM[myMasks[2]]
         f, ax = plt.subplots(1, 1,  figsize = (7,7))
         if (totGen is not None):
-            ax.hist(yPredicted, bins = 80, range=(200,1500), label="DNN   R = %.1f"%(len(yPredicted)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
-            ax.hist(lkrM,       bins = 80, range=(200,1500), label="Loose R = %.1f"%(len(lkrM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),        histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[1]])
-            ax.hist(krM,        bins = 80, range=(200,1500), label="Full  R = %.1f"%(len(krM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),         histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[2]])
+            ax.hist(yPredicted, bins = 80, range=(200,1500), label="DNN   R = %.3f"%(len(yPredicted)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
+            ax.hist(lkrM,       bins = 80, range=(200,1500), label="Loose R = %.3f"%(len(lkrM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),        histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[1]])
+            ax.hist(krM,        bins = 80, range=(200,1500), label="Full  R = %.3f"%(len(krM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),         histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[2]])
             ax.hist(totGen[mask],     bins = 80, range=(200,1500), label="True  I = %dk"%(len(totGen)*0.001),                                                       histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[mask])
         else:
             print("Error")
@@ -113,7 +115,7 @@ def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
             #ax.hist(lkrM,         bins = 80, range=(200,1500), label="Loose I = %d"%(len(lkrM)),  histtype=u'step', alpha=0.5, density=True)
             #ax.hist(krM,          bins = 80, range=(200,1500), label="Full  I = %d"%(len(krM)),histtype=u'step', alpha=0.5, density=True)
             
-
+        ax.set_xlim(ax.get_xlim()[0], 1500)
         ax.legend(loc = "best", fontsize=18)
         ax.tick_params(labelsize=20)
         ax.set_ylabel('Normalized Counts', fontsize=18)
@@ -140,6 +142,9 @@ def diffCrossSec(yPredicted, lkrM, krM, totGen, dnnMatrix, looseMatrix, kinMatri
         dnnCov      = covarianceMatrix(yPredicted[myMasks[0]], dnnMatrix, weights = weights[myMasks[0]])
         looseCov    = covarianceMatrix(lkrM[myMasks[1]], looseMatrix, weights = weights[myMasks[1]])
         kinCov      = covarianceMatrix(krM[myMasks[2]], kinMatrix, weights = weights[myMasks[2]])
+        np.save(outFolder+'/../model/dnnCov.npy', dnnCov)
+        np.save(outFolder+'/../model/looseCov.npy', looseCov)
+        np.save(outFolder+'/../model/kinCov.npy', kinCov)
 
         fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True, gridspec_kw={'height_ratios': [3, 1]}, figsize=(14, 10))
         fig.subplots_adjust(hspace=0.00)
@@ -375,28 +380,28 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
         
 
         regMeanBinned       = np.append( regMeanBinned      ,   np.mean(yPredicted[dnnMask]-totGen[dnnMask]))
-        kinMeanBinned       = np.append( kinMeanBinned      ,   np.mean(krM[kinMask]-totGen[kinMask]))
         LooseMeanBinned     = np.append( LooseMeanBinned    ,   np.mean(lkrM[LooseMask]-totGen[LooseMask]))
+        kinMeanBinned       = np.append( kinMeanBinned      ,   np.mean(krM[kinMask]-totGen[kinMask]))
 
         regSquaredBinned       = np.append( regSquaredBinned      ,   np.mean((yPredicted[dnnMask]-totGen[dnnMask])**2))
-        kinSquaredBinned       = np.append( kinSquaredBinned      ,   np.mean((krM[kinMask]-totGen[kinMask])**2))
         LooseSquaredBinned     = np.append( LooseSquaredBinned    ,   np.mean((lkrM[LooseMask]-totGen[LooseMask])**2))
+        kinSquaredBinned       = np.append( kinSquaredBinned      ,   np.mean((krM[kinMask]-totGen[kinMask])**2))
 
         regRmsBinned        = np.append( regRmsBinned       ,   np.std(yPredicted[dnnMask]-totGen[dnnMask]))
-        kinRmsBinned        = np.append( kinRmsBinned       ,   np.std(krM[kinMask]-totGen[kinMask]))
         LooseRmsBinned      = np.append( LooseRmsBinned     ,   np.std(lkrM[LooseMask]-totGen[LooseMask]))
+        kinRmsBinned        = np.append( kinRmsBinned       ,   np.std(krM[kinMask]-totGen[kinMask]))
         
         regElementsPerBin      = np.append( regElementsPerBin     ,  len(dnnMask[dnnMask==1]))
-        kinElementsPerBin      = np.append( kinElementsPerBin     ,  len(kinMask[kinMask==1]))
         LooseElementsPerBin      = np.append( LooseElementsPerBin     ,  len(LooseMask[LooseMask==1]))
+        kinElementsPerBin      = np.append( kinElementsPerBin     ,  len(kinMask[kinMask==1]))
 
         regErrRmsBinned     = np.append( regErrRmsBinned    ,   np.sqrt((moment(yPredicted[dnnMask]-totGen[dnnMask], 4)-((regElementsPerBin[i]-3)/(regElementsPerBin[i]-1)*regRmsBinned**4)[0])/regElementsPerBin[i]))
-        kinErrRmsBinned     = np.append( kinErrRmsBinned    ,   np.sqrt((moment(krM[kinMask]-totGen[kinMask], 4)-((kinElementsPerBin[i]-3)/(kinElementsPerBin[i]-1)*kinRmsBinned**4)[0])/kinElementsPerBin[i]))
         LooseErrRmsBinned   = np.append( LooseErrRmsBinned  ,   np.sqrt((moment(lkrM[LooseMask]-totGen[LooseMask], 4)-((LooseElementsPerBin[i]-3)/(LooseElementsPerBin[i]-1)*LooseRmsBinned**4)[0])/LooseElementsPerBin[i]))
+        kinErrRmsBinned     = np.append( kinErrRmsBinned    ,   np.sqrt((moment(krM[kinMask]-totGen[kinMask], 4)-((kinElementsPerBin[i]-3)/(kinElementsPerBin[i]-1)*kinRmsBinned**4)[0])/kinElementsPerBin[i]))
 
 
-    logbins_wu[0] = 320 # for visualization purpose the underflow is between 320, 340
-    logbins_wu[-1] = 800
+    logbins_wu[0] = 280 # for visualization purpose the underflow is between 320, 340
+    logbins_wu[-1] = 1700
 
     errX = (logbins_wu[1:]-logbins_wu[:len(logbins_wu)-1])/2
     x = logbins_wu[:len(logbins_wu)-1] + errX
@@ -405,7 +410,7 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     ax.errorbar(x, kinMeanBinned,  kinRmsBinned/np.sqrt(kinElementsPerBin), errX, linestyle='None', label = 'Kin')
     ax.set_xlabel("$m_{tt}^{True}$ (GeV)")
     ax.set_xlim(logbins_wu[0], logbins_wu[-1])
-    ax.hlines(y=0, xmin=300, xmax=800, linestyles='dotted', color='red')
+    ax.hlines(y=0, xmin=300, xmax=logbins_wu[-1], linestyles='dotted', color='red')
     ax.set_ylabel("Mean(Pred - True) [GeV]")
     ax.legend(fontsize=18)
     fig.savefig(outFolder+"/allMeans.pdf", bbox_inches='tight')
@@ -426,11 +431,11 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     ax.errorbar(x, np.sqrt(LooseSquaredBinned), None, errX, linestyle='None', label = 'Loose ')
     ax.errorbar(x, np.sqrt(kinSquaredBinned), None, errX, linestyle='None', label = 'Kin ')
     ax.legend(fontsize=18, loc='best')
-    ax.set_xlabel("m$_{tt}^{True}$")
+    ax.set_xlabel("m$_{tt}^\mathrm{{True}}$ [GeV]", fontsize=16)
     ax.set_xlim(logbins_wu[0], logbins_wu[-1])
     ax.set_yscale('log')
     ax.tick_params(labelsize=18)
-    ax.set_ylabel("$\sqrt{<(m_{tt}^{Reg}-m_{tt}^{True})^2>}$ [GeV]", fontsize=16)
+    ax.set_ylabel("$\sqrt{<(m_{\mathrm{{t\overline{t}}}}^\mathrm{{Reg}}-m_{\mathrm{{t\overline{t}}}}^\mathrm{{True}})^2>}$ [GeV]", fontsize=16)
     fig.savefig(outFolder+"/allSquared.pdf", bbox_inches='tight')
     plt.cla()
     
@@ -628,7 +633,9 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
                 ax.text(0, ax.get_ylim()[1]*0.9,  r"${} \leq \mathrm{{m}}_{{\mathrm{{t\bar{{t}}}}}}^\mathrm{{True}} < {} $ GeV".format(x[i], x[i+1]), fontsize = 18, ha='center', va='center')
             ax.tick_params(axis = 'x', labelsize= 18)
             ax.tick_params(axis = 'y', labelsize= 18)
+            ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=3))
             ax.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+            ax.yaxis.set_label_coords(-0.2, 0.5)
             ax.yaxis.offsetText.set_fontsize(18)
 
     #for j in range(7, len(axes)):
