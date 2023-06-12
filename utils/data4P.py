@@ -38,8 +38,6 @@ def loadData4P(dataPathFolder, minbjets, scalerPath, scaler2Path, output=True, n
 # inX loose and full vanno maskati. hanno tutti la stessa luinghezza=event passano tagli comuni. se un evento non passa un taglio particolare in quell'array e meso a -999        
         assert len(inX)==len(lkrM)==len(krM)==len(weights), "Check lengths -- data4P"
         inX, weights, lkrM, krM = shuffle(inX, weights, lkrM, krM, random_state = 1999)
-        #print(inX)
-        #print(weights)
         dnnMask = (inX[:,0]>-998)
         
         
@@ -112,22 +110,22 @@ def loadData4P(dataPathFolder, minbjets, scalerPath, scaler2Path, output=True, n
             powerable = scalers['powerable']
             scalable = scalers['scalable']
 
-            inXs = inX[dnn2Mask, 14:]
+            inXs = inX[dnn2Mask, 15:]
             inXs[:, maxable]   = maxer.transform( inXs  [:, maxable])
             inXs[:, powerable] = powerer.transform( inXs[:, powerable])
             inXs[:, scalable]  = scaler.transform( inXs [:, scalable])
-            inX[dnn2Mask, 14:] = inXs
+            inX[dnn2Mask, 15:] = inXs
 
         if (scalers['type']=='standard'):
             scaler = scalers['scaler']
             scalable = scalers['scalable']
 
-            inXs = inX[dnn2Mask, 14:]
+            inXs = inX[dnn2Mask, 15:]
             inXs[:, scalable]  = scaler.transform( inXs [:, scalable])
-            inX[dnn2Mask, 14:] = inXs
+            inX[dnn2Mask, 15:] = inXs
     
     if (output):
-        checkFeatures(inXs[:,:], dataPathFolder, name="SscaledPlot", featureNames = getFeatureNames()[14:])
+        checkFeatures(inXs[:,:], dataPathFolder, name="SscaledPlot", featureNames = getFeatureNames()[15:])
     
 
     

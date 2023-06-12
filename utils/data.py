@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from utils.helpers import loadRegressionData, getFeatureNames
 from utils.models import *
 from utils.plot import *
-from utils.stat import multiScale, standardScale, getWeightsTrain
+from utils.stat import multiScale, standardScale, scaleNonAnalytical
 from stat import *
 from npyData.checkFeatures import checkFeatures
 from sklearn.utils import shuffle
@@ -14,7 +14,7 @@ import time
 import pickle
 
 
-def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolder, output=True, scale = 'standard'):
+def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolder, doubleNN=False, output=True, scale = 'standard'):
     '''
     Load data from saved numpy arrays or create them if not available (using loadRegressionData)
     '''
@@ -177,6 +177,12 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
 
             inXs_test[:, scalable]  = scaler.transform( inXs_test [:, scalable])
             inX_test[dnnMask_test, :] = inXs_test
+
+    # Second scaling
+    if (doubleNN):
+        dnn2Mask_train = inX_train[:,0]<-4998
+        dnn2Mask_test = inX_test[:,0]<-4998
+        inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
 
 
 

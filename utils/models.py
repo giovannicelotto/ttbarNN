@@ -56,12 +56,12 @@ def getModelRandom(lasso, ridge, activation, nDense, nNodes, inputDim, outputAct
     return model
 
 
-def getSimpleModel(regRate, activation, nDense=2, nNodes=32, inputDim=58, outputActivation='linear', printSummary=True):
-    l2_reg = tf.keras.regularizers.l2(regRate)
+def getSimpleModel(lasso, ridge, activation, nDense=2, nNodes=32, inputDim=58, outputActivation='linear', printSummary=True):
+    reg = tf.keras.regularizers.L1L2(l1 = lasso, l2 = ridge)
     
     dense_kwargs = dict(
         kernel_initializer = tf.keras.initializers.glorot_normal( seed=1999),        
-        kernel_regularizer = l2_reg,                                           
+        kernel_regularizer = reg,                                           
         #kernel_constraint = tf.keras.constraints.max_norm(4)                    # the max_norm constraint is used to limit the maximum norm of the weight vector
     )
 

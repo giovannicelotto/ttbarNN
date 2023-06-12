@@ -187,10 +187,10 @@ def scaleNonAnalytical(featureNames, inX_train,  inX_test,npyDataFolder, outFold
     
     print(" Scaling the events without K&L")
     
-    SinX_train = standardScale(featureNames, SinX_train[:,:], outFolder+"/model/Sscalers.pkl")
+    SinX_train = standardScale(featureNames, SinX_train[:,:], outFolder+"/Sscalers.pkl")
     checkFeatures(SinX_train[:,:], npyDataFolder, name="SscaledPlot", featureNames = featureNames)
     
-    with open(outFolder+"/model/Sscalers.pkl", 'rb') as file:
+    with open(outFolder+"/Sscalers.pkl", 'rb') as file:
             scalers = pickle.load(file)
             scaler = scalers['scaler']
             scalable = scalers['scalable']
@@ -203,63 +203,65 @@ def scalerMC(modelDir, MCInX):
 # modelDir = the folder where two scalers are present
 # MCInX    = data features to be scaled
 # return scaled data only
-            with open(modelDir + "/scalers.pkl", 'rb') as file:
-                scalers = pickle.load(file)
+    
+    with open(modelDir + "/scalers.pkl", 'rb') as file:
+        scalers = pickle.load(file)
     # Getting the scalers od the first NN
-                if (scalers['type']=='multi'):
-                    scalerType = scalers['type']
-                    maxer = scalers['maxer']
-                    powerer = scalers['powerer']
-                    scaler = scalers['scaler']
-                    maxable = scalers['maxable']
-                    powerable = scalers['powerable']
-                    scalable = scalers['scalable']
+        if (scalers['type']=='multi'):
+            scalerType = scalers['type']
+            maxer = scalers['maxer']
+            powerer = scalers['powerer']
+            scaler = scalers['scaler']
+            maxable = scalers['maxable']
+            powerable = scalers['powerable']
+            scalable = scalers['scalable']
 
-                if (scalers['type']=='standard'):
-                    scalerType = scalers['type']
-                    scaler = scalers['scaler']
-                    scalable = scalers['scalable']
+        if (scalers['type'] == 'standard'):
+            scalerType = scalers['type']
+            scaler = scalers['scaler']
+            scalable = scalers['scalable']
     # Getting scalers of the second NN
-            with open(modelDir + "/Sscalers.pkl", 'rb') as file:
-                scalers = pickle.load(file)
+    
+    with open(modelDir + "/Sscalers.pkl", 'rb') as file:
+        scalers = pickle.load(file)
 
-                if (scalers['type']=='multi'):
-                    scalerType2 = scalers['type']
-                    maxer2 = scalers['maxer']
-                    powerer2 = scalers['powerer']
-                    scaler2 = scalers['scaler']
-                    maxable2 = scalers['maxable']
-                    powerable2 = scalers['powerable']
-                    scalable2 = scalers['scalable']
+        if (scalers['type']=='multi'):
+            scalerType2 = scalers['type']
+            maxer2      = scalers['maxer']
+            powerer2    = scalers['powerer']
+            scaler2     = scalers['scaler']
+            maxable2    = scalers['maxable']
+            powerable2  = scalers['powerable']
+            scalable2   = scalers['scalable']
 
-                if (scalers['type']=='standard'):
-                    scalerType2 = scalers['type']
-                    scaler2 = scalers['scaler']
-                    scalable2 = scalers['scalable']
-            
-            dnnMaskMC = (MCInX[:,0]>-998)
-            MCInXscaled = MCInX[dnnMaskMC, :]
+        if (scalers['type']=='standard'):
+            scalerType2 = scalers['type']
+            scaler2 = scalers['scaler']
+            scalable2 = scalers['scalable']
 
-            if (scalerType == 'standard'):
-                MCInXscaled[:, scalable]  = scaler.transform( MCInXscaled [:, scalable])
-            elif (scalerType == 'multi'):
-                MCInXscaled[:, maxable]   = maxer.transform( MCInXscaled  [:, maxable])
-                MCInXscaled[:, powerable] = powerer.transform( MCInXscaled[:, powerable])
-                MCInXscaled[:, scalable]  = scaler.transform( MCInXscaled [:, scalable])
-            MCInX[dnnMaskMC, :] = MCInXscaled            
+    dnnMaskMC = (MCInX[:,0]>-998)
+    MCInXscaled = MCInX[dnnMaskMC, :]
+    
+    if (scalerType == 'standard'):
+        MCInXscaled[:, scalable]  = scaler.transform(   MCInXscaled [:, scalable])
+    elif (scalerType == 'multi'):
+        MCInXscaled[:, maxable]   = maxer.transform(    MCInXscaled [:, maxable])
+        MCInXscaled[:, powerable] = powerer.transform(  MCInXscaled [:, powerable])
+        MCInXscaled[:, scalable]  = scaler.transform(   MCInXscaled [:, scalable])
+    MCInX[dnnMaskMC, :] = MCInXscaled            
 
-            dnn2MaskMC = (MCInX[:,0]<-4998)
-            MCInXscaled = MCInX[dnn2MaskMC, 15:]
+    dnn2MaskMC = (MCInX[:,0]<-4998)
+    MCInXscaled = MCInX[dnn2MaskMC, 15:]
 
-            if (scalerType2 == 'standard'):
-                MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
-            elif (scalerType2 == 'multi'):
-                MCInXscaled[:, maxable2]   = maxer2.transform( MCInXscaled  [:, maxable2])
-                MCInXscaled[:, powerable2] = powerer2.transform( MCInXscaled[:, powerable2])
-                MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
-            MCInX[dnn2MaskMC, 15:] = MCInXscaled
+    if (scalerType2 == 'standard'):
+        MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
+    elif (scalerType2 == 'multi'):
+        MCInXscaled[:, maxable2]   = maxer2.transform( MCInXscaled  [:, maxable2])
+        MCInXscaled[:, powerable2] = powerer2.transform( MCInXscaled[:, powerable2])
+        MCInXscaled[:, scalable2]  = scaler2.transform( MCInXscaled [:, scalable2])
+    MCInX[dnn2MaskMC, 15:] = MCInXscaled
 
-            return MCInX
+    return MCInX
 
 def getWeightsTrainNew(outY_train, weights_train, outFolder, alpha=0.8, epsilon=1e-4, output=True):
     print("Producing weights for training...")

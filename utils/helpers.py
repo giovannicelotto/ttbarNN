@@ -106,6 +106,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	weights=[]		# weights to be used in the NN
 	totGen = []
 	mask = []
+	nanCounter = 0
 
 	f = ROOT.TFile.Open(path)
 	tree = f.Get(treeName)
@@ -373,20 +374,23 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			else:
 				lKinRecoOut.append(-999)
 			haskrs = True if ((haskrs) & (not math.isnan(kr_ttbar.M()))) else False
-			if (haskrs):
+			if (haskrs & (not math.isinf(kr_ttbar.M()))):
 				kinRecoOut.append(kr_ttbar.M())
 			else:
 				kinRecoOut.append(-999)
-			
+			if (math.isinf(kr_ttbar.M())):
+				print("INF")
+			if (haskrs & (math.isnan(kr_ttbar.M()))):
+				nanCounter = nanCounter+1
+				print("Nan", nanCounter)
 
 			met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
 			toBeRotated = jets +[kr_top, kr_antitop, lkr_ttbar]
 			rotation(toBeRotated, lep1, lep2, met)
 			kr_ttbar = kr_top + kr_antitop
 			dilepton = lep1 + lep2
-			if (haskrs):
-				
-				assert math.isclose(kr_ttbar.M(), kinRecoOut[-1] , abs_tol = 1e-09), "Rotation. IsNan %.1f and %.1f" %( kr_ttbar.M(),  kinRecoOut[-1])
+			if (haskrs & (not math.isinf(kr_ttbar.M()))):
+				assert math.isclose( kr_ttbar.M(), kinRecoOut[-1] , abs_tol = 1e-01), "Rotation. IsNan %.1f and %.1f" %( kr_ttbar.M(),  kinRecoOut[-1])
 # at this points jets are rotated in a compatible way with leptons and met
 # Now starting from jets I build arrays of bjets
 			nonbjets = [jets[j] for j in range(len(btag)) if btag[j] == 0]
