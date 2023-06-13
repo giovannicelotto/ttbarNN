@@ -104,9 +104,9 @@ def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
         krM  = krM[myMasks[2]]
         f, ax = plt.subplots(1, 1,  figsize = (7,7))
         if (totGen is not None):
-            ax.hist(yPredicted, bins = 80, range=(200,1500), label="DNN   R = %.3f"%(len(yPredicted)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
-            ax.hist(lkrM,       bins = 80, range=(200,1500), label="Loose R = %.3f"%(len(lkrM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),        histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[1]])
-            ax.hist(krM,        bins = 80, range=(200,1500), label="Full  R = %.3f"%(len(krM)*(weights[myMasks[0]].mean())/(len(totGen)*(weights.mean()))),         histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[2]])
+            ax.hist(yPredicted, bins = 80, range=(200,1500), label="DNN   R = %.3f"%(weights[myMasks[0]].sum()/weights[mask].sum()),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
+            ax.hist(lkrM,       bins = 80, range=(200,1500), label="Loose R = %.3f"%(weights[myMasks[1]].sum()/weights[mask].sum()),        histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[1]])
+            ax.hist(krM,        bins = 80, range=(200,1500), label="Full  R = %.3f"%(weights[myMasks[2]].sum()//weights[mask].sum()),         histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[2]])
             ax.hist(totGen[mask],     bins = 80, range=(200,1500), label="True  I = %dk"%(len(totGen)*0.001),                                                       histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[mask])
         else:
             print("Error")
@@ -379,25 +379,25 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
 
         
 
-        regMeanBinned       = np.append( regMeanBinned      ,   np.mean(yPredicted[dnnMask]-totGen[dnnMask]))
-        LooseMeanBinned     = np.append( LooseMeanBinned    ,   np.mean(lkrM[LooseMask]-totGen[LooseMask]))
-        kinMeanBinned       = np.append( kinMeanBinned      ,   np.mean(krM[kinMask]-totGen[kinMask]))
+        regMeanBinned       = np.append( regMeanBinned      ,   np.average(yPredicted[dnnMask]-totGen[dnnMask], weights = weights[dnnMask]))
+        LooseMeanBinned     = np.append( LooseMeanBinned    ,   np.average(lkrM[LooseMask]-totGen[LooseMask], weights = weights[LooseMask]))
+        kinMeanBinned       = np.append( kinMeanBinned      ,   np.average(krM[kinMask]-totGen[kinMask], weights = weights[kinMask]))
 
-        regSquaredBinned       = np.append( regSquaredBinned      ,   np.mean((yPredicted[dnnMask]-totGen[dnnMask])**2))
-        LooseSquaredBinned     = np.append( LooseSquaredBinned    ,   np.mean((lkrM[LooseMask]-totGen[LooseMask])**2))
-        kinSquaredBinned       = np.append( kinSquaredBinned      ,   np.mean((krM[kinMask]-totGen[kinMask])**2))
+        regSquaredBinned       = np.append( regSquaredBinned      ,   np.sqrt(np.average((yPredicted[dnnMask]-totGen[dnnMask])**2, weights = weights[dnnMask])))
+        LooseSquaredBinned     = np.append( LooseSquaredBinned    ,   np.sqrt(np.average((lkrM[LooseMask]-totGen[LooseMask])**2, weights = weights[LooseMask])))
+        kinSquaredBinned       = np.append( kinSquaredBinned      ,   np.sqrt(np.average((krM[kinMask]-totGen[kinMask])**2, weights = weights[kinMask])))
 
-        regRmsBinned        = np.append( regRmsBinned       ,   np.std(yPredicted[dnnMask]-totGen[dnnMask]))
-        LooseRmsBinned      = np.append( LooseRmsBinned     ,   np.std(lkrM[LooseMask]-totGen[LooseMask]))
-        kinRmsBinned        = np.append( kinRmsBinned       ,   np.std(krM[kinMask]-totGen[kinMask]))
+        regRmsBinned        = np.append( regRmsBinned       ,   np.sqrt(np.average((yPredicted[dnnMask]-totGen[dnnMask] - np.average(yPredicted[dnnMask]-totGen[dnnMask], weights = weights[dnnMask]))**2, weights = weights[dnnMask])))
+        LooseRmsBinned      = np.append( LooseRmsBinned     ,   np.sqrt(np.average((lkrM[LooseMask]-totGen[LooseMask] - np.average(lkrM[LooseMask]-totGen[LooseMask], weights = weights[LooseMask]))**2, weights = weights[LooseMask])))
+        kinRmsBinned        = np.append( kinRmsBinned       ,   np.sqrt(np.average((krM[kinMask]-totGen[kinMask] - np.average(krM[kinMask]-totGen[kinMask], weights = weights[kinMask]))**2, weights = weights[kinMask])))
         
-        regElementsPerBin      = np.append( regElementsPerBin     ,  len(dnnMask[dnnMask==1]))
-        LooseElementsPerBin      = np.append( LooseElementsPerBin     ,  len(LooseMask[LooseMask==1]))
-        kinElementsPerBin      = np.append( kinElementsPerBin     ,  len(kinMask[kinMask==1]))
+        regElementsPerBin      = np.append( regElementsPerBin   ,  weights[dnnMask].sum())
+        LooseElementsPerBin    = np.append( LooseElementsPerBin ,  weights[kinMask].sum())
+        kinElementsPerBin      = np.append( kinElementsPerBin   ,  weights[LooseMask].sum())
 
-        regErrRmsBinned     = np.append( regErrRmsBinned    ,   np.sqrt((moment(yPredicted[dnnMask]-totGen[dnnMask], 4)-((regElementsPerBin[i]-3)/(regElementsPerBin[i]-1)*regRmsBinned**4)[0])/regElementsPerBin[i]))
+        '''regErrRmsBinned     = np.append( regErrRmsBinned    ,   np.sqrt((moment(yPredicted[dnnMask]-totGen[dnnMask], 4)-((regElementsPerBin[i]-3)/(regElementsPerBin[i]-1)*regRmsBinned**4)[0])/regElementsPerBin[i]))
         LooseErrRmsBinned   = np.append( LooseErrRmsBinned  ,   np.sqrt((moment(lkrM[LooseMask]-totGen[LooseMask], 4)-((LooseElementsPerBin[i]-3)/(LooseElementsPerBin[i]-1)*LooseRmsBinned**4)[0])/LooseElementsPerBin[i]))
-        kinErrRmsBinned     = np.append( kinErrRmsBinned    ,   np.sqrt((moment(krM[kinMask]-totGen[kinMask], 4)-((kinElementsPerBin[i]-3)/(kinElementsPerBin[i]-1)*kinRmsBinned**4)[0])/kinElementsPerBin[i]))
+        kinErrRmsBinned     = np.append( kinErrRmsBinned    ,   np.sqrt((moment(krM[kinMask]-totGen[kinMask], 4)-((kinElementsPerBin[i]-3)/(kinElementsPerBin[i]-1)*kinRmsBinned**4)[0])/kinElementsPerBin[i]))'''
 
 
     logbins_wu[0] = 280 # for visualization purpose the underflow is between 320, 340
@@ -406,7 +406,7 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     errX = (logbins_wu[1:]-logbins_wu[:len(logbins_wu)-1])/2
     x = logbins_wu[:len(logbins_wu)-1] + errX
     ax.errorbar(x, regMeanBinned,  regRmsBinned/np.sqrt(regElementsPerBin), errX, linestyle='None', label = 'DNN')
-    ax.errorbar(x, LooseMeanBinned,  LooseRmsBinned/np.sqrt(LooseElementsPerBin), errX, linestyle='None', label = 'Loose')
+    ax.errorbar(x, LooseMeanBinned, LooseRmsBinned/np.sqrt(LooseElementsPerBin), errX, linestyle='None', label = 'Loose')
     ax.errorbar(x, kinMeanBinned,  kinRmsBinned/np.sqrt(kinElementsPerBin), errX, linestyle='None', label = 'Kin')
     ax.set_xlabel("$m_{tt}^{True}$ (GeV)")
     ax.set_xlim(logbins_wu[0], logbins_wu[-1])
@@ -417,19 +417,20 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     plt.cla()
 
     #fig, ax = plt.subplots(1, 1)
-    ax.errorbar(x, regRmsBinned, regErrRmsBinned/10, errX, linestyle='None', label = 'DNN err/10')
-    ax.errorbar(x, LooseRmsBinned, LooseErrRmsBinned/10, errX, linestyle='None', label = 'Loose err/10')
-    ax.errorbar(x, kinRmsBinned, kinErrRmsBinned/10, errX, linestyle='None', label = 'Kin err/10')
+    ax.errorbar(x, regRmsBinned,   xerr=errX, linestyle='None', label = 'DNN err/100')
+    ax.errorbar(x, LooseRmsBinned, xerr=errX, linestyle='None', label = 'Loose err/100')
+    ax.errorbar(x, kinRmsBinned,   xerr=errX, linestyle='None', label = 'Kin err/1000')
     ax.legend(fontsize=18, loc='best')
     ax.set_ylabel("RMS(Pred-True) [GeV]", fontsize=18)
+    ax.set_yscale('log')
     ax.set_xlim(logbins_wu[0], logbins_wu[-1])
     fig.savefig(outFolder+"/allRms.pdf", bbox_inches='tight')
     plt.cla()
 
     
-    ax.errorbar(x, np.sqrt(regSquaredBinned), None, errX, linestyle='None', label = 'DNN ')
-    ax.errorbar(x, np.sqrt(LooseSquaredBinned), None, errX, linestyle='None', label = 'Loose ')
-    ax.errorbar(x, np.sqrt(kinSquaredBinned), None, errX, linestyle='None', label = 'Kin ')
+    ax.errorbar(x, regSquaredBinned,    None, errX, linestyle='None', label = 'DNN ')
+    ax.errorbar(x, LooseSquaredBinned,  None, errX, linestyle='None', label = 'Loose ')
+    ax.errorbar(x, kinSquaredBinned,    None, errX, linestyle='None', label = 'Kin ')
     ax.legend(fontsize=18, loc='best')
     ax.set_xlabel("m$_{tt}^\mathrm{{True}}$ [GeV]", fontsize=16)
     ax.set_xlim(logbins_wu[0], logbins_wu[-1])
