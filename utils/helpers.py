@@ -80,7 +80,7 @@ def rotation(jets, lep1, lep2, met):
 
 	met.SetPhi( met.Phi() - phiFirst)
 	met.SetPhi( met.Phi() - 2*np.pi*(met.Phi() > np.pi) + 2*np.pi*(met.Phi() < -np.pi))
-	met.SetPhi(met.Phi()*signPhi)
+	met.SetPhi( met.Phi()*signPhi)
 
 
 
@@ -387,6 +387,14 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			met.SetPtEtaPhiM(met_pt[0],0.,met_phi[0],0.)
 			toBeRotated = jets +[kr_top, kr_antitop, lkr_ttbar]
 			rotation(toBeRotated, lep1, lep2, met)
+			# check the hadornic transverse energy is preserved after the rotation
+			ht2 = 0
+			for i in range(numJets):
+				ht2 = ht2 + jets[i].Pt()
+
+			input("%.1f  %.1f" %(ht, ht2))
+
+
 			kr_ttbar = kr_top + kr_antitop
 			dilepton = lep1 + lep2
 			if (haskrs & (not math.isinf(kr_ttbar.M()))):
