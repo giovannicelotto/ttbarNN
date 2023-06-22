@@ -1,15 +1,16 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from scipy.spatial.distance import jensenshannon
 from scipy.stats import gaussian_kde
 from scipy.stats import entropy
 from sklearn.preprocessing import PowerTransformer
-from sklearn.preprocessing import QuantileTransformer
+#from sklearn.preprocessing import QuantileTransformer
 from sklearn import preprocessing
 import ROOT
 from array import array
 import os
-from scipy.stats.stats import pearsonr
+#from scipy.stats.stats import pearsonr
 from utils.helpers import NormalizeBinWidth1d
 import pickle
 from sklearn.metrics import mean_squared_error
@@ -73,13 +74,13 @@ def multiScale(featureNames, inX, outName):
     return inXs
 
 
-def standardScale(featureNames, inX, outName):
+def standardScale(featureNames, inX,  outName):
 
     keepable  = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['tag', 'score'])]
     scalable  = [i for i in range(len(featureNames)) if ( i not in keepable )]
     
     inXs = inX
-
+#remove sample_weight
     scaler  = preprocessing.StandardScaler().fit(inX[:,scalable])
     inXs[:, scalable] = scaler.transform(inXs[:,scalable])
 
@@ -105,22 +106,27 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         if not os.path.exists(outFolder+ "/model"):
             os.makedirs(outFolder+ "/model")
 
-
-    #weightBins = array('d', [250 , 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
-    weightBins = array('d', [ 340, 342.5, 345, 347.5, 350, 355, 360, 370, 380, 390, 400, 410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
-    wegihtNBin = len(weightBins)-1
-    weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
+    assert (outY_train>0).all(), "Check stat getWeights"
+    
+    #weightBins = array('d', [ 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # def
+    
+    #weightBins = array('d', [ 280, 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410 ]) #  onlylow
+    #weightBins = array('d', [ 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600, 650, 700, 750, 800, 850, 900, 1000, 1100]) # also for highhalf
+    weightBins = array('d', [ 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410]) # onlylow2
+    weightNBin = len(weightBins)-1
+    weightHisto = ROOT.TH1F("weightHisto","weightHisto",weightNBin, weightBins)
 
     print("Filling histo with m_tt")
     for m, weight in zip(outY_train, weights_train):
-        weightHisto.Fill(m,abs(weight))
+        weightHisto.Fill(m, abs(weight))
     weightHisto = NormalizeBinWidth1d(weightHisto)
 
 
     canvas = ROOT.TCanvas()
     weightHisto.Draw("hist")
-    weightHisto.SetTitle("Normalized and weighted m_{tt} distibutions. Training")
-    weightHisto.SetYTitle('Normalized Counts')
+    weightHisto.SetTitle("Normalized and weighted $m_{t\\bar{t}}$ distributions. Training")
+
+    weightHisto.SetYTitle('Counts')
     if (output):
         if outFix is None:
             canvas.SaveAs(outFolder + "/model/mttOriginalWeight.pdf")
@@ -140,32 +146,35 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         #print("Current midpoint:\t", midpoint)
         c = weightHisto.GetBinContent(binX)
         if (c>0):
-            weightHisto.SetBinContent(binX, maximumBinContent/(c)*np.exp(-(midpoint-firstMidpoint)/alpha))
-            #weightHisto.SetBinContent(binX, maximumBinContent/(maximumBinContent + c))
+            #weightHisto.SetBinContent(binX, maximumBinContent/(c)*np.exp(-(midpoint-firstMidpoint)/alpha))
+            #if binX<maximumBin:
+            weightHisto.SetBinContent(binX, maximumBinContent/(c))
+            #else:
+            #    weightHisto.SetBinContent(binX, (maximumBinContent+c)/(2*c))
 
         else:
             weightHisto.SetBinContent(binX, 1.)     
     weightHisto.SetBinContent(0, weightHisto.GetBinContent(1))
     weightHisto.SetBinContent(weightHisto.GetNbinsX()+1, weightHisto.GetBinContent(weightHisto.GetNbinsX()))
-    weightHisto.SetTitle("Weights distributions")
+    weightHisto.SetTitle("addW distributions")
     canvas.SetLogy(1)
     if (output):
         if outFix is None:
             canvas.SaveAs(outFolder+"/model/weights.pdf")
         else:
             canvas.SaveAs(outFolder+"/model/weights"+outFix+".pdf")
-    print("A")
+
     weights_train_=[]
     for w,m in zip(weights_train, outY_train):
         weightBin = weightHisto.FindBin(m)
         addW = weightHisto.GetBinContent(weightBin)	    # weights for importance
         weights_train_.append(abs(w)*addW)           	# weights of the training are the product of the original weights and the weights used to give more importance to regions with few events
     weights_train = np.array(weights_train_)		    # final weights_train is np array
-    print("B")
+
     weights_train = 1./np.mean(weights_train)*weights_train # to have mean = 1
     if (output):
         fig, ax = plt.subplots(1, 2, figsize=(16, 8))
-        ax[0].hist2d(outY_train[:,0], weights_train, bins=((50, 50)), range=((250, 1500), (0, 8)), cmap='Blues')
+        ax[0].hist2d(outY_train[:,0], weights_train, bins=((50, 50)), range=((250, 1500), (0, 8)), cmap='Blues', norm=mpl.colors.LogNorm())
         ax[1].hist(weights_train, label='Training', bins=100)
         ax[1].set_yscale('log')
         ax[1].legend(fontsize=18)
@@ -173,10 +182,10 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
             fig.savefig(outFolder+"/model/weightsBeforeAndAfter.png")
         else:
             fig.savefig(outFolder+"/model/weightsBeforeAndAfter"+outFix+".png")
-    print("C")
+
     return weights_train, weights_train_original
 
-def scaleNonAnalytical(featureNames, inX_train,  inX_test,npyDataFolder, outFolder):
+def scaleNonAnalytical(featureNames, inX_train,  inX_test, npyDataFolder, outFolder):
 # Do the sacling on training, save it and apply it to the testing
     dnn2Mask_train = inX_train[:,0]<-4998
     dnn2Mask_test  = inX_test[:,0]<-4998
@@ -271,8 +280,8 @@ def getWeightsTrainNew(outY_train, weights_train, outFolder, alpha=0.8, epsilon=
             os.makedirs(outFolder+ "/model")
 
     #weightBins = array('d', [340, 342.5, 345, 347.5, 350, 355, 360, 370, 380, 390, 400, 410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # 
-    #wegihtNBin = len(weightBins)-1
-    #weightHisto = ROOT.TH1F("weightHisto","weightHisto",wegihtNBin, weightBins)
+    #weightNBin = len(weightBins)-1
+    #weightHisto = ROOT.TH1F("weightHisto","weightHisto",weightNBin, weightBins)
 
     print("Filling histo with m_tt")
 

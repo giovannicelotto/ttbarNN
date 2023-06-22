@@ -392,7 +392,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			for i in range(numJets):
 				ht2 = ht2 + jets[i].Pt()
 
-			input("%.1f  %.1f" %(ht, ht2))
+
 
 
 			kr_ttbar = kr_top + kr_antitop
@@ -432,7 +432,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				evFeatures.append(kr_top.DeltaR(kr_antitop))
 			else:
 				for z in range(15):
-					evFeatures.append(np.nan)
+					evFeatures.append(-4999)
 				
 
 			append4vector(evFeatures, dilepton)

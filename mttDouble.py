@@ -21,7 +21,7 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
         print("Calling justEvaluate ...")
         inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test = loadData(npyDataFolder = npyDataFolder,
                                                                                                                                                 testFraction = testFraction, maxEvents = maxEvents,
-                                                                                                                                                minbjets = 1, nFiles = nFiles, doubleNN=False, output=True,
+                                                                                                                                                minbjets = 1, nFiles = nFiles, doubleNN=doubleNN, 
                                                                                                                                                 scale = 'standard', outFolder = outFolder+"/model")
         dnn2Mask_train = inX_train[:,0]<-4998
         dnn2Mask_test = inX_test[:,0]<-4998
@@ -66,29 +66,29 @@ def main():
     'testFraction':     0.3,
     'validation_split': 0.2,
 # Hyperparameters NN1
-    'learningRate':     0.00467, 
-    'batchSize':        512,
-    'validBatchSize':   512,
-    'nNodes':           [23, 26, 60], #[27, 27, 78], #[24, 36, 63], # [3, 174]      0.05061  
-    'lasso':            0.14874,
-    'ridge':            0.00307,
+    'learningRate':     0.001512, #0.01025,#
+    'batchSize':        1024,
+    'validBatchSize':   1024,
+    'nNodes':           [100, 64, 106],#[100, 109, 106],#[40, 120, 112],#[40, 120, 112], #[138, 221, 173],#, 				
+    'lasso':            0.04648,#0.,#0.00006,#,
+    'ridge':            0.00138,#0.,#0.00073,#,
     'activation':       'elu',
     'scale' :           'standard',
     'epochs':           3500,
-    'patienceeS':       30,
-    'alpha':            174.3,
+    'patienceeS':       500,
+    'alpha':            0,
 # Hyperparameters NN2
-    'nNodes2':          [14, 46],
-    'learningRate2':    0.001852,
+    'nNodes2':          [16, 16],
+    'learningRate2':    0.000495,
     'epochs2':          3500,
-    'lasso2':           0.03229,
-    'ridge2':           0.00089,
+    'lasso2':           0.05683,
+    'ridge2':           0.00323,
     'numTrainings':     1
 }
     doubleNN = True
-    doEvaluate = True
+    doEvaluate = False
     additionalInputName = ""
-    additionalOutputName= "DoubleNN" if doubleNN else "SingleNN" 
+    additionalOutputName= "DoubleNN_redNN1_redNN2_drop_longES" if doubleNN else "SingleNN" 
 
 # Define input folder and output folder
     hp['nDense']= len(hp['nNodes'])

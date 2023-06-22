@@ -13,10 +13,13 @@ import pandas as pd
 import matplotlib.ticker as ticker
 ROOT.gROOT.SetBatch(True)
 
-
+#from matplotlib import font_manager                                to import
+#plt.rcParams['font.family'] = 'DejaVu Sans'                        to change
+#plt.rcParams['font.family'] = plt.rcParamsDefault['font.family']   to restore
 
 logbins =  np.concatenate((np.linspace(320, 500, 16, endpoint=False), [500, 520, 540, 560, 580, 600, 650, 750])) #]
 logbins = np.array([380, 470, 620, 820,  1100, 1500])
+logbins = np.linspace(340, 1500, 60)
 recoBin = np.array([1,   380, 470, 620, 820,  1100, 1500, 250000]) #
 diffBin = np.arange(300, 2050, 50) #1200
 #recoBinPlusBin = np.array([1, 380, 450, 500, 625, 812.5,  1200, 5000])
@@ -98,16 +101,26 @@ def linearCorrelation(yPredicted, lkrM, krM, totGen, outFolder,  weights):
 def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
         myMasks = [(yPredicted>-998), (lkrM>-998), (krM>-998)]  
         print("Invariant Mass plot...")
-        yPredicted = yPredicted[myMasks[0]]
-        print("******************************\n\n*******************************\n\n", yPredicted.max(), yPredicted.min())
-        lkrM = lkrM[myMasks[1]]
-        krM  = krM[myMasks[2]]
+
+        print("******************************\n\n*******************************\n\n")
+        yP = yPredicted.copy()
+        lM = lkrM.copy()
+        kM = krM.copy()
+        tg = totGen.copy()
+        yP[yP>1499.99] = 1499.99
+        lM[lM>1499.99] = 1499.99
+        kM[kM>1499.99] = 1499.99
+        tg[tg>1499.99] = 1499.99
         f, ax = plt.subplots(1, 1,  figsize = (7,7))
         if (totGen is not None):
-            ax.hist(yPredicted, bins = 80, range=(200,1500), label="DNN   R = %.3f"%(weights[myMasks[0]].sum()/weights[mask].sum()),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
-            ax.hist(lkrM,       bins = 80, range=(200,1500), label="Loose R = %.3f"%(weights[myMasks[1]].sum()/weights[mask].sum()),        histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[1]])
-            ax.hist(krM,        bins = 80, range=(200,1500), label="Full  R = %.3f"%(weights[myMasks[2]].sum()//weights[mask].sum()),         histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[2]])
-            ax.hist(totGen[mask],     bins = 80, range=(200,1500), label="True  I = %dk"%(len(totGen)*0.001),                                                       histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[mask])
+            #ax.hist(yPredicted[myMasks[0]], bins = 80, range=(200,1500), label="DNN   R = %.3f"%(weights[myMasks[0]].sum()/weights[mask].sum()),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
+            #ax.hist(lkrM[myMasks[1]],       bins = 80, range=(200,1500), label="Loose R = %.3f"%(weights[myMasks[1]].sum()/weights[mask].sum()),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[1]])
+            #ax.hist(krM[myMasks[2]],        bins = 80, range=(200,1500), label="Full  R = %.3f"%(weights[myMasks[2]].sum()/weights[mask].sum()), histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[2]])
+            #ax.hist(totGen[mask],     bins = 80, range=(200,1500), label="True  I = %dk"%(len(totGen)*0.001),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[mask])
+            ax.hist(yP[myMasks[0]], bins = 80, range=(200,1500), label="DNN   ",  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
+            ax.hist(lM[myMasks[1]],       bins = 80, range=(200,1500), label="Loose ",  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[1]])
+            ax.hist(kM[myMasks[2]],        bins = 80, range=(200,1500), label="Full  ", histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[2]])
+            ax.hist(tg[mask],     bins = 80, range=(200,1500), label="True  ",  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[mask])
         else:
             print("Error")
             return 0
@@ -121,7 +134,13 @@ def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
         ax.set_ylabel('Normalized Counts', fontsize=18)
         ax.set_xlabel(r"m$_{{\mathrm{{t\bar{{t}}}}}} $ [GeV]" , fontsize=18 )
         f.savefig(outFolder+"/m_tt.pdf", bbox_inches='tight')
+        ax.set_yscale('log')
+        f.savefig(outFolder+"/m_ttLog.pdf", bbox_inches='tight')
         plt.close()
+        del yP
+        del lM
+        del kM
+        del tg
         print("Invariant Mass plot saved in"+ outFolder+"/m_tt.pdf")
 
     
@@ -262,12 +281,14 @@ def ResponseMatrix(matrixName, y, outFolder, totGen, weights, recoBin = getRecoB
 
     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
     im = ax.matshow(matrix[:nRecoBin,:nRecoBin], cmap=plt.cm.jet, alpha=0.7, norm=mpl.colors.LogNorm())
-    ax.set_title("Generated (bin number)", fontsize=18)
+    ax.set_xlabel("Generated (bin number)", fontsize=18)
     #ax.set_xlabel("Generated (bin number)", fontsize=18)
     ax.set_ylabel("Reconstructed (bin number)", fontsize=18)
     ax.tick_params(labelsize=18)
     ax.xaxis.set_ticks(np.arange(0, nRecoBin, 1.0))
     ax.yaxis.set_ticks(np.arange(0, nRecoBin, 1.0))
+    ax.xaxis.set_ticks_position('bottom')
+    ax.invert_yaxis()
     for y in range(nRecoBin):
         for x in range(nRecoBin):
             plt.text(x , y , '%.3f' % matrix[y, x],
@@ -373,7 +394,7 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
 # for loose and kin masks to be applied to totgen
     for i in range(len(logbins_wu)-1):
         dnnMask = (mask_test) & (totGen >= logbins_wu[i]) & (totGen < logbins_wu[i+1])
-        kinMask =  (krM>-998) & (totGen >= logbins_wu[i]) & (totGen < logbins_wu[i+1])
+        kinMask =  (krM>-998) & (totGen >= logbins_wu[i]) & (totGen < logbins_wu[i+1]) 
         LooseMask =  (lkrM>-998) & (totGen >= logbins_wu[i]) & (totGen < logbins_wu[i+1])
         
 
@@ -434,7 +455,8 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     ax.legend(fontsize=18, loc='best')
     ax.set_xlabel("m$_{tt}^\mathrm{{True}}$ [GeV]", fontsize=16)
     ax.set_xlim(logbins_wu[0], logbins_wu[-1])
-    ax.set_yscale('log')
+    ax.set_ylim(0, 800)
+    #ax.set_yscale('log')
     ax.tick_params(labelsize=18)
     ax.set_ylabel("$\sqrt{<(m_{\mathrm{{t\overline{t}}}}^\mathrm{{Reg}}-m_{\mathrm{{t\overline{t}}}}^\mathrm{{True}})^2>}$ [GeV]", fontsize=16)
     fig.savefig(outFolder+"/allSquared.pdf", bbox_inches='tight')
@@ -505,25 +527,26 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     myMasks = [(yPredicted>-998), (lkrM>-998), (krM>-998)]  
     
 
-    hist1, xedges, yedges = np.histogram2d(totGen[myMasks[0]], yPredicted[myMasks[0]],  bins=(80, 80), range=[[340, 1999], [-500, 500]], weights=weights[myMasks[0]])
-    hist2, xedges, yedges = np.histogram2d(totGen[myMasks[1]], lkrM[myMasks[1]],        bins=(80, 80), range=[[340, 1999], [-500, 500]], weights=weights[myMasks[1]])
-    hist3, xedges, yedges = np.histogram2d(totGen[myMasks[2]], krM[myMasks[2]],         bins=(80, 80), range=[[340, 1999], [-500, 500]], weights=weights[myMasks[2]])
+    hist1, xedges, yedges = np.histogram2d(totGen[myMasks[0]], yPredicted[myMasks[0]],  bins=(80, 80), range=[[340, 1999], [-900, 900]], weights=weights[myMasks[0]])
+    hist2, xedges, yedges = np.histogram2d(totGen[myMasks[1]], lkrM[myMasks[1]],        bins=(80, 80), range=[[340, 1999], [-900, 900]], weights=weights[myMasks[1]])
+    hist3, xedges, yedges = np.histogram2d(totGen[myMasks[2]], krM[myMasks[2]],         bins=(80, 80), range=[[340, 1999], [-900, 900]], weights=weights[myMasks[2]])
 
     vmin = 1#min(np.min(hist1), np.min(hist2), np.min(hist3))
     vmax = max(np.max(hist1), np.max(hist2), np.max(hist3))
 
-
+    #differences = [yPredicted[myMasks[0] - totGen[myMasks[0]]], lkrM[lkrM>-998] - totGen[myMasks[1]], krM[krM>-998] - totGen[myMasks[2]]]
+    
     
     for el in [yPredicted[myMasks[0]], lkrM[lkrM>-998], krM[krM>-998]]:
         
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))
         fig.subplots_adjust(right=0.8)
           
-        counts, xedges, yedges, im = ax.hist2d(totGen[myMasks[index]], el - totGen[myMasks[index]], bins=(80, 80), range=[[340, 1500], [-500, 500]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, weights=weights[myMasks[index]])
+        counts, xedges, yedges, im = ax.hist2d(totGen[myMasks[index]], el - totGen[myMasks[index]], bins=(80, 80), range=[[340, 1500], [-900, 900]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, weights=weights[myMasks[index]])
         cbar_ax = fig.add_axes([0.81, 0.11, 0.05, 0.77])
         cbar = fig.colorbar(im, cax=cbar_ax)
-        ax.set_xlabel("m$_{tt}^{True}$ [GeV]", fontsize=18)
-        ax.set_ylabel(['m$_{tt}^{DNN}$', 'm$_{tt}^{Loose}$', 'm$_{tt}^{Kin}$'][index]+" - True [GeV]", fontsize=18)
+        ax.set_xlabel(r"m$_\mathrm{t\bar{t}}^{\mathrm{True}}$ [GeV]", fontsize=18)
+        ax.set_ylabel([r'm$_\mathrm{t\bar{t}}^{\mathrm{DNN}}$', r'm$_\mathrm{t\bar{t}}^{\mathrm{Loose}}$', r'm$_\mathrm{t\bar{t}}^{\mathrm{Full}}$'][index]+r" - m$_\mathrm{t\bar{t}}^{\mathrm{True}}$ [GeV]", fontsize=18)
         ax.tick_params(labelsize=18)
         cbar.set_label('Counts', fontsize=19)
         cbar.ax.tick_params(labelsize=18)
@@ -536,14 +559,14 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     ###### plot for events of the second NN
     if (yPredicted[dnn2Mask]>-998).all():
             
-        hist1, xedges, yedges = np.histogram2d(totGen[dnn2Mask], yPredicted[dnn2Mask],  bins=(80, 80), range=[[340, 1999], [-500, 500]], weights=weights[dnn2Mask])
+        hist1, xedges, yedges = np.histogram2d(totGen[dnn2Mask], yPredicted[dnn2Mask],  bins=(80, 80), range=[[340, 1999], [-900, 900]], weights=weights[dnn2Mask])
         
         vmin = 1
         vmax = np.max(hist1)
         
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))
         fig.subplots_adjust(right=0.8)  
-        counts, xedges, yedges, im = ax.hist2d(totGen[dnn2Mask], yPredicted[dnn2Mask] - totGen[dnn2Mask], bins=(80, 80), range=[[340, 1500], [-500, 500]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, weights=weights[dnn2Mask])
+        counts, xedges, yedges, im = ax.hist2d(totGen[dnn2Mask], yPredicted[dnn2Mask] - totGen[dnn2Mask], bins=(80, 80), range=[[340, 1500], [-900, 900]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, weights=weights[dnn2Mask])
         cbar_ax = fig.add_axes([0.81, 0.11, 0.05, 0.77])
         cbar = fig.colorbar(im, cax=cbar_ax)
         ax.set_xlabel("m$_{tt}^{True}$ [GeV]", fontsize=18)
@@ -565,11 +588,34 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     from scipy.stats import gaussian_kde
     
     
-    fig, axes = plt.subplots(2, 4, figsize=(18, 9))
     x = getRecoBin()
 
-# to finish
+    regSquaredBinned = np.array([])
+    LooseSquaredBinned = np.array([])
+    kinSquaredBinned = np.array([])
+    
+	
+    regElementsPerBin = np.array([])
+    kinElementsPerBin = np.array([])
+    LooseElementsPerBin = np.array([])
+# Makes sense to compare only when kin and loose works
+
+     
+    #consider all the events below 340 in one bin.
+# for loose and kin masks to be applied to totgen
+    for i in range(len(x)-1):
+        dnnMask = (mask_test) & (totGen >= x[i]) & (totGen < x[i+1])
+        kinMask =  (krM>-998) & (totGen >= x[i]) & (totGen < x[i+1]) 
+        LooseMask =  (lkrM>-998) & (totGen >= x[i]) & (totGen < x[i+1])
         
+
+        regSquaredBinned       = np.append( regSquaredBinned      ,   np.sqrt(np.average((yPredicted[dnnMask]-totGen[dnnMask])**2, weights = weights[dnnMask])))
+        LooseSquaredBinned     = np.append( LooseSquaredBinned    ,   np.sqrt(np.average((lkrM[LooseMask]-totGen[LooseMask])**2, weights = weights[LooseMask])))
+        kinSquaredBinned       = np.append( kinSquaredBinned      ,   np.sqrt(np.average((krM[kinMask]-totGen[kinMask])**2, weights = weights[kinMask])))
+
+        
+
+    fig, axes = plt.subplots(2, 4, figsize=(18, 9))
     axes = axes.flatten()
     for i, ax in enumerate(axes):
         if i < 7:
@@ -616,22 +662,35 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
             ax.hist(df['lkrM'][mask & myMasks[1]] ,        bins = bins, label="Loose" ,  weights=weights[(mask & myMasks[1] )], **kwargs, ec='C1')
             ax.hist(df['krM'][mask & myMasks[2]] ,         bins = bins, label="Full " ,  weights=weights[(mask & myMasks[2] )], **kwargs, ec='C2')
             
-            #g=sns.kdeplot(data = data , weights=weights[(myMasks[0]) & mask], common_norm=False, fill=True, alpha=.5, linewidth=0, ax=ax, label='DNN', gridsize=5000)
-            #sns.kdeplot(data=df[(myMasks[0]) & mask], x='yPredicted', weights='weights',   fill=True, alpha=.5, linewidth=0, ax=ax, label='DNN', gridsize=5000)
-            #sns.kdeplot(data=df[(myMasks[1]) & mask],     x='lkrM',       weights='weights', fill=True, alpha=.5, linewidth=0, ax=ax, label='Full', gridsize=5000)
-            #sns.kdeplot(data=df[(myMasks[2]) & mask],     x='krM',        weights='weights',   fill=True, alpha=.5, linewidth=0, ax=ax, label='Loose', gridsize=5000)
-
-            #sns.kdeplot  (data = (krM[(myMasks[1]) & mask]        - totGen[(myMasks[1]) & mask]) , weights=weights[(myMasks[1]) & mask], common_norm=False, fill=True, alpha=.5, linewidth=0, ax=ax, label='Full', gridsize=5000)
-            #sns.kdeplot  (data = (lkrM[(myMasks[2]) & (mask) ]       - totGen[(myMasks[2]) & (mask) ]) , weights=weights[(myMasks[2]) & (mask) ], common_norm=False, fill=True, alpha=.5, linewidth=0, ax=ax, label='Loose', gridsize=5000)
+            
             
             ax.set_xlim(myrange)
             ax.set_ylim(0, ax.get_ylim()[1]*1.5)
-            ax.set_xlabel(r"m$_\mathrm{t\bar{t}}$ [GeV]", fontsize= 18)
+            ax.set_xlabel(r"m$_\mathrm{t\bar{t}}^\mathrm{Reg}$ - m$_\mathrm{t\bar{t}}^\mathrm{True}$ [GeV]", fontsize= 18)
             ax.set_ylabel("Normalized Counts", fontsize= 18)
+            
             if (i==6):
-                ax.text(0, ax.get_ylim()[1]*0.9,  r"${}$ GeV $\leq \mathrm{{m}}_{{\mathrm{{t\bar{{t}}}}}}^\mathrm{{True}}$ ".format(x[i]), fontsize = 18, ha='center', va='center')
+                ax.text(0, ax.get_ylim()[1]*0.92,  r"${}$ GeV $\leq \mathrm{{m}}_{{\mathrm{{t\bar{{t}}}}}}^\mathrm{{True}}$ ".format(x[i]), fontsize = 18, ha='center', va='center')
+                #ax.text(-970, ax.get_ylim()[1]*0.82,  r"$\mathrm{{MSE}}_{{\mathrm{{DNN}}}} \,\,\,\,=\,{}\, \mathrm{{GeV}} $ ".format(round(regSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                ax.text(-970, ax.get_ylim()[1]*0.82,  r"$\mathrm{MSE}_{\mathrm{DNN}}$", fontsize = 18, ha='left', va='center')
+                ax.text(-970, ax.get_ylim()[1]*0.74,  r"$\mathrm{MSE}_{\mathrm{Loose}}$", fontsize = 18, ha='left', va='center')
+                ax.text(-970, ax.get_ylim()[1]*0.66,  r"$\mathrm{MSE}_{\mathrm{Full}}$", fontsize = 18, ha='left', va='center')
+                ax.text(-250, ax.get_ylim()[1]*0.82,  r"$=\,{}\, \mathrm{{GeV}} $ ".format(round(regSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                ax.text(-250, ax.get_ylim()[1]*0.74,  r"$=\,{}\, \mathrm{{GeV}} $ ".format(round(LooseSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                ax.text(-250, ax.get_ylim()[1]*0.66,  r"$=\,{}\, \mathrm{{GeV}} $ ".format(round(kinSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                #ax.text(-970, ax.get_ylim()[1]*0.74,  r"$\mathrm{{MSE}}_{{\mathrm{{Loose}}}} \,=\,{}\, \mathrm{{GeV}} $ ".format(round(LooseSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                #ax.text(-970, ax.get_ylim()[1]*0.66,  r"$\mathrm{{MSE}}_{{\mathrm{{Full}}}} \,\,\,\,\,=\,{}\, \mathrm{{GeV}} $ ".format(round(kinSquaredBinned[i])), fontsize = 18, ha='left', va='center')
             else:
-                ax.text(0, ax.get_ylim()[1]*0.9,  r"${} \leq \mathrm{{m}}_{{\mathrm{{t\bar{{t}}}}}}^\mathrm{{True}} < {} $ GeV".format(x[i], x[i+1]), fontsize = 18, ha='center', va='center')
+                ax.text(0, ax.get_ylim()[1]*0.92,  r"${} \leq \mathrm{{m}}_{{\mathrm{{t\bar{{t}}}}}}^\mathrm{{True}} < {} $ GeV".format(x[i], x[i+1]), fontsize = 18, ha='center', va='center')
+                ax.text(-485, ax.get_ylim()[1]*0.82,  r"$\mathrm{MSE}_\mathrm{DNN}$", fontsize = 18, ha='left', va='center')
+                ax.text(-485, ax.get_ylim()[1]*0.74,  r"$\mathrm{MSE}_{\mathrm{Loose}}$", fontsize = 18, ha='left', va='center')
+                ax.text(-485, ax.get_ylim()[1]*0.66,  r"$\mathrm{MSE}_{\mathrm{Full}}$", fontsize = 18, ha='left', va='center')
+                ax.text(-125, ax.get_ylim()[1]*0.82,  r"$=\,{}\, \mathrm{{GeV}} $ ".format(round(regSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                ax.text(-125, ax.get_ylim()[1]*0.74,  r"$=\,{}\, \mathrm{{GeV}} $ ".format(round(LooseSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                ax.text(-125, ax.get_ylim()[1]*0.66,  r"$=\,{}\, \mathrm{{GeV}} $ ".format(round(kinSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                #ax.text(-485, ax.get_ylim()[1]*0.82,  r"$\mathrm{{MSE}}_{{\mathrm{{DNN}}}} \,\,\,\,=\,{}\, \mathrm{{GeV}} $ ".format(round(regSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                #ax.text(-485, ax.get_ylim()[1]*0.74,  r"$\mathrm{{MSE}}_{{\mathrm{{Loose}}}} \,=\,{}\, \mathrm{{GeV}} $ ".format(round(LooseSquaredBinned[i])), fontsize = 18, ha='left', va='center')
+                #ax.text(-485, ax.get_ylim()[1]*0.66,  r"$\mathrm{{MSE}}_{{\mathrm{{Full}}}} \,\,\,\,\,=\,{}\, \mathrm{{GeV}} $ ".format(round(kinSquaredBinned[i])), fontsize = 18, ha='left', va='center')
             ax.tick_params(axis = 'x', labelsize= 18)
             ax.tick_params(axis = 'y', labelsize= 18)
             ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=3))
@@ -652,6 +711,8 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     axes[7].set_xticks([])
     axes[7].set_yticks([])
 
+
+    
     plt.tight_layout()
     fig.savefig(outFolder+"/kdeResolution.pdf", bbox_inches='tight')
 

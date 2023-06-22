@@ -58,7 +58,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
         assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask. New assert 2505"
         inX, outY, weights, lkrM, krM, totGen, mask = shuffle(inX, outY, weights, lkrM, krM, totGen, mask, random_state = 1999)
         print("Check after shuffle data...")
-        #assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask"
+        assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask"
         
         
         if not os.path.exists(npyDataFolder):
@@ -83,13 +83,30 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     mask    = np.load(npyDataFolder+ "/mask.npy")
     print(" Number of events passing cuts   {}/{} = {}".format( len(mask[mask==True]), len(mask), len(mask[mask==True])/len(mask)))
     print(" Number of events w/ Loose & Kin {}/{} = {}".format( (inX[:,0]>-998).sum(), len(inX), len(inX[inX[:,0]>-998])/len(inX)))
-    print(" Number of recovered events      {}/{} = {}".format( np.isnan(inX[:,0]).sum(), len(inX), np.isnan(inX[:,0]).sum()*1./len(inX)))
-    print(" Number of events + recovered    {}/{} = {}".format( ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum(), len(inX), ((inX[:,0]>-998) | (np.isnan(inX[:,0]))).sum()/len(inX)))
-    print("  Replacing Inf with Nan...")
-    inX = np.where(np.isinf(inX), np.nan, inX)
-    print("  Replacing Nan with -4999...")
-    inX = np.where(np.isnan(inX), -4999, inX)
+    print(" Number of recovered events      {}/{} = {}".format( (inX[:,0]<-4998).sum(), len(inX), (inX[:,0]<-4998).sum()*1./len(inX)))
+    print(" Number of events + recovered    {}/{} = {}".format( ((inX[:,0]>-998) | (inX[:,0]<-4998)).sum(), len(inX), ((inX[:,0]>-998) | (inX[:,0]<-4998)).sum()/len(inX)))
     
+    nan_values = np.isnan(inX)
+    inf_values = np.isinf(inX)
+
+    # Check if any NaN values exist in the array
+    if np.any(nan_values):
+        print("There are NaN values in the array.")
+    else:
+        print("There are no NaN values in the array.")
+    if np.any(inf_values):
+        print("There are inf values in the array.")
+    else:
+        print("There are no inf values in the array.")
+    
+    
+    
+    #print("  Replacing Inf with Nan...")
+    #inX = np.where(np.isinf(inX), np.nan, inX)
+    #print("  Replacing Nan with -4999...")
+    #inX = np.where(np.isnan(inX), -4999, inX)
+    
+# Print and plot checks
     dnnMask = (inX[:,0]>-998)  # exclude nan (kinReco or loose fail) and out of acceptance
     if (createNewData):
         print(" Control plots of all the data...")
@@ -182,7 +199,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     if (doubleNN):
         dnn2Mask_train = inX_train[:,0]<-4998
         dnn2Mask_test = inX_test[:,0]<-4998
-        inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
+        inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test,  npyDataFolder, outFolder)
 
 
 
