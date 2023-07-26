@@ -1,10 +1,11 @@
 import numpy as np
-def splitTrainValid(inX_train, outY_train, weights_train, lkrM_train, krM_train, totGen_train, mask_train, validation_split_, dataPathFolder):
+def splitTrainValid(inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, totGen_train, mask_train, validation_split_, dataPathFolder):
     print("Splitting between training and validation...")
     divisor = int ((1-validation_split_)*len(inX_train))
     outY_valid      = outY_train[divisor:]
     inX_valid       = inX_train[divisor:]
     weights_valid   = weights_train[divisor:]
+    weights_valid_original   = weights_train_original[divisor:]
     lkrM_valid      = lkrM_train[divisor:]
     krM_valid       = krM_train[divisor:]
     totGen_valid    = totGen_train[divisor:]
@@ -13,6 +14,7 @@ def splitTrainValid(inX_train, outY_train, weights_train, lkrM_train, krM_train,
     inX_train       = inX_train[:divisor]
     outY_train      = outY_train[:divisor]
     weights_train   = weights_train[:divisor]
+    weights_train_original   = weights_train_original[:divisor]
     lkrM_train      = lkrM_train[:divisor]
     krM_train       = krM_train[:divisor]
     totGen_train    = totGen_train[:divisor]
@@ -33,7 +35,7 @@ def splitTrainValid(inX_train, outY_train, weights_train, lkrM_train, krM_train,
         np.save(dataPathFolder+"/testing/inX"    + "_valid.npy", inX_valid)
         np.save(dataPathFolder+"/testing/outY"   + "_valid.npy", outY_valid)
         np.save(dataPathFolder+"/testing/weights"+ "_valid.npy", weights_valid)'''
-    return inX_train, outY_train, weights_train, lkrM_train, krM_train, mask_train, inX_valid, outY_valid, weights_valid, lkrM_valid, krM_valid, mask_valid
+    return inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, mask_train, inX_valid, outY_valid, weights_valid, weights_valid_original, lkrM_valid, krM_valid, mask_valid
 
 def computePredicted(inX_train, inX_valid, inX_test, dataPathFolder, model):
     print("Computing predictions...")
@@ -56,3 +58,4 @@ def saveTrainValidTest(dataPathFolder, inX_train, outY_train, weights_train, inX
     np.save(dataPathFolder+"/testing/inX"    + "_test.npy", inX_test)
     np.save(dataPathFolder+"/testing/outY"   + "_test.npy", outY_test)
     np.save(dataPathFolder+"/testing/weights"+ "_test.npy", weights_test)
+    np.save(dataPathFolder+"/testing/totGen"+ "_test.npy", totGen_test)
