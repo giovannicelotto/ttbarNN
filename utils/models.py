@@ -37,7 +37,7 @@ def getModelRandom(lasso, ridge, activation, nDense, nNodes, inputDim, outputAct
     dense_kwargs = dict(
         kernel_initializer = tf.keras.initializers.glorot_normal( seed=1999),            
         kernel_regularizer = reg,                                           
-        #kernel_constraint = tf.keras.constraints.max_norm(4)                    # the max_norm constraint is used to limit the maximum norm of the weight vector
+        #kernel_constraint = tf.keras.constraints.max_norm(1)                    # the max_norm constraint is used to limit the maximum norm of the weight vector
     )
 
     model = tf.keras.Sequential()
@@ -47,7 +47,7 @@ def getModelRandom(lasso, ridge, activation, nDense, nNodes, inputDim, outputAct
         model.add(tf.keras.layers.Dense(nNodes[i], **dense_kwargs))
         model.add(tf.keras.layers.BatchNormalization())
         model.add(tf.keras.layers.Activation(activation))
-        model.add(tf.keras.layers.Dropout(0.1))
+        #model.add(tf.keras.layers.Dropout(0.1))
 
     model.add(tf.keras.layers.Dense(1, activation = outputActivation))
 

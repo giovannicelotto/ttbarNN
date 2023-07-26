@@ -76,7 +76,8 @@ def multiScale(featureNames, inX, outName):
 
 def standardScale(featureNames, inX,  outName):
 
-    keepable  = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['tag', 'score'])]
+    #keepable  = [i for i in range(len(featureNames)) if any(substring in featureNames[i] for substring in ['tag', 'score'])]
+    keepable = []
     scalable  = [i for i in range(len(featureNames)) if ( i not in keepable )]
     
     inXs = inX
@@ -110,9 +111,11 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
     
     #weightBins = array('d', [ 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600 ]) # def
     
-    #weightBins = array('d', [ 280, 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410 ]) #  onlylow
-    #weightBins = array('d', [ 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410, 420, 440, 460, 480, 500, 520, 540, 560, 580, 600, 650, 700, 750, 800, 850, 900, 1000, 1100]) # also for highhalf
-    weightBins = array('d', [ 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410]) # onlylow2
+    #weightBins = array('d', [ 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  600, 650, 700, 750, 800, 850, 900, 950, 1200]) #weightHigh
+    #weightBins = array('d', [ 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390, 400, 410,  420, 440, 460, 480, 500, 520, 540, 560, 580, 600, 630, 660, 690, 729, 750, 780, 810, 850, 870, 900, 950, 1000, 1050, 1100, 1150, 1300]) # nmape
+    weightBins = array('d', [ 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390, 400, 410,  420, 440, 460, 480, 500, 520, 540, 560, 580, 600, 630, 660, 690, 729, 750, 780, 810, 850, 870, 900, 950, 1000, 1050, 1100, 1150, 1200, 1500, 1800, 2100]) # newLoss
+    #weightBins = array('d', [ 300, 320, 340, 342.5, 345, 347.5, 350, 355, 360, 365, 370, 375, 380, 390,  410]) # def
+    
     weightNBin = len(weightBins)-1
     weightHisto = ROOT.TH1F("weightHisto","weightHisto",weightNBin, weightBins)
 
@@ -148,7 +151,14 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         if (c>0):
             #weightHisto.SetBinContent(binX, maximumBinContent/(c)*np.exp(-(midpoint-firstMidpoint)/alpha))
             #if binX<maximumBin:
-            weightHisto.SetBinContent(binX, maximumBinContent/(c))
+            #if maximumBinContent/(c) <= 10:
+            #weightHisto.SetBinContent(binX, 1)
+            #else :
+                #weightHisto.SetBinContent(binX, 10)
+            #if binX<maximumBin:
+            weightHisto.SetBinContent(binX, (maximumBinContent)/(c*midpoint*midpoint))
+            #else:
+            #    weightHisto.SetBinContent(binX,  (maximumBinContent+c)/(2*c*midpoint*midpoint))
             #else:
             #    weightHisto.SetBinContent(binX, (maximumBinContent+c)/(2*c))
 
@@ -171,7 +181,15 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         weights_train_.append(abs(w)*addW)           	# weights of the training are the product of the original weights and the weights used to give more importance to regions with few events
     weights_train = np.array(weights_train_)		    # final weights_train is np array
 
-    weights_train = 1./np.mean(weights_train)*weights_train # to have mean = 1
+    #Inverse squared weight
+    assert (outY_train>0).all(), "outY_train negative value in getWeights train"
+    assert len(weights_train)==len(outY_train)
+    #weights_train = weights_train/(outY_train[:,0]*outY_train[:,0])
+    #print(weights_train)
+    #print(outY_train)
+    
+    print("Mean of Weights ", np.mean(weights_train)  )
+    weights_train = weights_train/np.mean(weights_train) # to have mean = 1
     if (output):
         fig, ax = plt.subplots(1, 2, figsize=(16, 8))
         ax[0].hist2d(outY_train[:,0], weights_train, bins=((50, 50)), range=((250, 1500), (0, 8)), cmap='Blues', norm=mpl.colors.LogNorm())

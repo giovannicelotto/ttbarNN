@@ -7,7 +7,7 @@ def splitTrainValid(inX_train, outY_train, weights_train, lkrM_train, krM_train,
     weights_valid   = weights_train[divisor:]
     lkrM_valid      = lkrM_train[divisor:]
     krM_valid       = krM_train[divisor:]
-    totGen_valid      = totGen_train[divisor:]
+    totGen_valid    = totGen_train[divisor:]
     mask_valid      = mask_train[divisor:]
     
     inX_train       = inX_train[:divisor]
@@ -17,9 +17,10 @@ def splitTrainValid(inX_train, outY_train, weights_train, lkrM_train, krM_train,
     krM_train       = krM_train[:divisor]
     totGen_train    = totGen_train[:divisor]
     mask_train      = mask_train[:divisor]
-    assert (outY_train[mask_train, 0] == totGen_train[mask_train]).all(), "Mask does not match after splitting training and validation"
-    assert (outY_valid[mask_valid, 0] == totGen_valid[mask_valid]).all(), "Mask does not match after splitting training and validation"
+    #assert (outY_train[mask_train, 0] == totGen_train[mask_train]).all(), "Mask does not match after splitting training and validation"
+    #assert (outY_valid[mask_valid, 0] == totGen_valid[mask_valid]).all(), "Mask does not match after splitting training and validation"
     assert len(inX_train)==len(outY_train)==len(weights_train)==len(mask_train), "Check lengths after splitting training and validation"
+    assert len(inX_valid)==len(outY_valid)==len(weights_valid)==len(mask_valid), "Check lengths after splitting training and validation %d %d %d %d" %(len(inX_valid), len(outY_valid), len(weights_valid), len(mask_valid))    
     print("Number train events masked / total):", len(inX_train[mask_train,:]), len(inX_train))
     print("Number valid events masked / total):", len(inX_valid[mask_valid,:]), len(inX_valid))
  

@@ -13,32 +13,173 @@ from mlb_distribution import loadBinsCounts, checkProbability
 def getFeatureNames():
 	feature_names =[
 		# analytical solutions
-				'lkr_ttbar_pt', 'lkr_ttbar_eta', 'lkr_ttbar_phi', 'lkr_ttbar_m',
-				'kr_ttbar_pt', 'kr_ttbar_eta', 'kr_ttbar_phi','kr_ttbar_m',
+				'lkr_ttbar_pt', 'lkr_ttbar_eta', 'lkr_ttbar_phi',
+				'lkr_ttbar_m',
+				'kr_ttbar_pt', 'kr_ttbar_eta', 'kr_ttbar_phi',
+				'kr_ttbar_m',
 				'kr_top_pt', 'kr_top_eta', 'kr_top_phi', #'kr_top_m',
 				'kr_antitop_pt', 'kr_antitop_eta', 'kr_antitop_phi', #'kr_antitop_m',
 				'kr_dR_ttbar',
 		# systems of particles
-				'dilepton_pt', 'dilepton_eta', 'dilepton_phi', 'dilepton_m',
+				'dilepton_pt', 'dilepton_eta', 'dilepton_phi',
+				'dilepton_m',
 				'njets', 'nbjets',
-				'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi', 'llj1j2_m',
+				'llj1j2_pt', 'llj1j2_eta', 'llj1j2_phi',
+				'llj1j2_m',
 				'llj1j2MET_pt','llj1j2MET_eta', 'llj1j2MET_phi', 'llj1j2MET_m',
 				'extraJets_pt', 'extraJets_eta', 'extraJets_phi', 'extraJets_m',
-				'lljjMETextraj_pt', 'lljjMETextraj_eta', 'lljjMETextraj_phi', 'lljjMETextraj_m',
-				'lb1_pt', 'lb1_eta', 'lb1_phi', 'lb1_m',
-				'lb2_pt', 'lb2_eta', 'lb2_phi', 'lb2_m',
+				'lljjMETextraj_pt', 'lljjMETextraj_eta', 'lljjMETextraj_phi',
+				'lljjMETextraj_m',
+				'lb1_pt', 'lb1_eta', 'lb1_phi',
+				'lb1_m',
+				'lb2_pt', 'lb2_eta', 'lb2_phi',
+				'lb2_m',
 		# final state particles
 				'jet1_pt', 'jet1_eta', 'jet1_phi', 'jet1_m', 'jet1btag', 'j1_bscore',
-				'jet2_pt', 'jet2_eta', 'jet2_phi', 'jet2_m', 'jet2btag', 'j2_bscore',
-				'lep1_pt', 'lep1_eta', #'lep1_phi',
+				'jet2_pt', 'jet2_eta', 'jet2_phi', 'jet2_m', 'jet2btag',
+				'j2_bscore',
+				'lep1_pt', 'lep1_eta',# 'lep1_phi',
 				'lep1_m',
 				'lep2_pt', 'lep2_eta', 'lep2_phi', 'lep2_m',
 				'met_pt', 'met_phi', 'ht', 
 		# angles
 				'dR_l1l2','dR_l1j1', 'dR_l1j2', 'dR_l2j1', 'dR_l2j2', 'dR_j1j2'
 				]
-	# adding dR_topantitop
-	return feature_names
+	return feature_names.copy()
+
+def getFeatureNamesOriginalNumbered():
+	feature_names =[
+		# analytical solutions
+				'1_lkr_ttbar_pt', '2_lkr_ttbar_eta', '3_lkr_ttbar_phi',
+				'4_lkr_ttbar_m',
+				'5_kr_ttbar_pt', '6_kr_ttbar_eta', '7_kr_ttbar_phi',
+				'8_kr_ttbar_m',
+				'9_kr_top_pt', '10_kr_top_eta', '11_kr_top_phi', #'kr_top_m',
+				'12_kr_antitop_pt', '13_kr_antitop_eta', '14_kr_antitop_phi', #'kr_antitop_m',
+				'15_kr_dR_ttbar',
+		# systems of particles
+				'16_dilepton_pt', '17_dilepton_eta', '18_dilepton_phi',
+				'19_dilepton_m',
+				'20_njets', '21_nbjets',
+				'22_llj1j2_pt', '23_llj1j2_eta', '24_llj1j2_phi',
+				'25_llj1j2_m',
+				'26_llj1j2MET_pt','27_llj1j2MET_eta', '28_llj1j2MET_phi', '29_llj1j2MET_m',
+				'30_extraJets_pt', '31_extraJets_eta', '32_extraJets_phi', '33_extraJets_m',
+				'34_lljjMETextraj_pt', '35_lljjMETextraj_eta', '36_lljjMETextraj_phi',
+				'37_lljjMETextraj_m',
+				'38_lb1_pt', '39_lb1_eta', '40_lb1_phi',
+				'41_lb1_m',
+				'42_lb2_pt', '43_lb2_eta', '44_lb2_phi',
+				'45_lb2_m',
+		# final state particles
+				'46_jet1_pt', '47_jet1_eta', '48_jet1_phi', '49_jet1_m', '50_jet1btag', '51_j1_bscore',
+				'52_jet2_pt', '53_jet2_eta', '54_jet2_phi', '55_jet2_m', '56_jet2btag',
+				'57_j2_bscore',
+				'58_lep1_pt', '59_lep1_eta',# 'lep1_phi',
+				'60_lep1_m',
+				'61_lep2_pt', '62_lep2_eta', '63_lep2_phi', '64_lep2_m',
+				'65_met_pt', '66_met_phi', '67_ht', 
+		# angles
+				'68_dR_l1l2','69_dR_l1j1', '70_dR_l1j2', '71_dR_l2j1', '72_dR_l2j2', '73_dR_j1j2'
+				]
+	return feature_names.copy()
+def getFeatureNamesNew():
+	feature_names =[
+		# analytical solutions
+				#'lkr_ttbar_pt', 'lkr_ttbar_eta', 'lkr_ttbar_phi',
+				'lkr_ttbar_m',
+				#'kr_ttbar_pt', 'kr_ttbar_eta', 'kr_ttbar_phi',
+				'kr_ttbar_m',
+				#'kr_top_pt', 'kr_top_eta', 'kr_top_phi', #'kr_top_m',
+				#'kr_antitop_pt', 'kr_antitop_eta', 'kr_antitop_phi', #'kr_antitop_m',
+				'kr_dR_ttbar',
+		# systems of particles
+				#'dilepton_pt', 'dilepton_eta', 'dilepton_phi',
+				'dilepton_m',
+				#'njets', 'nbjets',
+				'llj1j2_pt',# 'llj1j2_eta', 'llj1j2_phi',
+				'llj1j2_m',
+				#'llj1j2MET_pt','llj1j2MET_eta', 'llj1j2MET_phi', 'llj1j2MET_m',
+				#'extraJets_pt', 'extraJets_eta', 'extraJets_phi', 'extraJets_m',
+				'lljjMETextraj_pt',# 'lljjMETextraj_eta', 'lljjMETextraj_phi',
+				'lljjMETextraj_m',
+				'lb1_pt',# 'lb1_eta', 'lb1_phi',
+				'lb1_m',
+				'lb2_pt',# 'lb2_eta', 'lb2_phi',
+				'lb2_m',
+		# final state particles
+				'jet1_pt',# 'jet1_eta', 'jet1_phi', 'jet1_m', 'jet1btag',
+				'j1_bscore',
+				'jet2_pt',# 'jet2_eta', 'jet2_phi', 'jet2_m', 'jet2btag',
+				'j2_bscore',
+				'lep1_pt',# 'lep1_eta', #'lep1_phi',
+				#'lep1_m',
+				'lep2_pt', 'lep2_eta',# 'lep2_phi', 'lep2_m',
+				'met_pt',# 'met_phi', 'ht', 
+		# angles
+				'dR_l1l2','dR_l1j1',# 'dR_l1j2', 'dR_l2j1',
+				'dR_l2j2'#, 'dR_j1j2'
+				]
+	return feature_names.copy()
+def getLabelName():
+	fancy_names =[
+		# analytical solutions
+				'$\mathrm{p^{loose}_T(t\overline{t})}$ [GeV]', '$\mathrm{\eta^{loose}(t\overline{t})}$', r'$\mathrm{\varphi}^\mathrm{loose}(\mathrm{t\overline{t})}$', '$\mathrm{m^{loose}(t\overline{t})}$ [GeV]',
+				'$\mathrm{p^{full}_T(t\overline{t})}$ [GeV]', '$\mathrm{\eta^{full}(t\overline{t})}$', r'$\mathrm{\varphi^{full}(t\overline{t})}$', '$\mathrm{m^{full}(t\overline{t})}$ [GeV]',
+				'$\mathrm{p^{full}_T(t)}$ [GeV]', '$\mathrm{\eta^{full}(t)}$', r'$\mathrm{\varphi^{full}(t)}$', #'kr_top_m',
+				'$\mathrm{p^{full}_T(\overline{t})}$ [GeV]', '$\mathrm{\eta^{full}(\overline{t})}$', r'$\mathrm{\varphi^{full}(\overline{t})}$', #'kr_antitop_m',
+				'$\mathrm{\Delta R(t\overline{t})}$',
+		# systems of particles
+				'$\mathrm{p_T(\ell_1\ell_2)}$ [GeV]', '$\mathrm{\eta(\ell_1\ell_2)}$', r'$\mathrm{\varphi(\ell_1\ell_2)}$', '$\mathrm{m(\ell_1\ell_2)}$ [GeV]',
+				'$\mathrm{N_{jets}}$', '$\mathrm{N_{b-jets}}$',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2)}$ [GeV]', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2)}$ [GeV]',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2 MET)}$ [GeV]','$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2 MET)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2 MET)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2 MET)}$ [GeV]',
+				'$\mathrm{p_T(extraJets)}$ [GeV]', '$\mathrm{\eta(extraJets)}$', r'$\mathrm{ varphi(extraJets)}$', '$\mathrm{m(extraJets)}$ [GeV]',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$ [GeV]', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2 MET)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2 MET)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2 MET)}$ [GeV]',
+				'$\mathrm{p_T(\ell_1 j_1)}$ [GeV]', '$\mathrm{\eta(\ell_1 j_1)}$', r'$\mathrm{\varphi(\ell_1 j_1)}$', '$\mathrm{m(\ell_1 j_1)}$ [GeV]',
+				'$\mathrm{p_T(\ell_2 j_2)}$ [GeV]', '$\mathrm{\eta(\ell_2 j_2)}$', r'$\mathrm{\varphi(\ell_2j_2)}$', '$\mathrm{m(\ell_2j_2)}$ [GeV]',
+		# final state particles
+				'$\mathrm{p_T(j_1)}$', '$\mathrm{\eta(j_1)}$', r'$\mathrm{\varphi(j_1)}$', '$\mathrm{m(j_1)}$', '$\mathrm{b-tag(j_1)}$', '$\mathrm{b-score(j_1)}$',
+				'$\mathrm{p_T(j_2)}$', '$\mathrm{\eta(j_2)}$', r'$\mathrm{\varphi(j_2)}$', '$\mathrm{m(j_2)}$', '$\mathrm{b-tag(j_2)}$', '$\mathrm{b-score(j_2)}$',
+				'$\mathrm{p_T(\ell_1)}$ [GeV]', '$\mathrm{\eta(\ell_1)}$', #'lep1_phi',
+				'$\mathrm{m(\ell_1)}$ [GeV]',
+				'$\mathrm{p_T(\ell_2)}$ [GeV]', '$\mathrm{\eta(\ell_2)}$', r'$\mathrm{\varphi(\ell_1)}$', '$\mathrm{m(\ell_2)}$ [GeV]',
+				'$\mathrm{p_T (MET)}$', r'$\mathrm{\varphi(MET)}$', '$\mathrm{H_T}$ [GeV]', 
+		# angles
+				'$\mathrm{\Delta R( \ell_1 \ell_2)}$','$\mathrm{\Delta R \ell_1j_1}$', '$\mathrm{\Delta R \ell_1j_2}$', '$\mathrm{\Delta R \ell_2j_1}$', '$\mathrm{\Delta R \ell_2j_2}$', '$\mathrm{\Delta R j_1j_2}$'
+				]
+	
+	return fancy_names.copy()
+
+def getFancyNames():
+	fancy_names =[
+		# analytical solutions
+				'$\mathrm{p^{loose}_T(t\overline{t})}$', '$\mathrm{\eta^{loose}(t\overline{t})}$', r'$\mathrm{\varphi}^\mathrm{loose}(\mathrm{t\overline{t})}$', '$\mathrm{m^{loose}(t\overline{t})}$',
+				'$\mathrm{p^{full}_T(t\overline{t})}$', '$\mathrm{\eta^{full}(t\overline{t})}$', r'$\mathrm{\varphi^{full}(t\overline{t})}$', '$\mathrm{m^{full}(t\overline{t})}$',
+				'$\mathrm{p^{full}_T(t)}$', '$\mathrm{\eta^{full}(t)}$', r'$\mathrm{\varphi^{full}(t)}$', #'kr_top_m',
+				'$\mathrm{p^{full}_T(\overline{t})}$', '$\mathrm{\eta^{full}(\overline{t})}$', r'$\mathrm{\varphi^{full}(\overline{t})}$', #'kr_antitop_m',
+				'$\mathrm{\Delta R(t\overline{t})}$',
+		# systems of particles
+				'$\mathrm{p_T(\ell_1\ell_2)}$', '$\mathrm{\eta(\ell_1\ell_2)}$', r'$\mathrm{\varphi(\ell_1\ell_2)}$', '$\mathrm{m(\ell_1\ell_2)}$',
+				'$\mathrm{N_{jets}}$', '$\mathrm{N_{b-jets}}$',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2)}$', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2)}$',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2 MET)}$','$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2 MET)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2 MET)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2 MET)}$',
+				'$\mathrm{p_T(extraJets)}$', '$\mathrm{\eta(extraJets)}$', r'$\mathrm{ varphi(extraJets)}$', '$\mathrm{m(extraJets)}$',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$',
+				'$\mathrm{p_T(\ell_1 j_1)}$', '$\mathrm{\eta(\ell_1 j_1)}$', r'$\mathrm{\varphi(\ell_1 j_1)}$', '$\mathrm{m(\ell_1 j_1)}$',
+				'$\mathrm{p_T(\ell_2 j_2)}$', '$\mathrm{\eta(\ell_2 j_2)}$', r'$\mathrm{\varphi(\ell_2j_2)}$', '$\mathrm{m(\ell_2j_2)}$',
+		# final state particles
+				'$\mathrm{p_T(j_1)}$', '$\mathrm{\eta(j_1)}$', r'$\mathrm{\varphi(j_1)}$', '$\mathrm{m(j_1)}$', '$\mathrm{b-tag(j_1)}$', '$\mathrm{b-score(j_1)}$',
+				'$\mathrm{p_T(j_2)}$', '$\mathrm{\eta(j_2)}$', r'$\mathrm{\varphi(j_2)}$', '$\mathrm{m(j_2)}$', '$\mathrm{b-tag(j_2)}$', '$\mathrm{b-score(j_2)}$',
+				'$\mathrm{p_T(\ell_1)}$', '$\mathrm{\eta(\ell_1)}$', #'lep1_phi',
+				'$\mathrm{m(\ell_1)}$',
+				'$\mathrm{p_T(\ell_2)}$', '$\mathrm{\eta(\ell_2)}$', r'$\mathrm{\varphi(\ell_2)}$', '$\mathrm{m(\ell_2)}$',
+				'$\mathrm{p_T (MET)}$', r'$\mathrm{\varphi(MET)}$', '$\mathrm{H_T}$', 
+		# angles
+				'$\mathrm{\Delta R( \ell_1 \ell_2)}$','$\mathrm{\Delta R \ell_1j_1}$', '$\mathrm{\Delta R \ell_1j_2}$', '$\mathrm{\Delta R \ell_2j_1}$', '$\mathrm{\Delta R \ell_2j_2}$', '$\mathrm{\Delta R j_1j_2}$'
+				]
+	
+	return fancy_names.copy()
 
 def append4vector(evFeatures, a):
 	evFeatures.append(a.Pt())
@@ -360,7 +501,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			if nbjets < minbjets:  # out of my kin phase space
 				mask.append(False)
 				eventOut.append([-999])
-				eventIn.append([-999] * 73)
+				eventIn.append([-999] * len(getFeatureNames()))
 				lKinRecoOut.append(-999)
 				kinRecoOut.append(-999)
 				continue
@@ -452,8 +593,9 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			#print("\nnjets   \t", numJets)
 			#print("nBjets  \t", nbjets)
 			#print("nonBjets\t", len(nonbjets))
+			#print(lep1.M(), lep1.Pt(), lep2.Pt())
 			#for id in range(numJets):
-				#print("%.1f \t %.3f \t %d" %(jets[id].Pt(), bscore[id], btag[id]))
+			#	print("%.1f \t %.3f \t %d" %(jets[id].Pt(), bscore[id], btag[id]))
 			maxNotFound = False
 			lookForPriorZero = False
 			takeFirstJets = False
@@ -475,6 +617,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 				pairs = np.array(pairs)
 				#print("pairs", pairs)
 				#print("probs", probs)
+				#input("next")
 				if probs.max()>0:
 					max_index = np.argmax(probs)
 					first = int (max_index//nbjets)
@@ -643,14 +786,14 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 			evFeatures.append(dR_lepton2_jet2)
 			evFeatures.append(dR_jet1_jet2)
 			#evFeatures.append(channelID) #always the same in emu channel
-			assert len(evFeatures)==73, "ev: %d, len: %d"%(i, len(evFeatures))
+			assert len(evFeatures)==len(getFeatureNames()), "ev: %d, len: %d"%(i, len(evFeatures))
 			eventIn.append(evFeatures)
 			eventOut.append([ttbar.M()])
 			
 		else:
 			mask.append(False)
 			eventOut.append([-999])
-			eventIn.append([-999] * 73)
+			eventIn.append([-999] * len(getFeatureNames()))
 			
 			lKinRecoOut.append(-999)
 			kinRecoOut.append(-999)
@@ -665,7 +808,7 @@ def loadRegressionData(path, treeName,nFiles, minbjets, maxEvents):
     '''
     print("Searching root files in ", path)	
     fileNames = glob.glob(path+'/emu_ttbarsignalplustau*.root')
-    fileNames =  [i for i in fileNames if "emu" in i][:nFiles]
+    fileNames =  [i for i in fileNames if "emu_ttbarsignalplustau" in i][:nFiles]
     print (len(fileNames), " files to be used\n")
     eventIn, eventOut, weights, lkrM, krM, totGen, mask = [],[],[],[],[], [], []
     n=0
