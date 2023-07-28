@@ -240,10 +240,8 @@ def NormalizeBinWidth1d(h):
 
 def createDataFromFile(filename, treeName, minbjets, maxEvents):
 	'''
-	Open trees
-	Set Branches to variables
-	Define Lorentz Vector and compute observables of interest from measured ones
-	Returns a list of lists
+	Open tree named 'treeName' in 'filename' (complete path)
+	Returns the following lists: inX, outY, krM, lkrM, weights, totGen, mask
 	'''
 # List that will be converted to numpy array to be used in the NN
 	eventIn=[]		# Input
@@ -277,7 +275,6 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 
 	passStep3 = np.array([0], dtype=bool)
 	tree.SetBranchAddress("passStep3", passStep3)
-
 
 # Jets
 	jetBTagged = np.array([0]*20, dtype='b')
@@ -383,7 +380,6 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 	looseKinReco_ttbar_m =  np.array([0], dtype='f')
 	tree.SetBranchAddress("looseKinReco_ttbar_m", looseKinReco_ttbar_m)
 
-	#maxEntries = tree.GetEntries()
 	maxEntries = tree.GetEntries() if maxEvents is None else min(maxEvents, tree.GetEntries())
 	if(maxEvents is not None):
 		if (maxEvents > tree.GetEntries()):
@@ -491,18 +487,15 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 			bscore = []
 			sortedJets = [] 		# used later to decide which jets are the ones coming from top decays
 			for idx in range(numJets):
-				jet4=ROOT.TLorentzVector(0.,0.,0.,0.)
-				jet4.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
-				jets.append(jet4)
-				ht = ht+jet4.Pt()
+				jetTemp=ROOT.TLorentzVector(0.,0.,0.,0.)
+				jetTemp.SetPtEtaPhiM(jetPt[idx],jetEta[idx],jetPhi[idx],jetM[idx])
+				ht = ht+jetTemp.Pt()
+				# Sorted by pT
+				jets.append(jetTemp)
 				btag.append(int(bool(jetBTagged[idx])))
 				bscore.append(jetBTagScore[idx])
 
-				
-
 			nbjets = sum(btag)
-			
-
 
 			if nbjets < minbjets:  # out of my kin phase space
 				mask.append(False)
@@ -544,6 +537,7 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 
 			kr_ttbar = kr_top + kr_antitop
 			dilepton = lep1 + lep2
+			#Check the rotation did not affect the mass
 			if (haskrs & (not math.isinf(kr_ttbar.M()))):
 				assert math.isclose( kr_ttbar.M(), kinRecoOut[-1] , abs_tol = 1e-01), "Rotation. IsNan %.1f and %.1f" %( kr_ttbar.M(),  kinRecoOut[-1])
 # at this points jets are rotated in a compatible way with leptons and met
@@ -670,7 +664,7 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 				#print("priority", priority)
 				# look for all the combinations with at least one bjet
 				if (priority==1).sum()>0:				# if there are cases with priority = 1
-					if probs[priority==1].max()>0:
+					if probs[priority==1].max()>0:		# if these have probs > 0
 						#print("max with pr=1")
 						max_index = -1
 						max_value = -1
@@ -698,7 +692,7 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 
 					lookForPriorZero = True
 				if (((priority==0).sum()>0) & lookForPriorZero):		# else look for cases with priority equal to 0
-					if probs[priority==0].max()>0:
+					if probs[priority==0].max()>0:						# if therea are probs > 0
 						#print("prior=0")
 						#print("da verificare")
 						max_index = -1
@@ -716,6 +710,8 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 							if jetInd not in [first, second]:
 								extraJet = extraJet + jets[jetInd]
 						assert first is not second
+						assert btag[first] == False
+						assert btag[second] == False
 						bscore[0] 	= bscore[first]
 						bscore[1] 	= bscore[second]
 						btag[0]		= btag[first]
@@ -742,14 +738,7 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 					bscore[1] 	= bscore[second]
 					btag[0]		= btag[first]
 					btag[1]		= btag[second]	
-					
-
 				
-						#assert False, "2. Hai usato tutti i jet e comunque tutte le combo fanno cagare. Sto evento fa schifo. Ti tocca usare il prodotto di mlb"
-				
-		
-			#for id in range(len(sortedJets)):
-				#print("%.1f \t %.3f \t %d" %(sortedJets[id].Pt(), bscore[id], btag[id]))
 
 			
 
@@ -791,7 +780,7 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 			evFeatures.append(dR_lepton2_jet1)
 			evFeatures.append(dR_lepton2_jet2)
 			evFeatures.append(dR_jet1_jet2)
-			#evFeatures.append(channelID) #always the same in emu channel
+			
 			assert len(evFeatures)==len(getFeatureNames()), "ev: %d, len: %d"%(i, len(evFeatures))
 			eventIn.append(evFeatures)
 			eventOut.append([ttbar.M()])
