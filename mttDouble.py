@@ -151,13 +151,13 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
         dnnMask_train = inX_train[:,0]>-998
         dnnMask_test  = inX_test[:,0]>-998
         weights_train_original = weights_train.copy()
-        weights_train[dnnMask_train], weights_train_original[dnnMask_train] = getWeightsTrain(outY_train[dnnMask_train], weights_train[dnnMask_train], outFolder=outFolder, alpha = hp['alpha'], output=True)
+        weights_train[dnnMask_train] = getWeightsTrain(outY_train[dnnMask_train], weights_train[dnnMask_train], outFolder=outFolder, alpha = hp['alpha'], output=True)
 
 # 2NN SCALING and weighting       
         if (doubleNN):
                 dnn2Mask_train = inX_train[:,0]<-4998
                 dnn2Mask_test  = inX_test[:,0]<-4998
-                weights_train[dnn2Mask_train], weights_train_original[dnn2Mask_train] = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
+                weights_train[dnn2Mask_train] = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
 # End Of 2NN
 # Now where inX_train[:,0] has a value >-4998 the two approaches worked. This dataset is scaled in one way. The corresponding testing dataset is scaled with the same functions
 # Where it is <-4999, the two approaches did not work (one or both) and this subset is scaled in another way

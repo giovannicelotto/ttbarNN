@@ -102,7 +102,6 @@ def standardScale(featureNames, inX,  outName):
 
 def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, outFix = None):
     print("Producing weights for training...")
-    weights_train_original = weights_train
     if (output):
         if not os.path.exists(outFolder+ "/model"):
             os.makedirs(outFolder+ "/model")
@@ -201,7 +200,7 @@ def getWeightsTrain(outY_train, weights_train, outFolder, alpha, output=True, ou
         else:
             fig.savefig(outFolder+"/model/weightsBeforeAndAfter"+outFix+".png")
 
-    return weights_train, weights_train_original
+    return weights_train
 
 def scaleNonAnalytical(featureNames, inX_train,  inX_test, npyDataFolder, outFolder):
 # Do the sacling on training, save it and apply it to the testing
