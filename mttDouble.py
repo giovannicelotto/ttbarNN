@@ -42,8 +42,8 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
                                                                                                                                                 scale = 'standard', outFolder = outFolder+"/model")
         featuresNN1 = 15
         if smallNN:
-                featuresNN1=3
-                toKeep = [3, 7, 14, 18, 21, 24, 33, 36, 37, 40, 41, 44, 45, 50, 51, 56, 57, 60, 61, 64, 67, 68, 71]
+                featuresNN1=6
+                toKeep = [0, 1, 3, 7, 8, 14, 15, 18, 21, 22, 24, 28, 33, 36, 37, 40, 41, 44, 45, 48, 50, 51, 54, 56, 57, 60, 62, 64, 65, 67, 68, 69, 70, 71, 72]
                 inX_train = inX_train[:, toKeep]
                 inX_test = inX_test[:,   toKeep]
 
@@ -70,65 +70,56 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
         trainPrediction[dnnMask_train] =  model.predict(inX_train[dnnMask_train,:])[:,0]
 
         print("Starting with plots...")
-        '''print("Max : %.1f"%y_predicted.max())
-        print("Min : %.1f"%y_predicted.min())
-        for i in range(len(y_predicted)):
-               if mask_test[i]==True:
-                      a = input("%.1f\t%.1f" %(y_predicted[i], totGen_test[i]))
-                      if (a=='a'):
-                             print(inX_test[i,:])
-                             print()'''
-        checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train[(dnn2Mask_train) | (dnnMask_train)])
-        SinX_test = inX_test[dnn2Mask_test,15:]
+        
+        checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train[(dnn2Mask_train) | (dnnMask_train)], outFolder=outFolder)
+        SinX_test = inX_test[dnn2Mask_test,featuresNN1:]
         inX_test = inX_test[inX_test[:,0]>-998,:]
         linearCorrelation(yPredicted = y_predicted[:], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test",  weights = weights_test)
         doEvaluationPlots(outY_test[mask_test,:], y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test, mask_test = mask_test, weights = weights_test, dnn2Mask = dnn2Mask_test, write=True)
-        doPlotShap(getFancyNames(), model, [inX_test[:1000,:]], outName = outFolder+"/model/model_shapGE.pdf")
-        doPlotShap(getFancyNames()[featuresNN1:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
+        doPlotShap(np.array(getFeatureNames())[toKeep], model, [inX_test[:1000,:]], outName = outFolder+"/model/model_shapGE.pdf")
+        doPlotShap(np.array(getFeatureNames())[toKeep][featuresNN1:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
         
 
         
-def main():
+def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
     start_time = time.time()
     print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
     
 
-    maxEvents_          = None
+    
+    maxEvents_  = None
     hp = {
 # Events
-    'nFiles':           1,
+    'nFiles':           5,
     'testFraction':     0.15,
     'validation_split': 0.15/0.9,
 # Hyperparameters NN1
-    'learningRate':     0.001512, #0.01025,#
-    'batchSize':        32,
-    'validBatchSize':   32,
+    'learningRate':     0.00001512, #0.01025,#
+    'batchSize':        512,
+    'validBatchSize':   512,
     'nNodes':           [22, 12, 4], 				
     'lasso':            0.08648 , #0.04648
     'ridge':            0.1138, #0.00138
     'activation':       'elu',
     'scale' :           'standard',
-    'epochs':           30,
+    'epochs':           3500,
     'patienceeS':       120,
     'alpha':            0,
 # Hyperparameters NN2
     'nNodes2':          [12, 4],
     'learningRate2':    0.000495,
-    'epochs2':          30,
+    'epochs2':          3500,
     'lasso2':           0.05683,
     'ridge2':           0.05323
 }
-    doubleNN = True
-    doEvaluate = False
-    scaleOut = False
-    smallNN = True
+    hp['nDense']= len(hp['nNodes'])
+    
     additionalInputName = ""
-    additionalOutputName= "DoubleNN_W-2" if doubleNN else "SingleNN" 
+    additionalOutputName= "DoubleNN_W-2_smallerLR_2" if doubleNN else "SingleNN" 
     if smallNN:
            additionalOutputName=additionalOutputName+"_simple"
 
 # Define input folder and output folder
-    hp['nDense']= len(hp['nNodes'])
     npyDataFolder, outFolder =  defName.getNames(hp['nFiles'], maxEvents_, hp['nDense'], hp['nNodes'])
     npyDataFolder = npyDataFolder + additionalInputName         # npyFolder
     outFolder     = outFolder + additionalOutputName            # output of the model
@@ -139,10 +130,7 @@ def main():
         os.makedirs(outFolder+ "/model")
         print("Created folder " + outFolder+"/model")
     modelName = "mttRegModel"
-    defName.printStatus(hp, outFolder+"/model")         # print the arhitecture NN on the file info.txt
-    defName.printStatus(hp)
-
-    
+    defName.printStatus(hp, outFolder+"/model")         # print the arhitecture NN on the file info.txt    
     
     
     if (doEvaluate):
@@ -150,9 +138,6 @@ def main():
                         testFraction = hp['testFraction'] , maxEvents = maxEvents_, minbjets = 1, nFiles = hp['nFiles'], scale=hp['scale'], doubleNN=doubleNN, smallNN=smallNN)
     
     else:
-        #print("Going to loadData...")
-        #input()  
-        #print("Script resumed.")
         inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test = loadData(npyDataFolder = npyDataFolder,
                                                                                                                                                 testFraction = hp['testFraction'],
                                                                                                                                                 maxEvents = maxEvents_,
@@ -165,13 +150,14 @@ def main():
 # 1NN
         dnnMask_train = inX_train[:,0]>-998
         dnnMask_test  = inX_test[:,0]>-998
-        weights_train[dnnMask_train], weights_train_original = getWeightsTrain(outY_train[dnnMask_train], weights_train[dnnMask_train], outFolder=outFolder, alpha = hp['alpha'], output=True)
+        weights_train_original = weights_train.copy()
+        weights_train[dnnMask_train], weights_train_original[dnnMask_train] = getWeightsTrain(outY_train[dnnMask_train], weights_train[dnnMask_train], outFolder=outFolder, alpha = hp['alpha'], output=True)
 
 # 2NN SCALING and weighting       
         if (doubleNN):
                 dnn2Mask_train = inX_train[:,0]<-4998
                 dnn2Mask_test  = inX_test[:,0]<-4998
-                weights_train[dnn2Mask_train], Sweights_train_original = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
+                weights_train[dnn2Mask_train], weights_train_original[dnn2Mask_train] = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
 # End Of 2NN
 # Now where inX_train[:,0] has a value >-4998 the two approaches worked. This dataset is scaled in one way. The corresponding testing dataset is scaled with the same functions
 # Where it is <-4999, the two approaches did not work (one or both) and this subset is scaled in another way
@@ -212,6 +198,8 @@ def main():
                 #        inX_test[dnnMask_test, ss] = inX_test[dnnMask_test, ss]/sigma
                 inX_train = inX_train[:, toKeep]
                 inX_test = inX_test[:,   toKeep]
+        else:
+               toKeep = [True for i in range(inX_test.shape[1])]
                 
                 
 # Split train and validation and save training and validation in testing folder
@@ -231,7 +219,7 @@ def main():
         #pca.fit(inX_train[dnnMask_train,:], weights=np.tile(weights_train_original, (inX_train.shape[1], 1)).T)      
 
         #print("Post", inX_train.shape, inX_test.shape )
-        inX_train, outY_train, weights_train, lkrM_train, krM_train, mask_train, inX_valid, outY_valid, weights_valid, lkrM_valid, krM_valid, mask_valid = splitTrainValid(inX_train, outY_train, weights_train, lkrM_train, krM_train, totGen_train, dnnMask_train, hp['validation_split'], npyDataFolder)
+        inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, mask_train, inX_valid, outY_valid, weights_valid, weights_valid_original, lkrM_valid, krM_valid, mask_valid = splitTrainValid(inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, totGen_train, dnnMask_train, hp['validation_split'], npyDataFolder)
         saveTrainValidTest(npyDataFolder, inX_train, outY_train, weights_train, inX_valid, outY_valid, weights_valid,inX_test, outY_test, weights_test, totGen_test)
 
 
@@ -263,7 +251,7 @@ def main():
         y_predicted = np.ones(len(inX_test))*-999
         y_predicted[dnnMask_test] = y_predicted__[:,0]
 
-        trainPrediction__ = model.predict(inX_test[dnnMask_train,:])
+        trainPrediction__ = model.predict(inX_train[dnnMask_train,:])
         trainPrediction = np.ones(len(inX_train))*-999
         trainPrediction[dnnMask_train] = trainPrediction__[:,0]
 
@@ -319,13 +307,14 @@ def main():
 
         # predict the valid samples and produce plots    
                 y_predicted__ = simpleModel.predict(SinX_test[:,:])
-                #trainPrediction__ = simpleModel.predict(SinX_train[:,:])
+                
                 doPlotLoss(fit = simpleFit, outName=outFolder+"/model"+"/simpleLoss.pdf", earlyStop=earlyStopNN2, patience=hp['patienceeS'])
-                featureNames = getFeatureNamesNew()
-                if smallNN:
-                       featureNames = featureNames[toKeep]
-                doPlotShap(featureNames[featuresNN1:], simpleModel, [SinX_test[:3000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
+                featureNames = getFeatureNames()
+
+                featureNames = np.array(featureNames)[toKeep]
+                doPlotShap(featureNames[featuresNN1:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
                 y_predicted[dnn2Mask_test] = y_predicted__[:,0]
+                trainPrediction__ = simpleModel.predict(SinX_train[:,:])
                 trainPrediction[dnn2Mask_train] = trainPrediction__[:,0]
 
 
@@ -340,8 +329,8 @@ def main():
         linearCorrelation(yPredicted = y_predicted[:], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test",  weights = weights_test)
         dnn2Mask_test = inX_test[:,0]<-4998
         doEvaluationPlots(outY_test[mask_test,:], y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test,    mask_test = mask_test,  dnn2Mask = dnn2Mask_test,  weights = weights_test, write=True)
-        featureNames = getFeatureNamesNew()
-        checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train_original[(dnn2Mask_train) | (dnnMask_train)])
+        
+        checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train_original[(dnn2Mask_train) | (dnnMask_train)], outFolder=outFolder)
         
         print('Plotting SHAP:')
         #assert (inX_test.shape[1]==len(featureNames)), "Check len featureNames and number of features"
@@ -354,7 +343,13 @@ def main():
         return  
 
 if __name__ == "__main__":
-	main()
+        if len(sys.argv) > 1:
+                doubleNN = bool(int(sys.argv[1]))
+                smallNN = bool(int(sys.argv[2]))
+                doEvaluate = bool(int(sys.argv[3]))
+                scaleOut = bool(int(sys.argv[4]))
+        
+        main(doubleNN, smallNN, doEvaluate, scaleOut)
 
 # ypredicted is only for DNN cuts passed
 # lkrM and krM have as many elements as totgen, -999 when the single reconstruction does not work or when cuts not passed

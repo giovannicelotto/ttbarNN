@@ -9,6 +9,12 @@ sys.path.append('/nfs/dust/cms/user/celottog/mlb_studies/')
 from mlb_distribution import loadBinsCounts, checkProbability
 
 
+def keepFeatures(inX):
+	toKeep = [0, 1, 3, 7, 8, 14, 15, 18, 21, 22, 24, 28, 33, 36, 37, 40, 41, 44, 45, 48, 50, 51, 54, 56, 57, 60, 62, 64, 65, 67, 68, 69, 70, 71, 72]
+	inX = inX[:,toKeep]
+	return inX
+	
+
 #definisci un append function che aggiunge il nome della variabile se non già presente
 def getFeatureNames():
 	feature_names =[
@@ -232,7 +238,7 @@ def NormalizeBinWidth1d(h):
 			h.SetBinContent(i, h.GetBinContent(i)*1./h.GetBinWidth(i))
 	return h
 
-def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
+def createDataFromFile(filename, treeName, minbjets, maxEvents):
 	'''
 	Open trees
 	Set Branches to variables
@@ -249,7 +255,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	mask = []
 	nanCounter = 0
 
-	f = ROOT.TFile.Open(path)
+	f = ROOT.TFile.Open(filename)
 	tree = f.Get(treeName)
 	bins, counts = loadBinsCounts()	 # bins and counts for mlb method
 
@@ -397,7 +403,7 @@ def createDataFromFile(path, filename, treeName, minbjets, maxEvents):
 	antitop		= ROOT.TLorentzVector(0.,0.,0.,0.)
 	ttbar		= ROOT.TLorentzVector(0.,0.,0.,0.)
 	dilepton	= ROOT.TLorentzVector(0.,0.,0.,0.)
-	zero		= ROOT.TLorentzVector(0., 0., 0., 0.)
+	zero		= ROOT.TLorentzVector(0.,0.,0.,0.)
 	extraJet 	= ROOT.TLorentzVector(0.,0.,0.,0.)
 
 
@@ -808,15 +814,14 @@ def loadRegressionData(path, treeName,nFiles, minbjets, maxEvents):
     '''
     print("Searching root files in ", path)	
     fileNames = glob.glob(path+'/emu_ttbarsignalplustau*.root')
-    fileNames =  [i for i in fileNames if "emu_ttbarsignalplustau" in i][:nFiles]
+    fileNames = fileNames[:nFiles]
     print (len(fileNames), " files to be used\n")
     eventIn, eventOut, weights, lkrM, krM, totGen, mask = [],[],[],[],[], [], []
     n=0
-    print(fileNames)
     for filename in fileNames:					# Looping over the file names
         n = n+1
         print ("\n",filename,"("+str(n)+"/"+str(len(fileNames))+")")
-        i,o,w,l,k, t, m = createDataFromFile(filename, filename, treeName, minbjets=minbjets, maxEvents=maxEvents)
+        i,o,w,l,k, t, m = createDataFromFile(filename, treeName, minbjets=minbjets, maxEvents=maxEvents)
         eventIn+=i
         eventOut+=o
         weights+=w
