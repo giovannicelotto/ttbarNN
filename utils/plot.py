@@ -34,16 +34,19 @@ def ks_weighted(data1, data2, wei1, wei2, alternative='two-sided'):
     data2 = data2[ix2]
     wei1 = wei1[ix1]
     wei2 = wei2[ix2]
+    # data and weights sorted by ascending values
     data = np.concatenate([data1, data2])
     cwei1 = np.hstack([0, np.cumsum(wei1)/sum(wei1)])
     cwei2 = np.hstack([0, np.cumsum(wei2)/sum(wei2)])
     cdf1we = cwei1[np.searchsorted(data1, data, side='right')]
     cdf2we = cwei2[np.searchsorted(data2, data, side='right')]
+    # cdf1we (cdf2we) are the cumulative distributions defined for the points of both samples (data variable defined abo)
     d = np.max(np.abs(cdf1we - cdf2we))
     # calculate p-value
-    n1 = data1.shape[0]
-    n2 = data2.shape[0]
-    m, n = sorted([float(n1), float(n2)], reverse=True)
+    n1 = sum(wei1**2)/(sum(wei1)**2)
+    n2 = sum(wei2**2)/(sum(wei2)**2)
+    m, n = sorted([float(n1), float(n2)], reverse=True) 
+    # m (n) is the number of events of the set with less (more) samples
     en = m * n / (m + n)
     if alternative == 'two-sided':
         prob = distributions.kstwo.sf(d, np.round(en))
@@ -55,8 +58,36 @@ def ks_weighted(data1, data2, wei1, wei2, alternative='two-sided'):
         prob = np.exp(expt)
     return d, prob
 
-def checkForOverTraining(yPredictedTest, yPredictedTrain, weightsTest, weightsTrain):
-    print(ks_weighted(yPredictedTest, yPredictedTrain, weightsTest, weightsTrain, alternative='two-sided'))
+def checkForOverTraining(yPredictedTest, yPredictedTrain, weightsTest, weightsTrain, outFolder):
+    print("Kolmogorov-Smirnov Test:")
+    test, pvalue = ks_weighted(yPredictedTest, yPredictedTrain, weightsTest, weightsTrain, alternative='two-sided')
+    print(test, pvalue)
+    
+    # Plot train and test prediction
+    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    x1, x2, nbin = 200, 1500, 100
+    bins = np.linspace(x1, x2, nbin)
+    yPredictedTest[yPredictedTest>x2] = x2-1
+    yPredictedTest[yPredictedTest<x1] = x1+1
+    yPredictedTrain[yPredictedTrain>x2] = x2-1
+    yPredictedTrain[yPredictedTrain<x1] = x1+1
+    ax.hist(yPredictedTest,  bins=bins, weights=weightsTest, histtype=u'step', linewidth=1, density=True, label='Test')
+    c = np.histogram(yPredictedTrain, bins=bins, weights=weightsTrain, density=True)[0]
+    ax.plot((bins[1:] + bins[:-1])/2, c,  marker='o', linewidth=0, markersize=2, label = 'Train')
+    ax.set_xlim(x1, x2)
+    ax.set_xlabel("$\mathrm{m_{t\overline{t}}}$ [GeV]", fontsize=18)
+    ax.set_ylabel("Normalized counts per %d GeV" %((x2-x1)/nbin), fontsize=18)
+    ax.tick_params(labelsize=18)
+    ax.text(x=550, y=0.0029, s="KS-test p-value: %.2f" %pvalue, fontsize=18)
+    ax.legend(loc='best', fontsize=18)
+    fig.savefig(outFolder+"/test/trainTest.png", bbox_inches='tight')
+
+    # Save KS test in Info.txt
+    with open(outFolder+"/model/Info.txt", "a+") as f:
+        f.write("\nKS test and pvalue\n")
+        f.write(str(test)[:6]+"\t"+str(pvalue)[:6])
+        
+
 
 def getRecoBin():
     return recoBin.copy()
@@ -95,10 +126,7 @@ def linearCorrelation(yPredicted, lkrM, krM, totGen, outFolder,  weights):
     ax[1].hist2d(totGen[myMasks[1]], lkrM[myMasks[1]],       bins=(80, 80), range=[[340, 1999], [340, 1999]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, cmin=1, weights=weights[myMasks[1]])
     ax[2].hist2d(totGen[myMasks[2]], krM[myMasks[2]],        bins=(80, 80), range=[[340, 1999], [340, 1999]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, cmin=1, weights=weights[myMasks[2]])
     corr = []
-    
-    #corr.append(pearsonr(totGen[myMasks[0]], yPredicted)[0])
-    #corr.append(pearsonr(totGen[myMasks[1]], lkrM[lkrM>-998])[0])
-    #corr.append(pearsonr(totGen[myMasks[2]],  krM[krM>-998])[0])
+
 
     
     for i in range(len(myMasks)):
@@ -144,6 +172,11 @@ def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
         lM[lM>1499.99] = 1499.99
         kM[kM>1499.99] = 1499.99
         tg[tg>1499.99] = 1499.99
+
+        yP[yP<200] = 200.01
+        lM[lM<200] = 200.01
+        kM[kM<200] = 200.01
+        tg[tg<200] = 200.01
         f, ax = plt.subplots(1, 1,  figsize = (7,7))
         if (totGen is not None):
             #ax.hist(yPredicted[myMasks[0]], bins = 80, range=(200,1500), label="DNN   R = %.3f"%(weights[myMasks[0]].sum()/weights[mask].sum()),  histtype=u'step', alpha=0.8, linewidth = 2., density=True, weights=weights[myMasks[0]]) 
@@ -166,11 +199,9 @@ def invariantMass(yPredicted, lkrM, krM, totGen, mask, outFolder, weights):
         else:
             print("Error")
             return 0
-            #ax.hist(yPredicted,   bins = 80, range=(200,1500), label="DNN   I = %d"%(len(yPredicted)),    histtype=u'step', alpha=0.8, density=True) 
-            #ax.hist(lkrM,         bins = 80, range=(200,1500), label="Loose I = %d"%(len(lkrM)),  histtype=u'step', alpha=0.5, density=True)
-            #ax.hist(krM,          bins = 80, range=(200,1500), label="Full  I = %d"%(len(krM)),histtype=u'step', alpha=0.5, density=True)
             
-        ax.set_xlim(ax.get_xlim()[0], 1500)
+            
+        ax.set_xlim(200, 1500)
         ax.legend(loc = "best", fontsize=18)
         ax.tick_params(labelsize=20)
         ax.set_ylabel('Normalized Counts', fontsize=18)
@@ -360,14 +391,10 @@ def covarianceMatrix(y, matrix,  weights):
 
 
 
-def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test, weights, dnn2Mask, write):
+def doEvaluationPlots(yPredicted, lkrM, krM, outFolder, totGen, mask_test, weights, dnn2Mask, write):
     if not os.path.exists(outFolder):
         os.makedirs(outFolder)
     
-    yTrue = yTrue[:,0]
-    
-    #assert len(yPredicted)==len(totGen[mask_test]), "yPredicted length does not match totGen[mask_test]"
-
     invariantMass(yPredicted=yPredicted, lkrM=lkrM, krM=krM, totGen=totGen, mask = mask_test ,outFolder=outFolder, weights=weights)
 
 
@@ -478,7 +505,7 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     ax.set_xlabel("$m_{tt}^{True}$ (GeV)")
     ax.set_xlim(logbins_wu[0], logbins_wu[-1])
     ax.hlines(y=0, xmin=300, xmax=logbins_wu[-1], linestyles='dotted', color='red')
-    ax.set_ylabel("Mean(Pred - True) [GeV]")
+    ax.set_ylabel("<m_{\mathrm{{t\overline{t}}}}^\mathrm{{reco}}-m_{\mathrm{{t\overline{t}}}}^\mathrm{{gen}}> [GeV]")
     ax.legend(fontsize=18)
     fig.savefig(outFolder+"/allMeans.pdf", bbox_inches='tight')
     plt.cla()
@@ -572,10 +599,10 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
     index = 0    
     myMasks = [(yPredicted>-998), (lkrM>-998), (krM>-998)]  
     totGenOF, yPredictedOF, lkrMOF, krMOF = totGen.copy(), yPredicted.copy(), lkrM.copy(), krM.copy()
-    totGenOF[totGenOF>1999] = 1998
     yPredictedOF = yPredictedOF - totGenOF
     lkrMOF = lkrMOF - totGenOF
     krMOF  = krMOF - totGenOF
+    totGenOF[totGenOF>1999] = 1998
     yPredictedOF[yPredictedOF>900]=899
     lkrMOF[lkrMOF>900]=899
     krMOF[krMOF>900]=899
@@ -595,7 +622,7 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
         fig, ax = plt.subplots(1, 1, figsize=(8, 8))
         fig.subplots_adjust(right=0.8)
           
-        counts, xedges, yedges, im = ax.hist2d(totGen[myMasks[index]], el , bins=(80, 80), range=[[340, 1500], [-900, 900]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, weights=weights[myMasks[index]])
+        counts, xedges, yedges, im = ax.hist2d(totGen[myMasks[index]], el , bins=(80, 80), range=[[340, 1999], [-900, 900]] ,norm=mpl.colors.LogNorm(vmin=vmin, vmax=vmax), cmap=plt.cm.jet, weights=weights[myMasks[index]])
         cbar_ax = fig.add_axes([0.81, 0.11, 0.05, 0.77])
         cbar = fig.colorbar(im, cax=cbar_ax)
         ax.set_xlabel(r"m$_\mathrm{t\bar{t}}^{\mathrm{True}}$ [GeV]", fontsize=18)
@@ -607,6 +634,10 @@ def doEvaluationPlots(yTrue, yPredicted, lkrM, krM, outFolder, totGen, mask_test
         fig.savefig(outFolder+"/"+['Reg', 'Loose', 'Kin'][index]+"MinusTrueVsTrue.pdf", bbox_inches='tight')
         plt.cla()   
         index = index +1
+    del totGenOF
+    del yPredictedOF
+    del lkrMOF
+    del krMOF
     plt.close('all')
 
     ###### plot for events of the second NN
@@ -784,13 +815,15 @@ def doPlotLoss(fit, outName, earlyStop, patience):
     plt.figure(2)
     plt.plot(fit.history['loss'])
     plt.plot(fit.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.arrow(x=earlyStop.stopped_epoch-patience, y=10000, dx=0, dy=-2000, length_includes_head=True, head_length=0.08)
+    plt.title('Model Loss')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
     # plt.yscale('log')
     plt.ylim(ymax = max(min(fit.history['loss']), min(fit.history['val_loss']))*1.4, ymin = min(min(fit.history['loss']),min(fit.history['val_loss']))*0.9)
-    plt.legend(['train', 'validation'], loc='upper right')
+    ymax = min(fit.history['val_loss'])
+    ymin = plt.ylim()[0]
+    plt.arrow(x=earlyStop.stopped_epoch-patience, y=ymax, dx=0, dy=ymin-ymax, length_includes_head=True, head_length=0.08)
+    plt.legend(['Train', 'Validation'], loc='upper right')
     plt.savefig(outName)
     plt.cla()
 
@@ -818,16 +851,3 @@ def doPlotShap(featureNames, model, inX_test, outName):
                     plot_size=[15.0,0.4*max_display+1.5],
                     show=False)
     plt.savefig(outName)
-    '''for explainer, name  in [(shap.GradientExplainer(model,inX_test[:1000]),"GradientExplainer"),]:
-        *shap.initjs()
-        *print("... {0}: explainer.shap_values(X)".format(name))
-        *shap_values = explainer.shap_values(inX_test[:1000])
-        *print("... shap.summary_plot")
-        *plt.close('all')
-        *plt.figure()
-        shap.summary_plot(	shap_values, inX_test[:1000], plot_type="bar",
-			            feature_names=featureNames,
-            			max_display=max_display,
-                        plot_size=[15.0,0.4*max_display+1.5],
-                        show=False)
-        plt.savefig(outFolder+"/model/"+"shap_summary_{0}.pdf".format(name))'''
