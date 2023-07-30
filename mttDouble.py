@@ -14,12 +14,8 @@ from utils.splitTrainValid import saveTrainValidTest, splitTrainValid
 import matplotlib
 from tensorflow import keras
 import time
-from sklearn.decomposition import PCA
-import wpca
-
 matplotlib.use('agg')
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'        # TensorFlow will only display error messages and suppress all other messages including these warnings.
-from keras import backend as K
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 import tensorflow as tf
 
 def weightedStd(values, weights):
@@ -59,8 +55,6 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
 
         assert (y_predicted==-999).all(), "check je"
         if (doubleNN):
-                #inX_train[dnn2Mask_train, 15:], inX_test[dnn2Mask_test, 15:] = scaleNonAnalytical(getFeatureNames()[15:], inX_train, inX_test, npyDataFolder, outFolder)
-
                 simpleModel = keras.models.load_model(modelDir+"/"+modelName+"_simple.h5")
                 y_predicted[dnn2Mask_test] = simpleModel.predict(inX_test[dnn2Mask_test,featuresNN1:])[:,0]
                 trainPrediction[dnn2Mask_train] = simpleModel.predict(inX_train[dnn2Mask_train,featuresNN1:])[:,0]
@@ -74,8 +68,9 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
         checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train[(dnn2Mask_train) | (dnnMask_train)], outFolder=outFolder)
         SinX_test = inX_test[dnn2Mask_test,featuresNN1:]
         inX_test = inX_test[inX_test[:,0]>-998,:]
+        printStat(totGen_test, [y_predicted, lkrM_test, krM_test], weights_test, outFolder, model)
         linearCorrelation(yPredicted = y_predicted[:], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test",  weights = weights_test)
-        doEvaluationPlots(outY_test[mask_test,:], y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test, mask_test = mask_test, weights = weights_test, dnn2Mask = dnn2Mask_test, write=True)
+        doEvaluationPlots(y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test, mask_test = mask_test, weights = weights_test, dnn2Mask = dnn2Mask_test, write=True)
         doPlotShap(np.array(getFeatureNames())[toKeep], model, [inX_test[:1000,:]], outName = outFolder+"/model/model_shapGE.pdf")
         doPlotShap(np.array(getFeatureNames())[toKeep][featuresNN1:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
         
@@ -90,16 +85,16 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
     maxEvents_  = None
     hp = {
 # Events
-    'nFiles':           5,
-    'testFraction':     0.15,
-    'validation_split': 0.15/0.9,
+    'nFiles':           15,
+    'testFraction':     0.1,
+    'validation_split': 0.1/0.9,
 # Hyperparameters NN1
-    'learningRate':     0.00001512, #0.01025,#
+    'learningRate':     0.001512,       #0.01025,
     'batchSize':        512,
     'validBatchSize':   512,
-    'nNodes':           [22, 12, 4], 				
-    'lasso':            0.08648 , #0.04648
-    'ridge':            0.1138, #0.00138
+    'nNodes':           [27, 41, 21], 				
+    'lasso':            0.04648 ,       #0.04648
+    'ridge':            0.00138,         #0.00138
     'activation':       'elu',
     'scale' :           'standard',
     'epochs':           3500,
@@ -115,7 +110,7 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
     hp['nDense']= len(hp['nNodes'])
     
     additionalInputName = ""
-    additionalOutputName= "DoubleNN_W-2_smallerLR_2" if doubleNN else "SingleNN" 
+    additionalOutputName= "DoubleNN_W-2" if doubleNN else "SingleNN" 
     if smallNN:
            additionalOutputName=additionalOutputName+"_simple"
 
@@ -145,8 +140,7 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                                                                                                                                                 nFiles = hp['nFiles'], scale=hp['scale'], outFolder = outFolder+"/model", doubleNN=doubleNN)
 
 
-# Create weights for training I want only modify the real weights
-        #weights_train[mask_train] = getWeightsTrainNew(outY_train[mask_train], weights_train[mask_train], alpha=hp['alpha'], outFolder=outFolder, output=True)
+
 # 1NN
         dnnMask_train = inX_train[:,0]>-998
         dnnMask_test  = inX_test[:,0]>-998
@@ -159,11 +153,7 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                 dnn2Mask_test  = inX_test[:,0]<-4998
                 weights_train[dnn2Mask_train] = getWeightsTrain(outY_train[dnn2Mask_train],  weights_train[dnn2Mask_train], outFolder=outFolder, alpha = hp['alpha'], output=True, outFix = '2NN')
 # End Of 2NN
-# Now where inX_train[:,0] has a value >-4998 the two approaches worked. This dataset is scaled in one way. The corresponding testing dataset is scaled with the same functions
-# Where it is <-4999, the two approaches did not work (one or both) and this subset is scaled in another way
-# Now the whole training sample is splitted in training and validation. Since vents are randomly distributed the validation may have more events of the second NN or viceversa 
-# but this is not relevant in large number limit for the training. Like setting 0.18 of validation instead of 0.2
-        
+      
         
         featuresNN1 = 15
         if smallNN:
@@ -171,31 +161,6 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                 #toKeep = [3, 7, 14, 18, 21, 24, 33, 36, 37, 40, 41, 44, 45, 50, 51, 56, 57, 60, 61, 64, 67, 68, 71]
                 toKeep = [0, 1, 3, 7, 8, 14, 15, 18, 21, 22, 24, 28, 33, 36, 37, 40, 41, 44, 45, 48, 50, 51, 54, 56, 57, 60, 62, 64, 65, 67, 68, 69, 70, 71, 72]
                 
-
-                #pcaw = wpca.WPCA(n_components=1)
-                #print("Len weights train\t", len(weights_train_original))
-                #print("shape inX_train  \t", inX_train.shape)
-                #print("len dnn mask train\t", len(dnnMask_train))
-                #print("Len dnn mask true \t", len(dnnMask_train[dnnMask_train]))
-                #print("Values shape      \t", (inX_train[:,[0, 4, 25]][dnnMask_train]).shape)
-                #print("Weights shape     \t", np.tile(weights_train_original, (3, 1)).T)
-                #print(inX_train[dnnMask_train,0].shape)
-                #print(pcaw.fit_transform(X=inX_train[:,[0, 4, 25]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1).shape)
-                #print("\n\n\n\n")
-                #print(np.std(inX_train[dnnMask_train,0]), np.std(inX_test[dnnMask_test,0]))
-
-
-                #inX_train[dnnMask_train,0] = pcaw.fit_transform(X=inX_train[:,[0, 4, 25]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1)
-                #inX_test[dnnMask_test,0]  = pcaw.transform(X=inX_test[:,[0, 4, 25]][dnnMask_test]).reshape(-1)
-                #inX_train[dnnMask_train,1] = pcaw.fit_transform(X=inX_train[:,[1, 5, 26]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1)
-                #inX_test[dnnMask_test,1]  = pcaw.transform(X=inX_test[:,[1, 5, 26]][dnnMask_test]).reshape(-1)
-                #inX_train[dnnMask_train,8] = pcaw.fit_transform(X=inX_train[:,[8, 11]][dnnMask_train], weights=np.tile(weights_train_original, (2, 1)).T).reshape(-1)
-                #inX_test[dnnMask_test,8]  = pcaw.transform(X=inX_test[:,[8, 11]][dnnMask_test]).reshape(-1)
-                
-                #for ss in [0, 1, 8]:
-                #        sigma = weightedStd(inX_train[dnnMask_train, ss], weights=weights_train_original)
-                #        inX_train[dnnMask_train, ss] = inX_train[dnnMask_train, ss]/sigma
-                #        inX_test[dnnMask_test, ss] = inX_test[dnnMask_test, ss]/sigma
                 inX_train = inX_train[:, toKeep]
                 inX_test = inX_test[:,   toKeep]
         else:
@@ -264,7 +229,7 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                 outY_train[dnn2Mask_train] = (outY_train[dnn2Mask_train] * sigmaY_NN2) + meanY_NN2
                 outY_test[dnn2Mask_test] = (outY_test[dnn2Mask_test] * sigmaY_NN2) + meanY_NN2
         
-        #assert ((y_predicted[dnnMask_test]>0).all()), "Predicted negative values in the first NN"
+        assert ((y_predicted[dnnMask_test]>0).all()), "Predicted negative values in the first NN"
 
 
 
@@ -321,19 +286,15 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
         
         
         print("8. Plots")
-        
-# print statistic (rho, Loss, JS) and model summary on screen and in /model/Info.txt
-        printStat(totGen_test, y_predicted, weights_test, outFolder, model)
-              
-        print("Plots for testing...")       
+        printStat(totGen_test, [y_predicted, lkrM_test, krM_test], weights_test, outFolder, model)
         linearCorrelation(yPredicted = y_predicted[:], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test",  weights = weights_test)
         dnn2Mask_test = inX_test[:,0]<-4998
-        doEvaluationPlots(outY_test[mask_test,:], y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test,    mask_test = mask_test,  dnn2Mask = dnn2Mask_test,  weights = weights_test, write=True)
+        doEvaluationPlots(y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test,    mask_test = mask_test,  dnn2Mask = dnn2Mask_test,  weights = weights_test, write=True)
         
         checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train_original[(dnn2Mask_train) | (dnnMask_train)], outFolder=outFolder)
         
         print('Plotting SHAP:')
-        #assert (inX_test.shape[1]==len(featureNames)), "Check len featureNames and number of features"
+        assert (inX_test.shape[1]==len(featureNames)), "Check len featureNames and number of features"
         inX_test = inX_test[dnnMask_test,:]
         doPlotShap(featureNames, model, [inX_test[:1000,:]], outName = outFolder+"/model/model_shapGE.pdf")
 
@@ -349,10 +310,32 @@ if __name__ == "__main__":
                 doEvaluate = bool(int(sys.argv[3]))
                 scaleOut = bool(int(sys.argv[4]))
         
-        main(doubleNN, smallNN, doEvaluate, scaleOut)
+                main(doubleNN, smallNN, doEvaluate, scaleOut)
+        else:
+               main()
 
-# ypredicted is only for DNN cuts passed
-# lkrM and krM have as many elements as totgen, -999 when the single reconstruction does not work or when cuts not passed
-# outY_test generated masses when cuts and dnn cuts satisfied
-# totGen is just the list of all generated masses without any cut
-# totGen[mask_test]=out_test
+
+#pcaw = wpca.WPCA(n_components=1)
+                #print("Len weights train\t", len(weights_train_original))
+                #print("shape inX_train  \t", inX_train.shape)
+                #print("len dnn mask train\t", len(dnnMask_train))
+                #print("Len dnn mask true \t", len(dnnMask_train[dnnMask_train]))
+                #print("Values shape      \t", (inX_train[:,[0, 4, 25]][dnnMask_train]).shape)
+                #print("Weights shape     \t", np.tile(weights_train_original, (3, 1)).T)
+                #print(inX_train[dnnMask_train,0].shape)
+                #print(pcaw.fit_transform(X=inX_train[:,[0, 4, 25]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1).shape)
+                #print("\n\n\n\n")
+                #print(np.std(inX_train[dnnMask_train,0]), np.std(inX_test[dnnMask_test,0]))
+
+
+                #inX_train[dnnMask_train,0] = pcaw.fit_transform(X=inX_train[:,[0, 4, 25]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1)
+                #inX_test[dnnMask_test,0]  = pcaw.transform(X=inX_test[:,[0, 4, 25]][dnnMask_test]).reshape(-1)
+                #inX_train[dnnMask_train,1] = pcaw.fit_transform(X=inX_train[:,[1, 5, 26]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1)
+                #inX_test[dnnMask_test,1]  = pcaw.transform(X=inX_test[:,[1, 5, 26]][dnnMask_test]).reshape(-1)
+                #inX_train[dnnMask_train,8] = pcaw.fit_transform(X=inX_train[:,[8, 11]][dnnMask_train], weights=np.tile(weights_train_original, (2, 1)).T).reshape(-1)
+                #inX_test[dnnMask_test,8]  = pcaw.transform(X=inX_test[:,[8, 11]][dnnMask_test]).reshape(-1)
+                
+                #for ss in [0, 1, 8]:
+                #        sigma = weightedStd(inX_train[dnnMask_train, ss], weights=weights_train_original)
+                #        inX_train[dnnMask_train, ss] = inX_train[dnnMask_train, ss]/sigma
+                #        inX_test[dnnMask_test, ss] = inX_test[dnnMask_test, ss]/sigma
