@@ -145,12 +145,12 @@ def getLabelName():
 				'$\mathrm{p_T(\ell_1 j_1)}$ [GeV]', '$\mathrm{\eta(\ell_1 j_1)}$', r'$\mathrm{\varphi(\ell_1 j_1)}$', '$\mathrm{m(\ell_1 j_1)}$ [GeV]',
 				'$\mathrm{p_T(\ell_2 j_2)}$ [GeV]', '$\mathrm{\eta(\ell_2 j_2)}$', r'$\mathrm{\varphi(\ell_2j_2)}$', '$\mathrm{m(\ell_2j_2)}$ [GeV]',
 		# final state particles
-				'$\mathrm{p_T(j_1)}$', '$\mathrm{\eta(j_1)}$', r'$\mathrm{\varphi(j_1)}$', '$\mathrm{m(j_1)}$', '$\mathrm{b-tag(j_1)}$', '$\mathrm{b-score(j_1)}$',
-				'$\mathrm{p_T(j_2)}$', '$\mathrm{\eta(j_2)}$', r'$\mathrm{\varphi(j_2)}$', '$\mathrm{m(j_2)}$', '$\mathrm{b-tag(j_2)}$', '$\mathrm{b-score(j_2)}$',
+				'$\mathrm{p_T(j_1)}$ [GeV]', '$\mathrm{\eta(j_1)}$', r'$\mathrm{\varphi(j_1)}$', '$\mathrm{m(j_1)}$ [GeV]', '$\mathrm{b-tag(j_1)}$', '$\mathrm{b-score(j_1)}$',
+				'$\mathrm{p_T(j_2)}$ [GeV]', '$\mathrm{\eta(j_2)}$', r'$\mathrm{\varphi(j_2)}$', '$\mathrm{m(j_2)}$ [GeV]', '$\mathrm{b-tag(j_2)}$', '$\mathrm{b-score(j_2)}$',
 				'$\mathrm{p_T(\ell_1)}$ [GeV]', '$\mathrm{\eta(\ell_1)}$', #'lep1_phi',
 				'$\mathrm{m(\ell_1)}$ [GeV]',
-				'$\mathrm{p_T(\ell_2)}$ [GeV]', '$\mathrm{\eta(\ell_2)}$', r'$\mathrm{\varphi(\ell_1)}$', '$\mathrm{m(\ell_2)}$ [GeV]',
-				'$\mathrm{p_T (MET)}$', r'$\mathrm{\varphi(MET)}$', '$\mathrm{H_T}$ [GeV]', 
+				'$\mathrm{p_T(\ell_2)}$ [GeV]', '$\mathrm{\eta(\ell_2)}$', r'$\mathrm{\varphi(\ell_2)}$', '$\mathrm{m(\ell_2)}$ [GeV]',
+				'$\mathrm{p_T (MET)}$ [GeV]', r'$\mathrm{\varphi(MET)}$', '$\mathrm{H_T}$ [GeV]', 
 		# angles
 				'$\mathrm{\Delta R( \ell_1 \ell_2)}$','$\mathrm{\Delta R \ell_1j_1}$', '$\mathrm{\Delta R \ell_1j_2}$', '$\mathrm{\Delta R \ell_2j_1}$', '$\mathrm{\Delta R \ell_2j_2}$', '$\mathrm{\Delta R j_1j_2}$'
 				]
@@ -168,10 +168,10 @@ def getFancyNames():
 		# systems of particles
 				'$\mathrm{p_T(\ell_1\ell_2)}$', '$\mathrm{\eta(\ell_1\ell_2)}$', r'$\mathrm{\varphi(\ell_1\ell_2)}$', '$\mathrm{m(\ell_1\ell_2)}$',
 				'$\mathrm{N_{jets}}$', '$\mathrm{N_{b-jets}}$',
-				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2)}$', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2)}$',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2)}$', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2)}$', '$\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\mathrm{m(\ell_1 \ell_2 j_1 j_2)}$',
 				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2 MET)}$','$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2 MET)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2 MET)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2 MET)}$',
 				'$\mathrm{p_T(extraJets)}$', '$\mathrm{\eta(extraJets)}$', r'$\mathrm{ varphi(extraJets)}$', '$\mathrm{m(extraJets)}$',
-				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$',
+				'$\mathrm{p_T(\ell_1 \ell_2 j_1 j_2 MET + jets)}$', '$\mathrm{\eta(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', r'$\mathrm{\varphi(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$', '$\mathrm{m(\ell_1 \ell_2 j_1 j_2 MET extra-jets)}$',
 				'$\mathrm{p_T(\ell_1 j_1)}$', '$\mathrm{\eta(\ell_1 j_1)}$', r'$\mathrm{\varphi(\ell_1 j_1)}$', '$\mathrm{m(\ell_1 j_1)}$',
 				'$\mathrm{p_T(\ell_2 j_2)}$', '$\mathrm{\eta(\ell_2 j_2)}$', r'$\mathrm{\varphi(\ell_2j_2)}$', '$\mathrm{m(\ell_2j_2)}$',
 		# final state particles
@@ -494,8 +494,9 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 				jets.append(jetTemp)
 				btag.append(int(bool(jetBTagged[idx])))
 				bscore.append(jetBTagScore[idx])
-
 			nbjets = sum(btag)
+			
+				
 
 			if nbjets < minbjets:  # out of my kin phase space
 				mask.append(False)
@@ -588,11 +589,11 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 # Definition
 # Jet1 = Jet associated with lepton0 (leading)
 # Jet2 = Jet associated with lepton1 (subleading)
-# To find the 2 jets among all the possible combinations, look at the m(lb) and the true spectrum of mlb. Giving priority to b-jettines
+# To find the 2 jets among all the possible combinations, look at the m(lb) and the true spectrum of mlb. Giving priority to b-jets
 			#input("\nNext") 
 			#print("\nnjets   \t", numJets)
 			#print("nBjets  \t", nbjets)
-			#print("nonBjets\t", len(nonbjets))
+			
 			#print(lep1.M(), lep1.Pt(), lep2.Pt())
 			#for id in range(numJets):
 			#	print("%.1f \t %.3f \t %d" %(jets[id].Pt(), bscore[id], btag[id]))
@@ -694,7 +695,7 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 				if (((priority==0).sum()>0) & lookForPriorZero):		# else look for cases with priority equal to 0
 					if probs[priority==0].max()>0:						# if therea are probs > 0
 						#print("prior=0")
-						#print("da verificare")
+						
 						max_index = -1
 						max_value = -1
 						for w in range(len(priority)):
@@ -715,7 +716,8 @@ def createDataFromFile(filename, treeName, minbjets, maxEvents):
 						bscore[0] 	= bscore[first]
 						bscore[1] 	= bscore[second]
 						btag[0]		= btag[first]
-						btag[1]		= btag[second]	
+						btag[1]		= btag[second]
+						#print("max_index \t%d\nfirst \t%d\nsecond \t%d" %(max_index, first, second))	
 					else:
 						takeFirstJets = True
 						#assert False, "1. Hai usato tutti i jet e comunque tutte le combo fanno cagare. Sto evento fa schifo. Ti tocca usare il prodotto di mlb"

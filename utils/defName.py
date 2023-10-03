@@ -32,6 +32,7 @@ def printStatus(hp, outFolder=None):
     if outFolder is None:
         print(tabulate(table, headers=headers))
     else:
+        print(tabulate(table, headers=headers))
         with open(outFolder + "/Info.txt", "w+") as f:
             f.write(tabulate(table, headers=headers))
 

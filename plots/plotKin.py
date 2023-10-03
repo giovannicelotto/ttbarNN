@@ -39,13 +39,13 @@ def main():
     binKin = np.logspace(np.log10(340), np.log10(13000), 60)
     binKin = np.append(binKin, 18000)
     binGen = binKin
-    fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+    fig, ax = plt.subplots(1, 1, figsize=(7, 7))
     counts, xedges, yedges, im = ax.hist2d(totGen, kinM, bins=(binGen, binKin),norm=mpl.colors.LogNorm(), cmap=plt.cm.jet, cmin=1, weights=weights)
     ax.set_xscale('log')
     ax.set_yscale('log')
     
-    ax.set_xlabel("$\mathrm{m^{gen}_{t\overline{t}}}$ [GeV]", fontsize=16)
-    ax.set_ylabel("$\mathrm{m_{t\overline{t}}^{full}}$ [GeV]", fontsize=16)
+    ax.set_xlabel("$\mathrm{m^{gen}_{t\overline{t}}}$ [GeV]", fontsize=20)
+    ax.set_ylabel("$\mathrm{m_{t\overline{t}}^{full}}$ [GeV]", fontsize=20)
     
     
     ax.hlines(xmin=0, xmax=14000, y=13000, color='black', linestyle='--', linewidth=0.75)
@@ -57,9 +57,11 @@ def main():
     ax.set_xlim(minGen, maxGen)
     cbar_ax = fig.add_axes([0.9, 0.11, 0.05, 0.77])
     cbar = fig.colorbar(im, cax=cbar_ax)
-    cbar.set_label('Counts', fontsize=16)
-    cbar.ax.tick_params(labelsize=14)
-    ax.tick_params(labelsize=14)
+    cbar.set_label('Counts', fontsize=20)
+    cbar.ax.tick_params(labelsize=18)
+    ax.tick_params(labelsize=18)
+    ax.text(s="Private Work (CMS Simulation)", x=0.00, y=1.02, ha='left', fontsize=16,  transform=ax.transAxes , **{'fontname':'Arial'})
+    ax.text(s="(13 TeV)", x=1.00, y=1.02, ha='right', fontsize=16,  transform=ax.transAxes, **{'fontname':'Arial'})
     
     
     fig.savefig("/nfs/dust/cms/user/celottog/mttNN/plots/kinM.pdf", bbox_inches='tight')

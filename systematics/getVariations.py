@@ -51,8 +51,8 @@ def getVarNames():
                 'var_bfrag_peterson',   'var_btag_bfrag_peterson',  'var_top_pt']
     varNames.append('var_pdf_central_0')
     for idx in range(1, 52):
-        varNames.append('var_pdf_up_'+str(idx))
         varNames.append('var_pdf_down_'+str(idx))
+        varNames.append('var_pdf_up_'+str(idx))
     #for idx in range(1, 52):
     return varNames.copy()
 
@@ -654,10 +654,21 @@ def getVariations(fileNames, treeName):
             wsvList.append(weightsSFVar)
 
             for zz in range(0, len(var_pdf)):
-                weightsSFVar.append(var_pdf[zz])
+                weightsSFVar.append(var_pdf[zz]) #central, down, up, down, up, ...
             tree.SetBranchStatus("*",1)
-    assert len(weightsSFVar) == len (getVarNames()), "length of names %d and variation %d not matching" %(len(getVarNames()), len(weightsSFVar))
-    df = pd.DataFrame(wsvList)
-    column_names = getVarNames()
-    df.columns = column_names
+        assert len(weightsSFVar) == len (getVarNames()), "length of names %d and variation %d not matching" %(len(getVarNames()), len(weightsSFVar))
+        print("\nConverting to df... %d" %len(wsvList))
+        df = pd.DataFrame(wsvList)
+        column_names = getVarNames()
+        df.columns = column_names
+        if (fileNames.index(fileName)==0):
+            df.to_pickle('/nfs/dust/cms/user/celottog/mttNN/systematics/df.pkl')
+            wsvList  = []
+        else:
+            print("Getting df..")
+            df_old = pd.read_pickle('/nfs/dust/cms/user/celottog/mttNN/systematics/df.pkl')
+            df = pd.concat([df_old, df])
+            df.to_pickle('/nfs/dust/cms/user/celottog/mttNN/systematics/df.pkl')
+            wsvList = []
+
     return df

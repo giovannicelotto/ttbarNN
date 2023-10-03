@@ -12,11 +12,25 @@ from utils.data import loadData
 from utils import defName
 from utils.splitTrainValid import saveTrainValidTest, splitTrainValid
 import matplotlib
+import pickle as pkl
 from tensorflow import keras
+from sklearn.preprocessing import QuantileTransformer
 import time
 matplotlib.use('agg')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 import tensorflow as tf
+
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+  try:
+    # Currently, memory growth needs to be the same across GPUs
+    for gpu in gpus:
+      tf.config.experimental.set_memory_growth(gpu, True)
+    logical_gpus = tf.config.list_logical_devices('GPU')
+    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+  except RuntimeError as e:
+    # Memory growth must be set before GPUs have been initialized
+    print(e)
 
 def weightedStd(values, weights):
     """
@@ -51,7 +65,6 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
         y_predicted = np.ones(len(inX_test))*-999
         trainPrediction = np.ones(len(inX_train))*-999
         
-        
 
         assert (y_predicted==-999).all(), "check je"
         if (doubleNN):
@@ -62,55 +75,60 @@ def justEvaluate(npyDataFolder, modelDir, modelName, outFolder, testFraction , m
 
         y_predicted[dnnMask_test] = model.predict(inX_test[dnnMask_test,:])[:,0]
         trainPrediction[dnnMask_train] =  model.predict(inX_train[dnnMask_train,:])[:,0]
-
+        print(y_predicted[(dnnMask_test)|(dnn2Mask_test)].min(), y_predicted[(dnnMask_test)|(dnn2Mask_test)].max())
         print("Starting with plots...")
         
-        checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train[(dnn2Mask_train) | (dnnMask_train)], outFolder=outFolder)
         SinX_test = inX_test[dnn2Mask_test,featuresNN1:]
         inX_test = inX_test[inX_test[:,0]>-998,:]
         printStat(totGen_test, [y_predicted, lkrM_test, krM_test], weights_test, outFolder, model)
         linearCorrelation(yPredicted = y_predicted[:], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test",  weights = weights_test)
         doEvaluationPlots(y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test, mask_test = mask_test, weights = weights_test, dnn2Mask = dnn2Mask_test, write=True)
-        doPlotShap(np.array(getFeatureNames())[toKeep], model, [inX_test[:1000,:]], outName = outFolder+"/model/model_shapGE.pdf")
-        doPlotShap(np.array(getFeatureNames())[toKeep][featuresNN1:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
+        doPlotShap(np.array(getFancyNames())[toKeep], model, [inX_test[:1000,:]], outName = outFolder+"/model/model_shapGE.pdf")
+        if doubleNN:
+                doPlotShap(np.array(getFancyNames())[toKeep][featuresNN1:], simpleModel, [SinX_test[:1000,:]], outName = outFolder+"/model/simpleModel_shapGE.pdf")
+                checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train)|(dnnMask_train)], weights_test[y_predicted>-998], weights_train[(dnn2Mask_train)|(dnnMask_train)], outFolder=outFolder)
+        else:
+              checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnnMask_train)], weights_test[y_predicted>-998], weights_train[(dnnMask_train)], outFolder=outFolder)
+              
         
 
         
-def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
+def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False, nFiles=None, skipFirst = False):
     start_time = time.time()
     print("********************************************\n*					   *\n*        Main function started             *\n*					   *\n********************************************")
-    
-
     
     maxEvents_  = None
     hp = {
 # Events
-    'nFiles':           15,
-    'testFraction':     0.1,
-    'validation_split': 0.1/0.9,
+    'nFiles':           15 if nFiles == None else nFiles,
+    'testFraction':     0.15,
+    'validation_split': 0.15,
 # Hyperparameters NN1
     'learningRate':     0.001512,       #0.01025,
-    'batchSize':        512,
-    'validBatchSize':   512,
-    'nNodes':           [27, 41, 21], 				
-    'lasso':            0.04648 ,       #0.04648
-    'ridge':            0.00138,         #0.00138
+    'batchSize':        4096,
+    'validBatchSize':   4096,
+    'nNodes':           [256, 128, 8, 8], #[64, 8, 256, 32], 				
+    'lasso':            0,       #0.04648
+    'ridge':            2.9235e-02,         #0.00138
     'activation':       'elu',
     'scale' :           'standard',
     'epochs':           3500,
-    'patienceeS':       120,
+    'patienceeS':       40,
     'alpha':            0,
 # Hyperparameters NN2
-    'nNodes2':          [12, 4],
-    'learningRate2':    0.000495,
+    'nNodes2':          [20],
+    'learningRate2':    0.00151,
     'epochs2':          3500,
-    'lasso2':           0.05683,
-    'ridge2':           0.05323
+    'lasso2':           0,
+    'ridge2':           0.007720,
+    'batchSize2':        2048,
+    'validBatchSize2':   2048,
 }
+    
     hp['nDense']= len(hp['nNodes'])
     
     additionalInputName = ""
-    additionalOutputName= "DoubleNN_W-2" if doubleNN else "SingleNN" 
+    additionalOutputName= "DoubleNN_rebinNN2" if doubleNN else "SingleNN" 
     if smallNN:
            additionalOutputName=additionalOutputName+"_simple"
 
@@ -138,8 +156,6 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                                                                                                                                                 maxEvents = maxEvents_,
                                                                                                                                                 minbjets = 1,
                                                                                                                                                 nFiles = hp['nFiles'], scale=hp['scale'], outFolder = outFolder+"/model", doubleNN=doubleNN)
-
-
 
 # 1NN
         dnnMask_train = inX_train[:,0]>-998
@@ -177,64 +193,69 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                 outY_test[dnnMask_test] = (outY_test[dnnMask_test] - meanY)/sigmaY
                 outY_train[dnn2Mask_train] = (outY_train[dnn2Mask_train] - meanY_NN2)/sigmaY_NN2
                 outY_test[dnn2Mask_test] = (outY_test[dnn2Mask_test] - meanY_NN2)/sigmaY_NN2
-# pca
-        #pca = wpca.WPCA(n_components=44)
-        #print("Pre", inX_train.shape, inX_test.shape )
-        
-        #pca.fit(inX_train[dnnMask_train,:], weights=np.tile(weights_train_original, (inX_train.shape[1], 1)).T)      
+                
 
-        #print("Post", inX_train.shape, inX_test.shape )
-        inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, mask_train, inX_valid, outY_valid, weights_valid, weights_valid_original, lkrM_valid, krM_valid, mask_valid = splitTrainValid(inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, totGen_train, dnnMask_train, hp['validation_split'], npyDataFolder)
+
+
+        inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, mask_train, inX_valid, outY_valid, weights_valid, weights_valid_original, lkrM_valid, krM_valid, mask_valid = splitTrainValid(inX_train, outY_train, weights_train, weights_train_original, lkrM_train, krM_train, totGen_train, mask_train, hp['validation_split'], npyDataFolder)
         saveTrainValidTest(npyDataFolder, inX_train, outY_train, weights_train, inX_valid, outY_valid, weights_valid,inX_test, outY_test, weights_test, totGen_test)
 
 
-# FIRST NN        
+# FIRST NN 
         dnnMask_train = inX_train[:,0]>-998
         dnnMask_valid = inX_valid[:,0]>-998
         
 # Get the model, optmizer,         
-        model = getModelRandom(lasso = hp['lasso'], ridge = hp['ridge'], activation = hp['activation'], nDense = hp['nDense'], nNodes = hp['nNodes'],
-                            inputDim = inX_train.shape[1], outputActivation = 'linear')
-        optimizer = keras.optimizers.Adam(   learning_rate = hp['learningRate'], beta_1=0.9, beta_2=0.999, epsilon=1e-01, name="Adam") #use_ema=False, bema_momentum=0.99, ema_overwrite_frequency=None, 
-        model.compile(optimizer=optimizer, loss = keras.losses.MeanSquaredError(), weighted_metrics=[])
-        callbacks=[]
-        earlyStop = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = hp['patienceeS'], verbose = 1, restore_best_weights=True)
-        callbacks.append(earlyStop)
+        if (not skipFirst):
+                model = getModelRandom(lasso = hp['lasso'], ridge = hp['ridge'], activation = hp['activation'], nDense = hp['nDense'], nNodes = hp['nNodes'],  
+                                inputDim = inX_train.shape[1], outputActivation = 'linear')
+                optimizer = keras.optimizers.Adam(   learning_rate = hp['learningRate'], beta_1=0.9, beta_2=0.999, epsilon=1e-07, name="Adam") #use_ema=False, bema_momentum=0.99, ema_overwrite_frequency=None, 
+                model.compile(optimizer=optimizer, loss = keras.losses.MeanSquaredError(), weighted_metrics=[])
+                callbacks=[]
+                earlyStop = keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = hp['patienceeS'], verbose = 1, restore_best_weights=True)
+                callbacks.append(earlyStop)
+                
+        # Fit the model
+                fit = model.fit(    x = inX_train[dnnMask_train, :], y = outY_train[dnnMask_train, :], batch_size = hp['batchSize'], epochs = hp['epochs'], verbose = 2,
+                                callbacks = callbacks, #validation_split = validation_split_, # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
+                                validation_data = (inX_valid[dnnMask_valid, :], outY_valid[dnnMask_valid, :], np.abs(weights_valid[dnnMask_valid])), validation_batch_size = hp['validBatchSize'],
+                                shuffle = False, sample_weight = np.abs(weights_train[dnnMask_train]), initial_epoch=2)
+
+                model.save(outFolder+"/model/"+modelName+".h5")
+                keras.backend.clear_session()
+                
+                model = keras.models.load_model(outFolder+"/model/"+modelName+".h5") # custom_objects={'mean_weighted_squared_percentage_error': mean_weighted_squared_percentage_error}
+                
+                y_predicted__ = model.predict(inX_test[dnnMask_test,:])
+                y_predicted = np.ones(len(inX_test))*-999
+                y_predicted[dnnMask_test] = y_predicted__[:,0]
+
+                trainPrediction__ = model.predict(inX_train[dnnMask_train,:])
+                trainPrediction = np.ones(len(inX_train))*-999
+                trainPrediction[dnnMask_train] = trainPrediction__[:,0]
+                
+                if scaleOut:  
+                        y_predicted[dnnMask_test] = y_predicted[dnnMask_test] * sigmaY + meanY
+                        outY_train[dnnMask_train] = (outY_train[dnnMask_train] * sigmaY) + meanY
+                        outY_test[dnnMask_test] = (outY_test[dnnMask_test] * sigmaY) + meanY
+
+                        y_predicted[dnn2Mask_test] = y_predicted[dnn2Mask_test] * sigmaY_NN2 + meanY_NN2
+                        outY_train[dnn2Mask_train] = (outY_train[dnn2Mask_train] * sigmaY_NN2) + meanY_NN2
+                        outY_test[dnn2Mask_test] = (outY_test[dnn2Mask_test] * sigmaY_NN2) + meanY_NN2
+                        
         
-# Fit the model
-        fit = model.fit(    x = inX_train[dnnMask_train, :], y = outY_train[dnnMask_train, :], batch_size = hp['batchSize'], epochs = hp['epochs'], verbose = 2,
-                            callbacks = callbacks, #validation_split = validation_split_, # The validation data is selected from the last samples in the x and y data provided, before shuffling. 
-                            validation_data = (inX_valid[dnnMask_valid, :], outY_valid[dnnMask_valid, :], np.abs(weights_valid[dnnMask_valid])), validation_batch_size = hp['validBatchSize'],
-                            shuffle = False, sample_weight = np.abs(weights_train[dnnMask_train]), initial_epoch=2)
-
-        model.save(outFolder+"/model/"+modelName+".h5")
-        keras.backend.clear_session()
-        
-        model = keras.models.load_model(outFolder+"/model/"+modelName+".h5") # custom_objects={'mean_weighted_squared_percentage_error': mean_weighted_squared_percentage_error}
-        
-        y_predicted__ = model.predict(inX_test[dnnMask_test,:])
-        y_predicted = np.ones(len(inX_test))*-999
-        y_predicted[dnnMask_test] = y_predicted__[:,0]
-
-        trainPrediction__ = model.predict(inX_train[dnnMask_train,:])
-        trainPrediction = np.ones(len(inX_train))*-999
-        trainPrediction[dnnMask_train] = trainPrediction__[:,0]
-
-        if scaleOut:  
-                y_predicted[dnnMask_test] = y_predicted[dnnMask_test] * sigmaY + meanY
-                outY_train[dnnMask_train] = (outY_train[dnnMask_train] * sigmaY) + meanY
-                outY_test[dnnMask_test] = (outY_test[dnnMask_test] * sigmaY) + meanY
-
-                y_predicted[dnn2Mask_test] = y_predicted[dnn2Mask_test] * sigmaY_NN2 + meanY_NN2
-                outY_train[dnn2Mask_train] = (outY_train[dnn2Mask_train] * sigmaY_NN2) + meanY_NN2
-                outY_test[dnn2Mask_test] = (outY_test[dnn2Mask_test] * sigmaY_NN2) + meanY_NN2
-        
-        assert ((y_predicted[dnnMask_test]>0).all()), "Predicted negative values in the first NN"
+        #assert ((y_predicted[dnnMask_test]>0).all()), "Predicted negative values in the first NN"
 
 
 
         
-        doPlotLoss(fit = fit, outName=outFolder+"/model"+"/loss.pdf", earlyStop=earlyStop, patience=hp['patienceeS'])
+                doPlotLoss(fit = fit, outName=outFolder+"/model"+"/loss.pdf", earlyStop=earlyStop, patience=hp['patienceeS'])
+        if skipFirst:
+                model       = keras.models.load_model(outFolder+"/model/"+modelName+".h5")
+                y_predicted = np.ones(len(inX_test))*-999
+                trainPrediction = np.ones(len(inX_train))*-999
+                y_predicted[dnnMask_test] = model.predict(inX_test[dnnMask_test,:])[:,0]
+                trainPrediction[dnnMask_train] =  model.predict(inX_train[dnnMask_train,:])[:,0]
 # SECOND NN
         if (doubleNN):
                 dnn2Mask_train = inX_train[:,0]<-4998
@@ -260,8 +281,8 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                 callbacks.append(earlyStopNN2)
                 
         # Fit the model
-                simpleFit = simpleModel.fit(    x = SinX_train[:, :], y = outY_train[dnn2Mask_train, :], batch_size = hp['batchSize'], epochs = hp['epochs2'], verbose = 2,
-                                callbacks = callbacks, validation_batch_size = hp['validBatchSize'],
+                simpleFit = simpleModel.fit(    x = SinX_train[:, :], y = outY_train[dnn2Mask_train, :], batch_size = hp['batchSize2'], epochs = hp['epochs2'], verbose = 2,
+                                callbacks = callbacks, validation_batch_size = hp['validBatchSize2'],
                                 validation_data = (SinX_valid[:, :], outY_valid[dnn2Mask_valid, :], np.abs(Sweights_valid[:])),
                                 shuffle = False, sample_weight = np.abs(Sweights_train[:]), initial_epoch=2)
                 
@@ -282,16 +303,17 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
                 trainPrediction__ = simpleModel.predict(SinX_train[:,:])
                 trainPrediction[dnn2Mask_train] = trainPrediction__[:,0]
 
-
-        
-        
+        #GC
+        np.save(npyDataFolder+"/testing/y_predicted"    + "_test.npy", y_predicted)
         print("8. Plots")
         printStat(totGen_test, [y_predicted, lkrM_test, krM_test], weights_test, outFolder, model)
         linearCorrelation(yPredicted = y_predicted[:], lkrM = lkrM_test, krM = krM_test, totGen = totGen_test, outFolder = outFolder+"/test",  weights = weights_test)
         dnn2Mask_test = inX_test[:,0]<-4998
         doEvaluationPlots(y_predicted[:], lkrM_test, krM_test, outFolder = outFolder+"/test", totGen = totGen_test,    mask_test = mask_test,  dnn2Mask = dnn2Mask_test,  weights = weights_test, write=True)
-        
-        checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train_original[(dnn2Mask_train) | (dnnMask_train)], outFolder=outFolder)
+        if doubleNN:
+                checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[(dnn2Mask_train) | (dnnMask_train)], weights_test[y_predicted>-998], weights_train_original[(dnn2Mask_train) | (dnnMask_train)], outFolder=outFolder)
+        else:
+                checkForOverTraining(y_predicted[y_predicted>-998], trainPrediction[ (dnnMask_train)], weights_test[y_predicted>-998], weights_train_original[ (dnnMask_train)], outFolder=outFolder)
         
         print('Plotting SHAP:')
         assert (inX_test.shape[1]==len(featureNames)), "Check len featureNames and number of features"
@@ -306,36 +328,17 @@ def main(doubleNN = True, smallNN = True, doEvaluate = False, scaleOut = False):
 if __name__ == "__main__":
         if len(sys.argv) > 1:
                 doubleNN = bool(int(sys.argv[1]))
+        if len(sys.argv) > 2:
                 smallNN = bool(int(sys.argv[2]))
+        if len(sys.argv) > 3:
                 doEvaluate = bool(int(sys.argv[3]))
+        if len(sys.argv) > 4:
                 scaleOut = bool(int(sys.argv[4]))
+        if len(sys.argv) > 5:
+                nFiles = int(sys.argv[5])
+        if len(sys.argv) > 6:
+                skipFirst = bool(int(sys.argv[6]))
         
-                main(doubleNN, smallNN, doEvaluate, scaleOut)
-        else:
-               main()
-
-
-#pcaw = wpca.WPCA(n_components=1)
-                #print("Len weights train\t", len(weights_train_original))
-                #print("shape inX_train  \t", inX_train.shape)
-                #print("len dnn mask train\t", len(dnnMask_train))
-                #print("Len dnn mask true \t", len(dnnMask_train[dnnMask_train]))
-                #print("Values shape      \t", (inX_train[:,[0, 4, 25]][dnnMask_train]).shape)
-                #print("Weights shape     \t", np.tile(weights_train_original, (3, 1)).T)
-                #print(inX_train[dnnMask_train,0].shape)
-                #print(pcaw.fit_transform(X=inX_train[:,[0, 4, 25]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1).shape)
-                #print("\n\n\n\n")
-                #print(np.std(inX_train[dnnMask_train,0]), np.std(inX_test[dnnMask_test,0]))
-
-
-                #inX_train[dnnMask_train,0] = pcaw.fit_transform(X=inX_train[:,[0, 4, 25]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1)
-                #inX_test[dnnMask_test,0]  = pcaw.transform(X=inX_test[:,[0, 4, 25]][dnnMask_test]).reshape(-1)
-                #inX_train[dnnMask_train,1] = pcaw.fit_transform(X=inX_train[:,[1, 5, 26]][dnnMask_train], weights=np.tile(weights_train_original, (3, 1)).T).reshape(-1)
-                #inX_test[dnnMask_test,1]  = pcaw.transform(X=inX_test[:,[1, 5, 26]][dnnMask_test]).reshape(-1)
-                #inX_train[dnnMask_train,8] = pcaw.fit_transform(X=inX_train[:,[8, 11]][dnnMask_train], weights=np.tile(weights_train_original, (2, 1)).T).reshape(-1)
-                #inX_test[dnnMask_test,8]  = pcaw.transform(X=inX_test[:,[8, 11]][dnnMask_test]).reshape(-1)
-                
-                #for ss in [0, 1, 8]:
-                #        sigma = weightedStd(inX_train[dnnMask_train, ss], weights=weights_train_original)
-                #        inX_train[dnnMask_train, ss] = inX_train[dnnMask_train, ss]/sigma
-                #        inX_test[dnnMask_test, ss] = inX_test[dnnMask_test, ss]/sigma
+        main(doubleNN, smallNN, doEvaluate, scaleOut, nFiles, skipFirst)
+        #else:
+        #       main()

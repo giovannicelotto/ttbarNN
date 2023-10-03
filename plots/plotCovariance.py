@@ -36,6 +36,8 @@ def plotCovariance(modelDir):
         cbar = plt.colorbar(im, ax=ax, cax=cax)
         cbar.set_label(r'', fontsize=18)
         cbar.ax.tick_params(labelsize=18)
+        ax.text(s="CMS Simulation", x=0.00, y=1.02, ha='left', fontsize=18,  transform=ax.transAxes)
+        ax.text(s="(13 TeV)", x=1.00, y=1.02, ha='right', fontsize=18,  transform=ax.transAxes)
         fig.savefig("/nfs/dust/cms/user/celottog/mttNN/plots/"+covsName[idx]+".pdf", bbox_inches='tight')
         plt.cla()
     
@@ -44,5 +46,5 @@ def plotCovariance(modelDir):
 
 
 if __name__ == "__main__":
-    modelDir = "/nfs/dust/cms/user/celottog/mttNN/outputs/15*None_[27_41_21]DoubleNN_W-2_simple/model"
+    modelDir = "/nfs/dust/cms/user/celottog/mttNN/outputs/15*None_[256_128_8_8]DoubleNN_rebinNN2_simple/model"
     plotCovariance(modelDir)

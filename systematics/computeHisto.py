@@ -1,7 +1,6 @@
 import numpy as np
 import sys
 from getVariations import getVarNames
-from getListOfWeights import getSystNames
 folder_path = '/nfs/dust/cms/user/celottog/realData'
 sys.path.append(folder_path)
 folder_path = '/nfs/dust/cms/user/celottog/mttNN'
@@ -17,31 +16,41 @@ def computeHisto(inX, listOfWeights):
 
     with open("/nfs/dust/cms/user/celottog/mttNN/systematics/dictionaryPhaseFactors.pkl", "rb") as file:
         spaceFactors = pickle.load(file)
-
-    for featureN in range(0,73):
+    #for key in spaceFactors:
+    #    print(key)
+    
+    for featureN in range(0,len(featureNames)):
             print(featureNames[featureN],"...\n")
-            uf = inX[:,featureN] < x1[featureN]
+            uf = (inX[:,featureN] < x1[featureN]) & (inX[:,featureN] > -998)
             of = inX[:,featureN] > x2[featureN]
             inX[uf,featureN] = x1[featureN]+0.0001
             inX[of,featureN] = x2[featureN]-0.0001
-            countsNoVar = np.histogram(inX[:,featureN], weights=listOfWeights[0], bins=nbin[featureN], range=(x1[featureN], x2[featureN]))[0]
+            countsNoVar = np.histogram(inX[:,featureN], weights=listOfWeights['weights'], bins=nbin[featureN], range=(x1[featureN], x2[featureN]))[0]
             countsNoVar = countsNoVar * spaceFactors['NOMINAL_NORENORMALIZATION']/spaceFactors['NOMINAL']
-            #print("Counts no Var:", countsNoVar, "\n\n")
+            
+            
             systPerFeature = np.zeros(nbin[featureN])
             assert len(systPerFeature)==len(countsNoVar), "Feature nbin do not match"
-            for var in range(0,len(listOfWeights)):
-                #print(getSystNames()[var])
+            for var in listOfWeights.keys():
                 countsVar = np.histogram(inX[:,featureN], weights=listOfWeights[var], bins=nbin[featureN], range=(x1[featureN], x2[featureN]))[0]
+                # Keep cross section fixed
+                flag = False
                 for key in spaceFactors:
-                    #print(key) 
-                    if key.lower() in getSystNames()[var]:
-                        #print("Found", key)
+                    if key.lower() == var.lower()[4:]:
+                        print("Found %s"%var)
                         countsVar = countsVar*spaceFactors['NOMINAL_NORENORMALIZATION']/spaceFactors[key]
-
-                print(getSystNames()[var], (countsNoVar-countsVar)/countsNoVar, "\n\n")
+                        flag=True
+                #if var == 'weights':
+                #    countsVar = countsVar*spaceFactors['NOMINAL_NORENORMALIZATION']/spaceFactors['NOMINAL']
+                #    assert not flag
+                #    flag=True
+                if flag == False:
+                    print("Not Found")
+                    countsVar = countsVar * spaceFactors['NOMINAL_NORENORMALIZATION']/spaceFactors['NOMINAL']     
                 systPerFeature = np.sqrt(systPerFeature**2+((countsNoVar-countsVar)/countsNoVar)**2)
-                #print(getSystNames()[var], (countsNoVar-countsVar)/countsNoVar)
-            print(systPerFeature)
+                if len(countsNoVar)<4:
+                    print(var, (countsNoVar-countsVar)/countsNoVar)
+            #print(systPerFeature)
             systPerCent[featureNames[featureN]] = systPerFeature
     print(systPerCent)
     with open("/nfs/dust/cms/user/celottog/mttNN/systematics/dictionarySystematics.pickle", "wb") as file:

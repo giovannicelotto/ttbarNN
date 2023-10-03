@@ -12,7 +12,15 @@ from tabulate import tabulate
 from sklearn.impute import KNNImputer
 import time
 import pickle
-
+def weightedStd(values, weights):
+    """
+    Return the weighted average and standard deviation.
+    values, weights -- NumPy ndarrays with the same shape.
+    """
+    average = np.average(values, weights=weights)
+    # Fast and numerically precise:
+    variance = np.average((values-average)**2, weights=weights)
+    return np.sqrt(variance)
 
 def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolder, doubleNN=False, output=True, scale = 'standard'):
     '''
@@ -48,11 +56,11 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
         print("krm shape:\t",       np.array(krM).shape)
         print("mask shape:\t",      np.array(mask).shape)
         
-        assert  (len(inX)==len(outY)),      "same lenght"
-        assert  (len(outY)==len(weights)),  "same lenght"
-        assert  (len(weights)==len(lkrM)),  "same length"
-        assert  (len(mask)==len(krM)),      "same length"
-        assert  (len(totGen)==len(lkrM)),   "same lenght"
+        assert  (len(inX)==len(outY)),      "same lenght %d %d" %(len(inX), len(outY))
+        assert  (len(outY)==len(weights)),  "same lenght %d %d" %(len(outY), len(weights))
+        assert  (len(weights)==len(lkrM)),  "same length %d %d" %(len(weights), len(krM))
+        assert  (len(mask)==len(krM)),      "same length %d %d" %(len(mask), len(krM))
+        assert  (len(totGen)==len(lkrM)),   "same lenght %d %d" %(len(totGen), len(mask))
         
         print("Shuffling before saving data...")
         assert (outY[mask, 0] == totGen[mask]).all(), "Mask does not match the previous mask. New assert 2505"
@@ -99,12 +107,7 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     else:
         print("There are no inf values in the array.")
     
-    
-    
-    #print("  Replacing Inf with Nan...")
-    #inX = np.where(np.isinf(inX), np.nan, inX)
-    #print("  Replacing Nan with -4999...")
-    #inX = np.where(np.isnan(inX), -4999, inX)
+
     
 # Print and plot checks
     dnnMask = (inX[:,0]>-998)  # exclude nan (kinReco or loose fail) and out of acceptance
@@ -146,6 +149,9 @@ def loadData(npyDataFolder , testFraction, maxEvents, minbjets, nFiles, outFolde
     print("3. Splitting training and testing...")
     inX_train, inX_test, outY_train, outY_test, weights_train, weights_test, lkrM_train, lkrM_test, krM_train, krM_test, totGen_train, totGen_test, mask_train, mask_test = train_test_split(inX, outY, weights, lkrM, krM, totGen, mask, test_size = testFraction, random_state = 1998) #, 
     dnnMask_train = (inX_train[:,0]>-998)
+    dnn2Mask_train = inX_train[:,0]<-4998
+    dnn2Mask_test = inX_test[:,0]<-4998
+    dnnMask_test = (inX_test[:,0]>-998)
     #assert (outY_train[mask_train, 0] == totGen_train[mask_train]).all(), "Mask does not match after splitting training and testing"
     print(" Element 90 test", outY_test[90])
     print(" Data splitted succesfully")

@@ -120,93 +120,78 @@ def objective(params):
                 f.write(string)
     return det
 
-
-
+def getPreviousPoints(file_path, x0, y0, columns):
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        data, y0 = [], []
+        
+        for line in lines:
+            values = line.strip().split('\t')
+            column1, column2, column3, column4, column5 = values
+            column1 = float(column1)
+            column2 = float(column2)
+            column3 = int(column3) 
+            column4 = int(column4)
+            column5 = float(column5)
+            column6 = int(column6)
+            
+            assert 2<= column3 <= 4
+            assert 3<= column4 <= 9
+            assert 0.0001 <= column6 <= 1
+            assert 5 <= column6 <= 14
+                
+            data.append([column1, column2, column3, column4, column5, column6])
+            
+        # Create the DataFrame
+        df = pd.DataFrame(data, columns=columns)
+        df = df.reset_index(drop=True)
+        x0=[]
+        for row in df.values:
+            temp = []
+            temp.append(row[2])
+            temp.append(row[3])
+            temp.append(row[4])
+            
+            x0.append(temp)
+            y0.append(row[0])
+        
+        print(df['L2reg'].max())
+        print(df['L2reg'].min())
+        print(df['index'].max())
+        print(df['index'].min())
+        print(df['nNodes'].max())
+        print(df['nNodes'].min())
+        print(df['nDense'].max())
+        print(df['nDense'].min())
+    return x0, y0
 
 def main():
-    maxEvents_          = None
+    file_path = '/nfs/dust/cms/user/celottog/mttNN/outputs/comparisons/W-2_simple.txt'
+    
 
     print("1. Defining space...")
     space = [
-                Integer(low = 8, high = 256,  name = 'nNode1'),
-                Integer(low = 8, high = 256,  name = 'nNode2'),
-                Integer(low = 8, high = 256,  name = 'nNode3'),
-                Real(low= 0.0000001, high = 1, name='L1', prior='log-uniform'),
-                Real(low= 0.0000001, high = 1, name='L2', prior='log-uniform'),
-                Real(low= 0.0001, high = 0.1, name='learningRate', prior='log-uniform'),
-                Integer(low=7, high=13,  name = 'index')
-                
+                Integer(low = 2,  high = 4,   name = 'nLayers'),
+                Integer(low = 3,  high = 9,   name = 'nNodes'),
+                Real(low= 0.0001, high = 1,   name = 'L2',            prior='log-uniform'),
+                Integer(low = 5,  high = 14,   name = 'size')
                 ]
+    columns = ['det', 'Err_det', 'nDense', 'nNodes',  'L2reg', 'index']
     print(" Space defined...")
-# Get random search results:
     print("Getting random searches...")
-    file_path = '/nfs/dust/cms/user/celottog/mttNN/outputs/comparisons/W-2_simple.txt'
-    columns = ['det', 'Err_det', 'nNodes', 'L1reg', 'L2reg', 'lr', 'index']
-    #columns = ['det', 'Err_det', 'nNodes', 'L1reg', 'L2reg', 'index']
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-
-    # Process each line and extract values
-    data, y0 = [], []
     
-    for line in lines:
-        values = line.strip().split('\t')
-        column1, column2, column3, column4, column5, column6, column7 = values
-        column1 = float(column1)
-        column2 = float(column2)
-        column3 = eval(column3)  # Convert the string representation of list to a list
-        column4 = float(column4)
-        column5 = float(column5)
-        column6 = float(column6)
-        column7 = int(math.log2(int(column7)))
-        #print(column7)
-        if ((column4>1) | (column5>1) | (column6>0.1) | (column4<0.000000001) | (column5<0.000000001) | (column6<0.0001) | np.isnan(column1) ):
-            continue
-        data.append([column1, column2, column3, column4, column5, column6, column7])
-        
-
-    # Create the DataFrame
-    df = pd.DataFrame(data, columns=columns)
-    df = df.sort_values('det')
-    df = df.reset_index(drop=True)
-    filtered_df = df[df['nNodes'].apply(lambda x: len(x) == 3)]
-    x0=[]
-    for row in filtered_df.values:
-        temp = []
-        assert row[2][0]>=8
-        assert row[2][1]>=8
-        assert row[2][2]>=8
-        assert row[2][0]<=256
-        assert row[2][1]<=256
-        assert row[2][2]<=256
-        
-        
-        
-        temp.append(row[2][0])
-        temp.append(row[2][1])
-        temp.append(row[2][2])
-        temp.append(row[3])
-        temp.append(row[4])
-        temp.append(row[5])
-        temp.append(row[6])
-        x0.append(temp)
-        y0.append(row[0])
-    print("  Random searches found...")    
     
-    print(df['L1reg'].max())
-    print(df['L2reg'].max())
-    print(df['L1reg'].min())
-    print(df['L2reg'].min())
-    print(df['index'].max())
-    print(df['index'].min())
-    print(df['lr'].max())
-    print(df['lr'].min())
-    print(df['index'].max())
-    print(df['index'].min())
+    
+    x0, y0 = []
+    if os.path.exists(file_path):
+        print("Previous points found")
+        x0, y0 = getPreviousPoints(file_path, x0, y0, columns)
+
+    
 
 
     print("define checkpoint")
-    checkpoint_saver = CheckpointSaver("/nfs/dust/cms/user/celottog/mttNN/outputs/bayesianOptimization/check2807.pkl", compress=9)
+    checkpoint_saver = CheckpointSaver("/nfs/dust/cms/user/celottog/mttNN/outputs/bayesianOptimization/check.pkl", compress=9)
     print("check defined")
     try:
         res = load('/nfs/dust/cms/user/celottog/mttNN/outputs/bayesianOptimization/check2807.pkl')
@@ -217,7 +202,7 @@ def main():
         res = None
     
     if res is None:
-        res = gp_minimize(objective, space, x0 = x0, y0=y0, n_calls = 20, n_initial_points=0, random_state=42, callback=[checkpoint_saver])
+        res = gp_minimize(objective, space, x0 = x0, y0=y0, n_calls = 50, n_initial_points=0, random_state=42, callback=[checkpoint_saver])
     else:
         x0 = res.x_iters
         y0 = res.func_vals
